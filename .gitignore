@@ -1,0 +1,16 @@
+# Credenciais e segredos — NUNCA subir
+.env
+.env.*
+credentials.json
+*.pem
+*.key
+
+# Sistema e logs
+.DS_Store
+*.log
+
+# Memória local do projeto (não versionar)
+.memoria-*.md
+
+# Configuração local do Claude
+.claude/
