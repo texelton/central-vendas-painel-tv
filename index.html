@@ -16,7 +16,7 @@
     --border-hover: #3a3a52;
     --text: #f5f5f5;
     --text2: #a8aab0;
-    --text3: #6b6b7a;
+    --text3: #8a8aa0; /* contraste 4.5:1+ contra os fundos escuros (WCAG AA) — era #6b6b7a, ficava em 3.1-3.8:1 */
     --accent: #3b82f6;
     --accent-glow: rgba(59, 130, 246, 0.2);
     --green: #22c55e;
@@ -106,6 +106,13 @@
     background:rgba(59, 130, 246, 0.08);
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
   }
+  /* Foco visível pra quem navega por teclado — sem isso, "Config" e o
+     seletor de modo ficam invisíveis pra Tab, mesmo sendo clicáveis */
+  .header-btn:focus-visible, .mode-trigger:focus-visible,
+  .mode-opt:focus-visible, .btn-cfg:focus-visible, .config-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
   .config-overlay {
     display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:300;
     backdrop-filter: blur(4px);
@@ -115,11 +122,15 @@
     position:fixed; bottom:0; left:0; right:0; z-index:301;
     background:rgba(21,21,39,0.95); border-top:1px solid var(--border);
     border-radius:24px 24px 0 0; padding:32px 48px 40px;
-    transform:translateY(100%); transition:transform 0.4s cubic-bezier(0.22,1,0.36,1);
+    transform:translateY(100%);
+    transition:transform 0.4s cubic-bezier(0.22,1,0.36,1), visibility 0s linear 0.4s;
+    visibility:hidden;
     backdrop-filter: blur(30px);
     max-height: 90vh; overflow-y: auto;
   }
-  .config-panel.open { transform:translateY(0); }
+  /* visibility:hidden some da ordem do Tab — sem isso, o teclado consegue
+     "entrar" no painel mesmo com ele fora da tela (fechado) */
+  .config-panel.open { transform:translateY(0); visibility:visible; transition:transform 0.4s cubic-bezier(0.22,1,0.36,1); }
   .config-panel-header {
     display:flex; justify-content:space-between; align-items:center; margin-bottom:28px;
   }
@@ -678,6 +689,19 @@
     .tv-header-right { width: 100%; gap: 8px; flex-wrap:wrap; justify-content:center; }
     .m1-kpis, .m2-top, .view-mode3.active, .m4-slide-bars { grid-template-columns: 1fr; }
   }
+
+  /* ==============================
+     MOVIMENTO REDUZIDO
+     Respeita quem ligou essa preferência no sistema operacional —
+     desliga as animações decorativas (pulso, confete, entrada de card etc.)
+     ============================== */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -709,9 +733,9 @@
     <div class="tv-refresh" id="refreshInfo">--</div>
     <div class="tv-live connecting" id="statusBadge">CONECTANDO</div>
     <div class="mode-wrap">
-      <div class="mode-trigger" onclick="toggleModeMenu()">
+      <button type="button" class="mode-trigger" onclick="toggleModeMenu()">
         <span id="modeName">Rotação</span>
-      </div>
+      </button>
       <div class="mode-dropdown" id="modeDropdown">
         <button class="mode-opt" onclick="pickMode(1)"><span class="opt-dot"></span>Barras + KPI</button>
         <button class="mode-opt" onclick="pickMode(2)"><span class="opt-dot"></span>Tela Dividida</button>
@@ -719,8 +743,8 @@
         <button class="mode-opt active" onclick="pickMode(4)"><span class="opt-dot"></span>Rotação Automática</button>
       </div>
     </div>
-    <div class="header-btn" onclick="toggleConfig()">Config</div>
-    <div class="header-btn" onclick="toggleFullscreen()">Tela Cheia</div>
+    <button type="button" class="header-btn" onclick="toggleConfig()">Config</button>
+    <button type="button" class="header-btn" onclick="toggleFullscreen()">Tela Cheia</button>
   </div>
 </div>
 
@@ -1224,16 +1248,35 @@ async function fetchAllData() {
     State.lastFetchMs = Math.round(performance.now() - t0);
     State.lastUpdateTime = new Date();
     State.fetchCount++;
+    // Toda busca bem-sucedida limpa um "ERRO" anterior — sem isso, o selo
+    // ficava vermelho pra sempre mesmo depois da conexão voltar sozinha.
+    updateConnectionStatus('live');
     updateConnStats();
     refresh();
     return true;
   } catch (e) {
     console.error('Fetch error:', e);
+    const wasHealthy = State.errorCount === 0;
     State.errorCount++;
     updateConnectionStatus('error');
     updateConnStats();
+    // Só avisa no primeiro erro de uma sequência — evita ficar repetindo o
+    // toast a cada ciclo de auto-refresh enquanto o problema persiste.
+    if (wasHealthy) showToast(humanizeFetchError(e));
     return false;
   }
+}
+
+// Traduz o erro técnico em algo que quem está perto da TV consegue entender
+// e agir, sem precisar abrir o console do navegador.
+function humanizeFetchError(e) {
+  const msg = String((e && e.message) || e || '');
+  if (msg.includes('403')) return 'Acesso negado pelo Google — confira a API Key';
+  if (msg.includes('404')) return 'Planilha ou aba não encontrada — confira o Spreadsheet ID';
+  if (msg.includes('429')) return 'Muitas atualizações seguidas — aguardando o próximo ciclo';
+  if (msg.includes('DASHBOARD') || msg.includes('DADOS BRUTOS')) return 'A planilha não respondeu — tentando de novo em breve';
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Sem conexão com a internet';
+  return 'Não foi possível atualizar os dados agora';
 }
 
 function startAutoRefresh() {
