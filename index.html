@@ -891,6 +891,19 @@ function cacheDOM() {
 const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtK = v => v >= 1000 ? 'R$ ' + (v/1000).toFixed(1).replace('.', ',') + 'k' : fmt(v);
 
+// Escapa texto vindo da planilha antes de inserir no HTML — impede que um
+// nome de cliente/produto/vendedor com "<script>" ou similar seja executado.
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+
+// Identificador de vendedor usado em atributos/seletores DOM — baseado na
+// posição, nunca no nome (que vem da planilha e não pode ser confiável
+// dentro de um atributo HTML entre aspas).
+function vid(idx) { return 'vslot' + idx; }
+
 function normName(raw) {
   if (!raw) return '';
   const upper = raw.toUpperCase().trim()
@@ -903,16 +916,28 @@ function pDate(s) {
   const p = s.replace(',', '').trim().split(/\s+/);
   const d = p[0].split('/');
   if (d.length < 3) return null;
+  const day = +d[0], month = +d[1], year = +d[2];
   let h = 0, m = 0, c = 0;
   if (p[1]) { const t = p[1].split(':'); h = +t[0]||0; m = +t[1]||0; c = +t[2]||0; }
-  const date = new Date(+d[2], +d[1]-1, +d[0], h, m, c);
-  return isNaN(date.getTime()) ? null : date;
+  const date = new Date(year, month-1, day, h, m, c);
+  if (isNaN(date.getTime())) return null;
+  // new Date() "rola" datas fora do intervalo (ex: 31/02 vira 03/03) em vez
+  // de rejeitar — confere se o que foi criado bate com o que foi digitado.
+  if (date.getDate() !== day || date.getMonth() !== month-1 || date.getFullYear() !== year) return null;
+  return date;
 }
 
 function pVal(v) {
   if (!v) return 0;
   let c = String(v).trim().replace(/^R\$\s*/i, '');
-  if (c.includes(',')) c = c.replace(/\./g, '').replace(',', '.');
+  if (c.includes(',')) {
+    // Formato BR com decimais: "1.234,56" → ponto é separador de milhar
+    c = c.replace(/\./g, '').replace(',', '.');
+  } else if (/\.\d{3}$/.test(c)) {
+    // Formato BR sem decimais: "1.234" → moeda nunca tem 3 casas decimais,
+    // então o ponto aqui só pode ser separador de milhar, não decimal.
+    c = c.replace(/\./g, '');
+  }
   const n = parseFloat(c);
   return isNaN(n) ? 0 : n;
 }
@@ -1132,6 +1157,7 @@ function parseDashboardTab(rows) {
 // DATA FETCHING
 // ================================================================
 let refreshTimer = null, countdown = 0, countdownTimer = null;
+let fetchSeq = 0; // evita que uma resposta antiga sobrescreva uma mais nova
 
 async function connectAndStart() {
   const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
@@ -1157,6 +1183,7 @@ async function connectAndStart() {
 }
 
 async function fetchAllData() {
+  const seq = ++fetchSeq;
   const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values`;
   const t0 = performance.now();
@@ -1168,6 +1195,10 @@ async function fetchAllData() {
     if (!dR.ok) throw new Error('DASHBOARD: ' + dR.status);
     if (!rR.ok) throw new Error('DADOS BRUTOS: ' + rR.status);
     const [dJ, rJ] = await Promise.all([dR.json(), rR.json()]);
+
+    // Se uma busca mais nova já começou enquanto esta esperava a rede,
+    // descarta este resultado desatualizado em vez de sobrescrever o mais novo.
+    if (seq !== fetchSeq) return false;
 
     State.dashData = parseDashboardTab(dJ.values || []);
 
@@ -1230,9 +1261,9 @@ function startAutoRefresh() {
 // ================================================================
 function detectNewSales() {
   if (!State.dashData) return;
-  State.dashData.vendors.forEach(v => {
+  State.dashData.vendors.forEach((v, idx) => {
     const prev = State.prevTotals[v.nome] || 0;
-    const id = v.nome.replace(/\s/g, '_');
+    const id = vid(idx);
     // Flash bar on value change
     if (v.vendasHoje > prev) {
       [1,2,3,4].forEach(m => {
@@ -1296,7 +1327,8 @@ function animTo(id, target) {
 function refresh() {
   const now = new Date();
   DOM.dateInfo.textContent = now.toLocaleDateString('pt-BR') + ' \u00B7 ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-  const meta = parseFloat(DOM.metaDiaria.value) || 8064.55;
+  const metaInput = parseFloat(DOM.metaDiaria.value);
+  const meta = Number.isFinite(metaInput) ? metaInput : 8064.55; // "|| padrão" descartaria 0 digitado de propósito
   const today = State.rawData.filter(d => isToday(d.data));
   const month = State.rawData.filter(d => isMonth(d.data));
   const tH = State.dashData ? State.dashData.totalHoje : today.reduce((s, d) => s + d.valor, 0);
@@ -1348,12 +1380,14 @@ function buildModeBars(prefix, data) {
   if (!cont) return;
   const maxV = Math.max(...data.vendors.map(v => Math.max(v.vendasHoje, v.metaDiaria * 1.2)), 1);
 
-  // Create DOM once
-  if (!cont.querySelector(`[data-trackprefix="${prefix}"]`)) {
+  // Reconstrói o DOM sempre que a composição do time mudar (nome trocado,
+  // vendedor adicionado/removido) — não só na primeira vez.
+  const sig = data.vendors.map(v => v.nome).join('|');
+  if (cont.dataset.vendorSig !== sig) {
     cont.innerHTML = '';
     data.vendors.forEach((v, idx) => {
       const col = State.colors[v.nome] || {bar:'#666', bg:'rgba(100,100,100,0.2)'};
-      const id = v.nome.replace(/\s/g, '_');
+      const id = vid(idx);
       const display = State.displayNames[v.nome] || v.nome;
       const t = document.createElement('div');
       t.className = prefix + '-track';
@@ -1367,21 +1401,22 @@ function buildModeBars(prefix, data) {
             <div class="${prefix}-bar-val" data-barval="${id}">R$ 0</div>
           </div>
         </div>
-        <div class="${prefix}-avatar" data-avatar="${id}" style="border-color:${col.bar};color:${col.bar}">${initials(display)}</div>
-        <div class="${prefix}-name" data-vname="${id}" style="color:${col.bar}">${display}</div>
+        <div class="${prefix}-avatar" data-avatar="${id}" style="border-color:${col.bar};color:${col.bar}">${escapeHtml(initials(display))}</div>
+        <div class="${prefix}-name" data-vname="${id}" style="color:${col.bar}">${escapeHtml(display)}</div>
         <div class="${prefix}-sold" data-sold="${id}" style="color:var(--green)">R$ 0</div>
         <div class="${prefix}-pct" data-pct="${id}" style="color:var(--text2)">0%</div>
         <div class="${prefix}-detail" data-detail="${id}">--</div>`;
       cont.appendChild(t);
     });
+    cont.dataset.vendorSig = sig;
   }
 
   // Update values
-  data.vendors.forEach(v => {
+  data.vendors.forEach((v, idx) => {
     const pct = v.metaDiaria > 0 ? v.vendasHoje / v.metaDiaria * 100 : 0;
     const hit = pct >= 100;
     const col = State.colors[v.nome] || {bar:'#666', bg:'rgba(100,100,100,0.2)'};
-    const id = v.nome.replace(/\s/g, '_');
+    const id = vid(idx);
     const areaEl = cont.querySelector(`[data-area="${id}"]`);
     const H = areaEl ? areaEl.clientHeight : 300;
     const barH = maxV > 0 ? Math.max(v.vendasHoje / maxV * (H - 50), 6) : 6;
@@ -1448,16 +1483,17 @@ function buildM4Bars() {
   const vendorCount = State.dashData.vendors.length;
   const maxV = Math.max(...State.dashData.vendors.map(v => Math.max(v.vendasHoje, v.metaDiaria * 1.2)), 1);
 
-  if (!cont.querySelector('.m3-track')) {
+  const sig = State.dashData.vendors.map(v => v.nome).join('|');
+  if (cont.dataset.vendorSig !== sig) {
     cont.innerHTML = '';
     cont.style.display = 'grid';
     cont.style.gridTemplateColumns = `repeat(${vendorCount}, 1fr)`;
     cont.style.gap = '32px';
     cont.style.height = '100%';
     cont.style.alignItems = 'end';
-    State.dashData.vendors.forEach(v => {
+    State.dashData.vendors.forEach((v, idx) => {
       const col = State.colors[v.nome] || {bar:'#666', bg:'rgba(100,100,100,0.2)'};
-      const id = v.nome.replace(/\s/g, '_');
+      const id = vid(idx);
       const display = State.displayNames[v.nome] || v.nome;
       const t = document.createElement('div');
       t.className = 'm3-track';
@@ -1469,19 +1505,20 @@ function buildM4Bars() {
             <div class="m3-bar-val" data-barval="${id}">R$ 0</div>
           </div>
         </div>
-        <div class="m3-avatar" data-avatar="${id}" style="border-color:${col.bar};color:${col.bar}">${initials(display)}</div>
-        <div class="m3-name" data-vname="${id}" style="color:${col.bar}">${display}</div>
+        <div class="m3-avatar" data-avatar="${id}" style="border-color:${col.bar};color:${col.bar}">${escapeHtml(initials(display))}</div>
+        <div class="m3-name" data-vname="${id}" style="color:${col.bar}">${escapeHtml(display)}</div>
         <div class="m3-sold" data-sold="${id}" style="color:var(--green)">R$ 0</div>
         <div class="m3-pct" data-pct="${id}">0%</div>
         <div class="m3-detail" data-detail="${id}">--</div>`;
       cont.appendChild(t);
     });
+    cont.dataset.vendorSig = sig;
   }
 
-  State.dashData.vendors.forEach(v => {
+  State.dashData.vendors.forEach((v, idx) => {
     const pct = v.metaDiaria > 0 ? v.vendasHoje / v.metaDiaria * 100 : 0;
     const col = State.colors[v.nome] || {bar:'#666', bg:'rgba(100,100,100,0.2)'};
-    const id = v.nome.replace(/\s/g, '_');
+    const id = vid(idx);
     const areaEl = cont.querySelector(`[data-area="${id}"]`);
     const H = areaEl ? areaEl.clientHeight : 400;
     const barH = maxV > 0 ? Math.max(v.vendasHoje / maxV * (H - 60), 8) : 8;
@@ -1550,8 +1587,8 @@ function buildFeed(today, containerId, max) {
     const display = State.displayNames[s.vendedor] || s.vendedor;
     return `
     <div class="feed-item">
-      <div class="feed-av" style="border-color:${col(s.vendedor)};color:${col(s.vendedor)}">${initials(display)}</div>
-      <div class="feed-info"><div class="feed-name">${s.cliente || '--'}</div><div class="feed-prod">${s.produto} &middot; ${display}</div></div>
+      <div class="feed-av" style="border-color:${col(s.vendedor)};color:${col(s.vendedor)}">${escapeHtml(initials(display))}</div>
+      <div class="feed-info"><div class="feed-name">${escapeHtml(s.cliente) || '--'}</div><div class="feed-prod">${escapeHtml(s.produto)} &middot; ${escapeHtml(display)}</div></div>
       <div class="feed-right"><div class="feed-val">${fmt(s.valor)}</div><div class="feed-time">${s.data ? s.data.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '--'}</div></div>
     </div>`;
   }).join('');
@@ -1561,10 +1598,20 @@ function buildFeed(today, containerId, max) {
 // CHART
 // ================================================================
 let rankChart = null;
+let chartLibWarned = false;
 function buildRankChart(month) {
+  // Se o Chart.js não carregou (CDN bloqueado/offline), não deixa o resto do
+  // refresh() parar por causa disso — só o gráfico fica sem atualizar.
+  if (typeof Chart === 'undefined') {
+    if (!chartLibWarned) { console.warn('Chart.js indisponível — gráfico de ranking mensal desativado nesta sessão.'); chartLibWarned = true; }
+    return;
+  }
+  // Lista de vendedores válidos vem da planilha (dinâmica), não de uma lista
+  // fixa — senão um vendedor novo aparece nas barras mas some do gráfico.
+  const roster = State.dashData ? State.dashData.vendors.map(v => v.nome) : State.vendors;
   const vd = {};
   month.forEach(s => {
-    if (State.vendors.includes(s.vendedor)) vd[s.vendedor] = (vd[s.vendedor]||0) + s.valor;
+    if (roster.includes(s.vendedor)) vd[s.vendedor] = (vd[s.vendedor]||0) + s.valor;
   });
   const sorted = Object.entries(vd).sort((a,b) => b[1] - a[1]);
   if (rankChart) rankChart.destroy();
