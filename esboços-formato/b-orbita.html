@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Esboço B — Órbita</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; background:#0a0e14; }
+  body { font-family:-apple-system,sans-serif; color:#fff; }
+  /* SEM grid, SEM lista. Vendedor não é "linha numa tabela" — é um corpo
+     girando em órbita ao redor do total do time. Quem vende mais fica
+     mais perto do centro (não é decoração: distância = posição real). */
+  .cena { position:relative; width:100vw; height:100vh; }
+  .centro {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:26vh; height:26vh; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #2a3a52, #0a0e14 72%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    box-shadow: 0 0 8vh rgba(80,140,255,0.25);
+  }
+  .centro .rot { font-size:1vw; color:#7a8ba8; letter-spacing:0.2vw; }
+  .centro .val { font-size:2.4vw; font-weight:800; margin-top:0.6vh; }
+  .anel { position:absolute; top:50%; left:50%; border:1px dashed #223047; border-radius:50%; transform:translate(-50%,-50%); }
+  .orbe {
+    position:absolute; display:flex; flex-direction:column; align-items:center; gap:0.6vh;
+    transform:translate(-50%,-50%);
+  }
+  .orbe .bola { border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  .orbe .nome { font-size:1.1vw; font-weight:700; }
+  .orbe .valor { font-size:0.95vw; color:#9aa8c0; font-family:monospace; }
+  .titulo { position:absolute; top:3vh; left:3vw; font-size:1.1vw; color:#5a6a85; letter-spacing:0.2vw; }
+</style>
+</head>
+<body>
+  <div class="titulo">TIME COMERCIAL · ÓRBITA DE VENDAS</div>
+  <div class="cena">
+    <div class="anel" style="width:44vh;height:44vh;"></div>
+    <div class="anel" style="width:66vh;height:66vh;"></div>
+    <div class="centro">
+      <div class="rot">time hoje</div>
+      <div class="val">R$ 13.522</div>
+    </div>
+    <!-- Beatriz: mais perto (líder) -->
+    <div class="orbe" style="top:50%; left:calc(50% - 22vh);">
+      <div class="bola" style="width:9vh;height:9vh;background:#3b82f6;font-size:1.6vw;">B</div>
+      <div class="nome">Beatriz</div>
+      <div class="valor">R$ 6.492 · 81%</div>
+    </div>
+    <!-- Jardel: meio -->
+    <div class="orbe" style="top:calc(50% + 30vh); left:calc(50% + 12vh);">
+      <div class="bola" style="width:7.5vh;height:7.5vh;background:#ec4899;font-size:1.4vw;">J</div>
+      <div class="nome">Jardel</div>
+      <div class="valor">R$ 5.052 · 63%</div>
+    </div>
+    <!-- João Victor: mais longe -->
+    <div class="orbe" style="top:calc(50% - 25vh); left:calc(50% + 26vh);">
+      <div class="bola" style="width:6vh;height:6vh;background:#a855f7;font-size:1.1vw;">JV</div>
+      <div class="nome">Joao Victor</div>
+      <div class="valor">R$ 1.977 · 25%</div>
+    </div>
+  </div>
+</body>
+</html>

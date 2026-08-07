@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Esboço D — Foco Único</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; background:#000; }
+  body { font-family:-apple-system,sans-serif; color:#fff; }
+  /* Não existe "layout" — existe UMA coisa na tela por vez, gigante,
+     tela inteira. Troca sozinho a cada alguns segundos, tipo painel de
+     embarque de aeroporto ou placar entre jogadas. Sem grid, sem lista,
+     sem 2 painéis ao mesmo tempo — só uma pergunta respondida por vez. */
+  .quadro { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; opacity:0; transition:opacity 0.6s ease; }
+  .quadro.ativo { opacity:1; }
+  .rot { font-size:2vw; color:#666; letter-spacing:0.4vw; margin-bottom:2vh; }
+  .val { font-size:16vw; font-weight:900; line-height:0.9; }
+  .sub { font-size:2vw; color:#888; margin-top:2vh; }
+  .pontos { position:fixed; bottom:5vh; left:50%; transform:translateX(-50%); display:flex; gap:1.2vw; }
+  .ponto { width:0.9vw; height:0.9vw; border-radius:50%; background:#2a2a2a; }
+  .ponto.atual { background:#fff; }
+</style>
+</head>
+<body>
+  <div class="quadro ativo" data-i="0">
+    <div class="rot">vendas hoje</div>
+    <div class="val" style="color:#4ade80">R$ 13.522</div>
+    <div class="sub">31 vendas · 168% da meta</div>
+  </div>
+  <div class="quadro" data-i="1">
+    <div class="rot">liderando agora</div>
+    <div class="val">Beatriz</div>
+    <div class="sub">R$ 6.492 · 4 vendas</div>
+  </div>
+  <div class="quadro" data-i="2">
+    <div class="rot">produto mais vendido hoje</div>
+    <div class="val" style="font-size:7vw">Rating Bancário</div>
+    <div class="sub">R$ 297 · destaque do dia</div>
+  </div>
+  <div class="quadro" data-i="3">
+    <div class="rot">faltam pra bater a meta do mês</div>
+    <div class="val" style="color:#f87171">R$ 6.075</div>
+    <div class="sub">76% do caminho andado</div>
+  </div>
+  <div class="pontos">
+    <div class="ponto atual"></div><div class="ponto"></div><div class="ponto"></div><div class="ponto"></div>
+  </div>
+<script>
+  const quadros = [...document.querySelectorAll('.quadro')];
+  const pontos = [...document.querySelectorAll('.ponto')];
+  let i = 0;
+  setInterval(() => {
+    quadros[i].classList.remove('ativo'); pontos[i].classList.remove('atual');
+    i = (i + 1) % quadros.length;
+    quadros[i].classList.add('ativo'); pontos[i].classList.add('atual');
+  }, 3200);
+</script>
+</body>
+</html>

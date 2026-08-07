@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Comercial — TV Dashboard v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700;800&display=swap');
+
+  /* ==============================
+     TOKENS — Central de Operações.
+     Base escura única (referência: Linear/Vercel — quase preto, tipografia
+     como principal fonte de hierarquia, cor só onde carrega significado).
+     Os "temas" trocam apenas a cor de destaque (--accent) sobre a MESMA
+     base — como troca de "accent color" num app de verdade, não 3 telas
+     redecoradas do zero. Painéis são quase invisíveis (1px hairline);
+     quem separa as coisas é espaço, não moldura.
+     ============================== */
+  :root, :root[data-theme="titanio"] {
+    --paper: #0a0a0c; --panel: #101014; --panel2: #16161b;
+    --ink: #f2f2f4; --ink2: #8b8b94;
+    --yellow: #ffd60a; --blue: #0a84ff; --red: #ff453a; --green: #30d158;
+    --purple: #bf5af2; --pink: #ff375f; --orange: #ff9f0a;
+    --accent: #0a84ff; --accent-ring: var(--accent);
+    --hairline: rgba(255,255,255,0.09);
+    --bw: 1px; --bw-lg: 1px; --sh: 0;
+  }
+  :root[data-theme="mark42"] {
+    --paper: #0a0a0c; --panel: #101014; --panel2: #16161b;
+    --ink: #f2f2f4; --ink2: #8b8b94;
+    --yellow: #ffd60a; --blue: #0a84ff; --red: #ff453a; --green: #30d158;
+    --purple: #bf5af2; --pink: #ff375f; --orange: #ff9f0a;
+    --accent: #ff6a3d; --accent-ring: var(--accent);
+    --hairline: rgba(255,255,255,0.09);
+    --bw: 1px; --bw-lg: 1px; --sh: 0;
+  }
+  :root[data-theme="studio"] {
+    --paper: #0a0a0c; --panel: #101014; --panel2: #16161b;
+    --ink: #f2f2f4; --ink2: #8b8b94;
+    --yellow: #ffd60a; --blue: #0a84ff; --red: #ff453a; --green: #30d158;
+    --purple: #bf5af2; --pink: #ff375f; --orange: #ff9f0a;
+    --accent: #bf5af2; --accent-ring: var(--accent);
+    --hairline: rgba(255,255,255,0.09);
+    --bw: 1px; --bw-lg: 1px; --sh: 0;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+  }
+  body::before { content:none; }
+
+  /* ==============================
+     TAG DE POSIÇÃO — quadrado, borda grossa, sombra sólida
+     ============================== */
+  .rank-badge {
+    position:absolute; top:-14px; left:-10px; min-width:30px; height:30px; padding:0 6px;
+    background:var(--panel); border:var(--bw) solid var(--hairline); border-radius:0;
+    font-family:'JetBrains Mono',monospace; font-size:0.85rem; font-weight:800;
+    letter-spacing:0.5px; color:var(--ink); text-align:center; z-index:3;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .rank-badge[data-pos="1"] { background:var(--yellow); }
+
+  /* ==============================
+     CABEÇALHO
+     ============================== */
+  .tv-header {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:18px 40px; background:var(--panel);
+    border-bottom: var(--bw-lg) solid var(--hairline);
+  }
+  .tv-title {
+    font-family:'Archivo Black', sans-serif;
+    font-size:clamp(1.4rem, 3vw, 2rem); letter-spacing:-0.5px; color:var(--ink);
+    background:none; -webkit-text-fill-color:var(--ink);
+  }
+  .tv-date { font-family:'JetBrains Mono',monospace; font-size:clamp(0.8rem, 1.5vw, 1rem); color:var(--ink2); margin-left:24px; font-weight:700; }
+  .tv-header-right { display:flex; align-items:center; gap:14px; }
+  .tv-live {
+    display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:clamp(0.7rem, 1.2vw, 0.9rem);
+    color:var(--ink); font-weight:800; letter-spacing:1px;
+    background:var(--green); border:var(--bw) solid var(--hairline); padding:6px 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .tv-live::before { content:''; width:10px; height:10px; background:var(--ink); animation: pulse-live 1.4s steps(2) infinite; }
+  .tv-live.error { background:var(--red); color:#fff; }
+  .tv-live.connecting { background:var(--yellow); }
+  @keyframes pulse-live { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .tv-refresh { font-family:'JetBrains Mono',monospace; font-size:clamp(0.65rem, 1vw, 0.8rem); color:var(--ink2); font-weight:700; }
+
+  /* ==============================
+     BOTÕES — sombra sólida que "afunda" ao clicar
+     ============================== */
+  .header-btn, .mode-trigger {
+    padding:9px 18px; background:var(--panel); border:var(--bw) solid var(--hairline);
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    font-size:clamp(0.68rem, 1vw, 0.82rem); color:var(--ink);
+    font-family:'JetBrains Mono',monospace; font-weight:800; letter-spacing:0.5px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .header-btn:hover, .mode-trigger:hover { background:var(--panel2); border-color:var(--accent); color:var(--accent); }
+  .header-btn:active, .mode-trigger:active, .mode-opt:active,
+  .btn-cfg:active, .config-close:active {
+    transform: translateY(1px); box-shadow: none;
+  }
+  .header-btn:focus-visible, .mode-trigger:focus-visible,
+  .mode-opt:focus-visible, .btn-cfg:focus-visible, .config-close:focus-visible {
+    outline: 3px solid var(--blue); outline-offset: 3px;
+  }
+  .header-btn:disabled { opacity:0.5; cursor:not-allowed; pointer-events:none; }
+  .header-btn[aria-busy="true"] { color:transparent; pointer-events:none; }
+  .header-btn[aria-busy="true"]::after {
+    content:''; position:absolute; width:16px; height:16px; top:50%; left:50%;
+    margin:-8px 0 0 -8px; border:2px solid var(--hairline); border-top-color:var(--accent);
+    border-radius:50%; animation: btnSpin 600ms linear infinite;
+  }
+  @keyframes btnSpin { to { transform:rotate(360deg); } }
+  .btn-cfg:disabled { opacity:0.5; cursor:not-allowed; pointer-events:none; }
+  .btn-cfg[aria-busy="true"] { color:transparent; pointer-events:none; }
+  .btn-cfg[aria-busy="true"]::after {
+    content:''; position:absolute; width:16px; height:16px; top:50%; left:50%;
+    margin:-8px 0 0 -8px; border:2px solid var(--hairline); border-top-color:var(--accent);
+    border-radius:50%; animation: btnSpin 600ms linear infinite;
+  }
+
+  .mode-wrap { position:relative; }
+  .mode-dropdown {
+    display:none; position:absolute; top:calc(100% + 10px); right:0;
+    background:var(--panel); border:var(--bw) solid var(--hairline);
+    padding:8px; min-width:220px; z-index:210;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .mode-dropdown.open { display:block; }
+  .mode-opt {
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:0.78rem; font-weight:700;
+    color:var(--ink); border:none; background:none; width:100%; text-align:left;
+    letter-spacing:0.4px;
+  }
+  .mode-opt:hover { background:var(--panel2); }
+  .mode-opt.active { background:var(--panel2); color:var(--accent); }
+  .mode-opt .opt-dot { width:8px; height:8px; border-radius:50%; border:1px solid var(--hairline); flex-shrink:0; }
+  .mode-opt.active .opt-dot { background:var(--accent); border-color:var(--accent); }
+
+  /* ==============================
+     PAINEL DE CONFIGURAÇÃO
+     ============================== */
+  .config-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; }
+  .config-overlay.open { display:block; }
+  .config-panel {
+    position:fixed; bottom:0; left:0; right:0; z-index:301;
+    background:var(--panel); border-top: var(--bw-lg) solid var(--hairline);
+    padding:32px 48px 40px;
+    transform:translateY(100%); visibility:hidden;
+    transition:transform 0.3s ease, visibility 0s linear 0.3s;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .config-panel.open { transform:translateY(0); visibility:visible; transition:transform 0.3s ease; }
+  .config-panel-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+  .config-panel-title { font-family:'Archivo Black',sans-serif; font-size:clamp(1.1rem, 2vw, 1.4rem); }
+  .config-close {
+    width:38px; height:38px; background:var(--panel); border:var(--bw) solid var(--hairline);
+    color:var(--ink); font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08); position:relative;
+  }
+  .config-close:hover { background:var(--red); color:#fff; }
+  .config-close[aria-label] { transition: transform 0.1s ease, box-shadow 0.1s ease; }
+  .config-section {
+    background:var(--panel2); border:var(--bw) solid var(--hairline);
+    padding:20px 24px; margin-bottom:24px;
+  }
+  .config-section:last-child { margin-bottom:0; }
+  .config-section-title {
+    font-size:0.75rem; font-weight:800; color:var(--ink); 
+    letter-spacing:0.6px; margin-bottom:16px; font-family:'JetBrains Mono',monospace;
+  }
+  .config-row-flex { display:flex; gap:16px; align-items:flex-end; flex-wrap: wrap; }
+
+  /* Configuração de som/pop-up por tipo de evento — cada evento numa
+     linha própria, pra ficar claro que são 4 gatilhos independentes. */
+  .event-config-grid { display:flex; flex-direction:column; gap:10px; }
+  .event-config-row {
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 16px; background:var(--panel2); border:1px solid var(--hairline);
+  }
+  .event-config-row select { padding:9px 12px; background:var(--panel); border:1px solid var(--hairline); color:var(--ink); font-family:'JetBrains Mono',monospace; font-size:0.78rem; }
+  .event-config-name { display:flex; align-items:center; gap:8px; font-weight:700; font-size:0.88rem; min-width:180px; font-family:'Space Grotesk',sans-serif; }
+  .event-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .event-config-row-disabled { opacity:0.6; }
+  .event-config-pending { font-size:0.76rem; color:var(--ink2); font-family:'JetBrains Mono',monospace; font-style:italic; }
+  .config-field { flex:1; min-width:200px; }
+  .config-field label {
+    display:block; font-size:0.7rem; color:var(--ink2); margin-bottom:8px;
+    font-weight:700; letter-spacing:0.4px; font-family:'JetBrains Mono',monospace;
+  }
+  .config-field input, .config-field select {
+    width:100%; padding:11px 14px; background:var(--panel); border:var(--bw) solid var(--hairline);
+    color:var(--ink); font-family:'JetBrains Mono',monospace; font-weight:600;
+    font-size:0.85rem; outline:none;
+  }
+  .config-field input:focus, .config-field select:focus { border-color:var(--accent); outline:2px solid var(--accent); outline-offset:1px; }
+  .config-field select option { background:var(--panel); color:var(--ink); }
+  .btn-cfg {
+    padding:12px 26px; border:var(--bw) solid var(--hairline); background:var(--panel); color:var(--ink);
+    font-weight:800; font-size:0.78rem; cursor:pointer; letter-spacing:0.5px;
+    white-space:nowrap; flex-shrink:0; position:relative;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-family:'JetBrains Mono',monospace;
+  }
+  .btn-cfg.blue { background:var(--blue); color:#fff; }
+  .btn-cfg.green { background:var(--green); color:#031; }
+  .btn-cfg.orange { background:var(--orange); color:#210; }
+
+  .config-toast {
+    position:fixed; top:100px; right:32px; z-index:400;
+    background:var(--green); color:#031; font-weight:800; font-size:0.85rem;
+    padding:14px 22px; border:var(--bw) solid var(--hairline); font-family:'JetBrains Mono',monospace;
+    opacity:0; transform:translateY(-12px); transition:all 0.2s ease;
+    pointer-events:none; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .config-toast.show { opacity:1; transform:translateY(0); }
+
+  .offline-banner {
+    display:none; position:fixed; top:0; left:0; right:0; z-index:600;
+    background:var(--red); color:#fff; text-align:center;
+    font-family:'JetBrains Mono',monospace; font-weight:800; font-size:0.8rem;
+    padding:10px; letter-spacing:0.3px; border-bottom:var(--bw) solid var(--hairline);
+  }
+  .offline-banner.show { display:block; }
+  body.is-offline .tv-header { top:42px; }
+
+  /* ==============================
+     LOADER
+     ============================== */
+  .loader-wrap {
+    display:none; position:fixed; inset:0; background:var(--paper); z-index:9998;
+    justify-content:center; align-items:center; flex-direction:column; gap:20px;
+  }
+  .loader-wrap.on { display:flex; }
+  .loader-spin {
+    width:56px; height:56px; border:4px solid var(--hairline); border-top-color:var(--accent);
+    border-radius:50%; animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loader-msg { font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; color:var(--ink); }
+  .loader-sub { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--ink2); }
+
+  /* ==============================
+     POPUP DE CELEBRAÇÃO — cartaz, não vidro
+     ============================== */
+  .sale-notification {
+    --meme-color: var(--yellow);
+    position:fixed; top:50%; left:50%; z-index:500;
+    background:var(--panel); border: var(--bw-lg) solid var(--hairline);
+    padding:clamp(24px, 3vw, 36px) clamp(32px, 4vw, 48px);
+    min-width:min(90vw, 460px); max-width:min(92vw, 640px);
+    text-align:center;
+    transform:translate(-50%,-50%) scale(0.92); opacity:0;
+    transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
+    pointer-events:none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+  .sale-notification.show { transform:translate(-50%,-50%) scale(1); opacity:1; pointer-events:auto; }
+  .sale-notif-meme { margin-bottom:16px; }
+  .sale-notif-meme-emoji { font-size:clamp(3.5rem, 8vw, 5.5rem); line-height:1; }
+  .sale-notification.show .sale-notif-meme-emoji { animation: memeBounce 3s ease-in-out 2s; }
+  @keyframes memeBounce {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    20% { transform: scale(1.15) rotate(-6deg); } 40% { transform: scale(1) rotate(6deg); }
+    60% { transform: scale(1.12) rotate(-4deg); } 80% { transform: scale(1) rotate(4deg); }
+  }
+  .sale-notif-meme-title {
+    font-family:'Archivo Black',sans-serif; font-size:clamp(1.2rem, 3vw, 1.6rem); letter-spacing:0;
+    color:var(--ink); margin-top:8px; 
+    background:var(--meme-color); display:inline-block; padding:4px 14px; border:1px solid var(--hairline);
+
+  }
+  .sale-notif-header { display:flex; align-items:center; justify-content:center; gap:10px; margin:14px 0 10px; }
+  .sale-notif-badge {
+    background:var(--ink); color:var(--paper); font-size:0.7rem; font-weight:800;
+    padding:3px 10px; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace;
+  }
+  .sale-notif-time { font-size:0.75rem; color:var(--ink2); font-family:'JetBrains Mono',monospace; font-weight:700; }
+  .sale-notif-vendor { font-size:clamp(1.2rem, 2.5vw, 1.6rem); font-weight:800; margin-bottom:4px; font-family:'Space Grotesk',sans-serif; }
+  .sale-notif-value { font-family:'JetBrains Mono',monospace; font-size:clamp(1.8rem, 4vw, 2.6rem); font-weight:800; color:var(--ink); }
+  .sale-notif-product { font-size:0.85rem; color:var(--ink2); margin-top:4px; font-weight:600; }
+
+  /* ==============================
+     LAYOUT COMANDO — hero + leaderboard
+     ============================== */
+  .view-mode1 {
+    display:none; height:100vh; padding:clamp(90px, 10vh, 120px) clamp(30px, 5vw, 50px) clamp(50px, 5vh, 80px);
+    flex-direction:column; gap:clamp(18px, 2.6vh, 28px);
+  }
+  .view-mode1.active { display:flex; }
+
+  /* Faixa de indicadores — rótulo minúsculo em cima, número grande embaixo,
+     uma cor por métrica (não decoração: cor = o que aquele número significa).
+     Padrão observado em ferramentas reais de RevOps, não em wireframe. */
+  .cmd-stats { display:flex; gap:clamp(1px, 0.15vw, 2px); flex-shrink:0; background:var(--hairline); }
+  .cmd-stat {
+    flex:1; min-width:0; background:var(--panel);
+    padding:clamp(14px, 1.8vh, 20px) clamp(16px, 1.8vw, 24px);
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .cmd-stat-label {
+    font-family:'JetBrains Mono',monospace; font-size:clamp(0.62rem, 0.85vw, 0.72rem);
+    font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--ink2);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .cmd-stat-value {
+    font-family:'JetBrains Mono',monospace; font-weight:800; letter-spacing:-0.5px;
+    font-size:clamp(1.3rem, 2.6vw, 2rem); line-height:1; color:var(--ink);
+    white-space:nowrap;
+  }
+  .cmd-stat-sub { font-family:'JetBrains Mono',monospace; font-size:clamp(0.66rem, 0.95vw, 0.76rem); color:var(--ink2); font-weight:600; }
+
+  .cmd-layout { flex:1; display:grid; grid-template-columns: 1.3fr 1fr; gap:clamp(20px, 3vw, 36px); min-height:0; }
+  @media (max-width: 900px) { .cmd-layout { grid-template-columns: 1fr; } }
+
+  .cmd-board { display:flex; flex-direction:column; min-height:0; }
+  .cmd-board-title {
+    font-family:'JetBrains Mono',monospace; font-size:clamp(0.68rem, 1vw, 0.8rem);
+    font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink2);
+    margin-bottom:clamp(12px, 2vh, 18px); flex-shrink:0;
+    padding-bottom:10px; border-bottom:1px solid var(--hairline);
+  }
+
+  .leaderboard { flex:1; display:flex; flex-direction:column; gap:clamp(10px, 1.6vh, 16px); min-height:0; overflow:hidden; }
+  .lb-row {
+    display:flex; align-items:center; gap:clamp(12px, 2vw, 20px);
+    padding:clamp(10px, 1.4vh, 16px) clamp(14px, 2vw, 20px);
+    background:var(--panel); border: var(--bw) solid var(--hairline);
+    position:relative; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .lb-avatar {
+    position:relative; flex-shrink:0;
+    width:clamp(38px, 5vw, 50px); height:clamp(38px, 5vw, 50px); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-weight:800; font-size:clamp(0.75rem, 1.4vw, 0.95rem);
+    background:var(--panel2); border:1px solid var(--hairline); color:var(--ink);
+  }
+  .lb-avatar.gold { background:var(--yellow); }
+  .lb-main { flex:1; min-width:0; }
+  .lb-name-row { display:flex; align-items:baseline; gap:8px; margin-bottom:7px; flex-wrap:wrap; }
+  .lb-name { font-weight:800; font-size:clamp(0.85rem, 1.6vw, 1.05rem); color:var(--ink); font-family:'Space Grotesk',sans-serif; }
+  .lb-qtd { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--ink2); font-weight:700; }
+  .lb-hit-tag {
+    background:var(--green); color:#031; font-size:0.62rem; font-weight:800;
+    padding:2px 8px; letter-spacing:0.4px; border:1px solid var(--hairline);
+  }
+  .lb-bar-track { height:12px; background:var(--paper); border:1px solid var(--hairline); overflow:hidden; }
+  .lb-bar-fill { height:100%; transition:width 1s cubic-bezier(0.25,0.46,0.45,0.94); }
+  .lb-bar-fill.flash { animation: lbBarFlash 0.7s steps(3); }
+  @keyframes lbBarFlash { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.6)} }
+  .lb-stats { flex-shrink:0; text-align:right; }
+  .lb-value { font-family:'JetBrains Mono',monospace; font-weight:800; font-size:clamp(0.9rem, 1.8vw, 1.15rem); color:var(--ink); }
+  .lb-detail { font-family:'JetBrains Mono',monospace; font-size:0.72rem; margin-top:2px; font-weight:700; }
+
+  .leaderboard-compact .lb-row { padding:clamp(6px, 1vh, 10px) clamp(10px, 1.5vw, 14px); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .leaderboard-compact .lb-avatar { width:clamp(28px, 4vw, 36px); height:clamp(28px, 4vw, 36px); font-size:0.68rem; }
+  .leaderboard-compact .lb-name { font-size:clamp(0.75rem, 1.3vw, 0.9rem); }
+  .leaderboard-compact .lb-value { font-size:clamp(0.8rem, 1.5vw, 0.95rem); }
+  .leaderboard-lg .lb-row { padding:clamp(16px, 2.4vh, 26px) clamp(24px, 3vw, 32px); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .leaderboard-lg .lb-avatar { width:clamp(56px, 7vw, 76px); height:clamp(56px, 7vw, 76px); font-size:clamp(1.1rem, 2vw, 1.4rem); }
+  .leaderboard-lg .lb-name { font-size:clamp(1.3rem, 2.6vw, 1.8rem); }
+  .leaderboard-lg .lb-qtd { font-size:clamp(0.8rem, 1.4vw, 1rem); }
+  .leaderboard-lg .lb-value { font-size:clamp(1.4rem, 3vw, 2rem); }
+  .leaderboard-lg .lb-detail { font-size:clamp(0.85rem, 1.5vw, 1.05rem); }
+  .leaderboard-lg .lb-bar-track { height:16px; }
+  .leaderboard-lg .rank-badge { min-width:36px; height:36px; font-size:0.95rem; }
+
+  /* ==============================
+     MODO 2: TELA DIVIDIDA
+     ============================== */
+  .view-mode2 {
+    display:none; height:100vh; padding:clamp(90px, 10vh, 120px) clamp(30px, 4vw, 48px) clamp(50px, 5vh, 68px);
+    flex-direction:column; gap:clamp(16px, 2.5vh, 24px);
+  }
+  .view-mode2.active { display:flex; }
+  .m2-top { flex:6; min-height:0; }
+  .m2-bottom { flex:4; display:grid; grid-template-columns:2fr 1.5fr; gap:clamp(16px, 2vw, 24px); min-height:0; }
+  .m2-kpis-feed {
+    background:var(--panel); border: var(--bw) solid var(--hairline);
+    padding:clamp(16px, 2vw, 24px); display:flex; flex-direction:column; overflow:hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .m2-kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; flex-shrink:0; }
+  .m2-kpi { text-align:center; }
+  .m2-kpi-label { font-size:clamp(0.65rem, 1vw, 0.8rem); color:var(--ink2); font-weight:800; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace; }
+  .m2-kpi-val { font-family:'JetBrains Mono',monospace; font-size:clamp(1.2rem, 2.5vw, 1.6rem); font-weight:800; color:var(--ink); }
+  .m2-kpi:nth-child(1) .m2-kpi-val { font-size:clamp(1.35rem, 2.8vw, 1.8rem); white-space:nowrap; }
+  .m2-feed-title { font-size:clamp(0.7rem, 1.2vw, 0.85rem); color:var(--ink); font-weight:800; letter-spacing:0.6px; margin-bottom:12px; font-family:'JetBrains Mono',monospace; }
+  .m2-feed { flex:1; overflow-y:auto; }
+  .m2-chart-panel {
+    background:var(--panel); border: var(--bw) solid var(--hairline);
+    padding:clamp(16px, 2vw, 24px); display:flex; flex-direction:column;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .m2-chart-title { font-size:clamp(0.7rem, 1.2vw, 0.85rem); color:var(--ink); font-weight:800; letter-spacing:0.6px; margin-bottom:12px; font-family:'JetBrains Mono',monospace; }
+  .m2-chart-area { flex:1; position:relative; min-height:0; }
+
+  /* ==============================
+     FUNIL — barras horizontais decrescentes, largura = valor.
+     Padrão validado (Mixpanel/Amplitude/HubSpot): cada estágio mostra
+     nome, valor e % em relação ao estágio anterior — não é decoração.
+     ============================== */
+  .funnel { flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; min-height:0; }
+  .funnel-stage { display:flex; flex-direction:column; gap:4px; }
+  .funnel-stage-top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .funnel-stage-label { font-size:clamp(0.75rem, 1.3vw, 0.92rem); font-weight:700; color:var(--ink); font-family:'Space Grotesk',sans-serif; }
+  .funnel-stage-meta { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--ink2); font-weight:600; white-space:nowrap; }
+  .funnel-stage-meta strong { color:var(--ink); font-weight:800; }
+  .funnel-stage-track { height:clamp(10px, 1.6vh, 14px); background:var(--panel2); border:1px solid var(--hairline); overflow:hidden; }
+  .funnel-stage-fill {
+    height:100%; transition:width 1s cubic-bezier(0.25,0.46,0.45,0.94); min-width:2px;
+  }
+  .funnel-stage-drop { font-family:'JetBrains Mono',monospace; font-size:0.66rem; color:var(--red); font-weight:700; padding-left:2px; }
+  .funnel-empty { color:var(--ink2); font-size:0.85rem; padding:20px; text-align:center; font-family:'JetBrains Mono',monospace; }
+
+  /* ==============================
+     MODO 3: TELA CHEIA
+     ============================== */
+  .view-mode3 {
+    display:none; height:100vh; flex-direction:column;
+    padding:clamp(100px, 12vh, 140px) clamp(40px, 6vw, 60px) clamp(60px, 8vh, 100px);
+  }
+  .view-mode3.active { display:flex; }
+
+  /* ==============================
+     MODO 4: ROTAÇÃO
+     ============================== */
+  .view-mode4 { display:none; height:100vh; }
+  .view-mode4.active { display:block; }
+  .m4-slide {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    padding:clamp(90px, 12vh, 140px) clamp(40px, 6vw, 60px) clamp(60px, 8vh, 100px);
+    opacity:0; transition:opacity 0.5s ease; pointer-events:none;
+  }
+  .m4-slide.visible { opacity:1; pointer-events:auto; }
+  .m4-slide-kpis { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; gap:clamp(28px, 5vh, 44px); }
+  .m4-kpi-big { text-align:center; background:var(--panel); border:var(--bw) solid var(--hairline); padding:20px 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .m4-kpi-big-label { font-size:clamp(1rem, 2vw, 1.3rem); color:var(--ink2); font-weight:800; letter-spacing:1.2px; margin-bottom:10px; font-family:'JetBrains Mono',monospace; }
+  .m4-kpi-big-val { font-family:'JetBrains Mono',monospace; font-size:clamp(3rem, 7vw, 4.6rem); font-weight:800; letter-spacing:-2px; color:var(--ink); }
+  .m4-kpi-big-sub { font-family:'JetBrains Mono',monospace; font-size:clamp(1rem, 2vw, 1.3rem); color:var(--ink2); margin-top:8px; font-weight:700; }
+  .m4-kpi-big:nth-child(1) .m4-kpi-big-val { color:var(--blue); }
+
+  .m4-slide-feed { display:flex; flex-direction:column; height:100%; }
+  .m4-feed-title {
+    font-family:'Archivo Black',sans-serif; font-size:clamp(1.1rem, 2.6vw, 1.6rem); margin-bottom:clamp(20px, 4vh, 32px);
+    background:var(--yellow); display:inline-block; padding:6px 16px; border:1px solid var(--hairline); width:fit-content;
+  }
+  .m4-feed-list { flex:1; overflow:hidden; }
+
+  .m4-slide-monthly { display:flex; flex-direction:column; height:100%; }
+  .m4-monthly-list { flex:1; overflow:hidden; display:flex; flex-direction:column; gap:clamp(12px, 2vh, 20px); }
+  .m4-monthly-item {
+    display:flex; align-items:center; gap:clamp(16px, 2.5vw, 24px);
+    padding:clamp(14px, 2vh, 20px) clamp(16px, 2.5vw, 24px);
+    background:var(--panel); border:var(--bw) solid var(--hairline); box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .m4-monthly-av {
+    width:clamp(44px, 8vw, 60px); height:clamp(44px, 8vw, 60px); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-weight:800;
+    font-family:'JetBrains Mono',monospace; background:var(--panel2); border:1px solid var(--hairline); flex-shrink:0;
+  }
+  .m4-monthly-name { font-size:clamp(1rem, 2.2vw, 1.3rem); font-weight:800; flex:1; font-family:'Space Grotesk',sans-serif; }
+  .m4-monthly-qtd { font-family:'JetBrains Mono',monospace; font-size:0.75rem; font-weight:700; color:var(--ink2); }
+  .m4-monthly-right { text-align:right; }
+  .m4-monthly-val { font-family:'JetBrains Mono',monospace; font-size:clamp(1.1rem, 2.5vw, 1.5rem); font-weight:800; color:var(--ink); }
+  .m4-monthly-gap { font-family:'JetBrains Mono',monospace; font-size:clamp(0.7rem, 1.3vw, 0.9rem); margin-top:2px; font-weight:700; }
+
+  .m4-progress { position:fixed; bottom:0; left:0; height:6px; background:var(--yellow); z-index:99; border-top:1px solid var(--hairline); transition:width 1s linear; }
+
+  /* ==============================
+     FEED DE VENDAS
+     ============================== */
+  .feed-item { display:flex; align-items:center; gap:16px; padding:14px 0; border-bottom:2px dashed var(--ink2); }
+  .feed-item:last-child { border-bottom:none; }
+  .feed-av {
+    width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-weight:800; background:var(--panel2); border:1px solid var(--hairline); flex-shrink:0;
+  }
+  .feed-info { flex:1; min-width:0; }
+  .feed-name { font-weight:800; font-size:0.95rem; color:var(--ink); }
+  .feed-prod { font-size:0.8rem; color:var(--ink2); font-weight:600; }
+  .feed-right { text-align:right; flex-shrink:0; }
+  .feed-val { font-family:'JetBrains Mono',monospace; font-weight:800; color:var(--ink); }
+  .feed-time { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--ink2); font-weight:700; }
+
+  /* ==============================
+     BARRA DE CONEXÃO
+     ============================== */
+  .conn-stats {
+    position:fixed; bottom:0; left:0; right:0; z-index:99;
+    display:flex; justify-content:center; align-items:center; gap:32px;
+    padding:8px 40px; background:var(--panel); border-top:1px solid var(--hairline);
+    font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--ink2); font-weight:700;
+  }
+  .conn-stat { display:flex; align-items:center; gap:6px; }
+  .conn-stat .dot { width:8px; height:8px; border:1px solid var(--hairline); }
+  .conn-stat .dot.ok { background:var(--green); }
+  .conn-stat .dot.warn { background:var(--yellow); }
+  .conn-stat .dot.err { background:var(--red); }
+
+  /* ==============================
+     CONFETE
+     ============================== */
+  .confetti { position:fixed; inset:0; pointer-events:none; z-index:9999; display:none; }
+  .confetti.on { display:block; }
+  .c-piece { position:absolute; animation:cFall 3s linear forwards; border:1px solid var(--hairline); }
+  @keyframes cFall { 0%{transform:translateY(-5vh) rotate(0);opacity:1} 100%{transform:translateY(105vh) rotate(540deg);opacity:0} }
+
+  ::-webkit-scrollbar { width:8px; }
+  ::-webkit-scrollbar-track { background:var(--paper); }
+  ::-webkit-scrollbar-thumb { background:var(--ink); }
+
+  /* ==============================
+     RESPONSIVO
+     ============================== */
+  @media (max-width: 900px) { .cmd-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 768px) {
+    .tv-header { padding: 14px 20px; }
+    .tv-title { font-size: 1.2rem; }
+    .tv-header-right { gap: 10px; }
+    .header-btn, .mode-trigger { font-size: 0.7rem; padding: 6px 12px; }
+    .m2-bottom { grid-template-columns: 1fr; }
+    .conn-stats { gap:16px; font-size:0.6rem; padding:6px 20px; }
+  }
+  @media (max-width: 480px) {
+    .tv-header { flex-direction: column; gap: 10px; padding: 12px 16px; }
+    .tv-title { font-size: 1rem; }
+    .tv-date { margin-left: 0; font-size: 0.7rem; }
+    .tv-header-right { width: 100%; gap: 8px; flex-wrap:wrap; justify-content:center; }
+  }
+
+  /* ==============================
+     MOVIMENTO REDUZIDO
+     ============================== */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<script>
+// Aplica o tema salvo ANTES da primeira pintura da tela — sem isso, toda
+// vez que a TV religasse apareceria um flash do tema escuro por um instante
+// antes de trocar pro claro salvo.
+(function() {
+  try {
+    const saved = localStorage.getItem('dashboardTheme');
+    if (saved === 'mark42' || saved === 'studio') document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<div class="confetti" id="confetti"></div>
+<div class="offline-banner" id="offlineBanner" role="status" aria-live="polite">Sem conexão com a internet — mostrando os últimos dados recebidos</div>
+<div class="loader-wrap" id="loader">
+  <div class="loader-spin"></div>
+  <div class="loader-msg">Conectando ao Google Sheets...</div>
+  <div class="loader-sub" id="loaderSub"></div>
+</div>
+
+<!-- SALE NOTIFICATION POPUP (cartão de celebração grande, brilho neon) -->
+<div class="sale-notification" id="saleNotif" role="status" aria-live="polite">
+  <div class="sale-notif-meme">
+    <div class="sale-notif-meme-emoji" id="notifMemeEmoji">🔥</div>
+    <div class="sale-notif-meme-title" id="notifMemeTitle">PEGANDO FOGO</div>
+  </div>
+  <div class="sale-notif-header">
+    <span class="sale-notif-badge">Nova Venda</span>
+    <span class="sale-notif-time" id="notifTime">agora</span>
+  </div>
+  <div class="sale-notif-vendor" id="notifVendor">--</div>
+  <div class="sale-notif-value" id="notifValue">R$ 0</div>
+  <div class="sale-notif-product" id="notifProduct">--</div>
+</div>
+
+<!-- TV HEADER -->
+<div class="tv-header">
+  <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;">
+    <div class="tv-title">Time Comercial</div>
+    <div class="tv-date" id="dateInfo">--/--/---- &middot; --:--</div>
+  </div>
+  <div class="tv-header-right">
+    <div class="tv-refresh" id="refreshInfo">--</div>
+    <div class="tv-live connecting" id="statusBadge" role="status" aria-live="polite">CONECTANDO</div>
+    <div class="mode-wrap">
+      <button type="button" class="mode-trigger" onclick="toggleModeMenu()">
+        <span id="modeName">Rotação</span>
+      </button>
+      <div class="mode-dropdown" id="modeDropdown">
+        <button class="mode-opt" onclick="pickMode(1)"><span class="opt-dot"></span>Barras + KPI</button>
+        <button class="mode-opt" onclick="pickMode(2)"><span class="opt-dot"></span>Tela Dividida</button>
+        <button class="mode-opt" onclick="pickMode(3)"><span class="opt-dot"></span>Tela Cheia</button>
+        <button class="mode-opt active" onclick="pickMode(4)"><span class="opt-dot"></span>Rotação Automática</button>
+      </div>
+    </div>
+    <button type="button" class="header-btn" onclick="toggleConfig()">Config</button>
+    <button type="button" class="header-btn" onclick="toggleFullscreen()">Tela Cheia</button>
+    <div class="mode-wrap">
+      <button type="button" class="mode-trigger" onclick="toggleThemeMenu()">
+        <span id="themeName">Titânio</span>
+      </button>
+      <div class="mode-dropdown" id="themeDropdown">
+        <button class="mode-opt" onclick="pickTheme('mark42')"><span class="opt-dot"></span>Mark 42</button>
+        <button class="mode-opt active" onclick="pickTheme('titanio')"><span class="opt-dot"></span>Titânio</button>
+        <button class="mode-opt" onclick="pickTheme('studio')"><span class="opt-dot"></span>Studio</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG OVERLAY -->
+<div class="config-overlay" id="cfgOverlay" onclick="toggleConfig()"></div>
+
+<!-- CONFIG PANEL -->
+<div class="config-panel" id="cfgPanel">
+  <div class="config-panel-header">
+    <div class="config-panel-title">Configuracoes do Dashboard</div>
+    <button class="config-close" onclick="toggleConfig()" aria-label="Fechar configurações">&#10005;</button>
+  </div>
+  <div class="config-section">
+    <div class="config-section-title">Conexao Google Sheets</div>
+    <div class="config-row-flex">
+      <div class="config-field" style="flex:3"><label>Spreadsheet ID</label><input id="sheetId" value="1OtL3Z9gprDdBxB9CBh-dCwniFPhRiI3xiaDaYbAlLa0"></div>
+      <div class="config-field" style="flex:3"><label>API Key Google</label><input id="apiKey" type="password" value="AIzaSyDx2xy1pA40xirNCimHJ9Rbga4gNU48O60"></div>
+      <button class="btn-cfg blue" onclick="saveAPI(this)">Salvar e Conectar</button>
+    </div>
+  </div>
+  <div class="config-section">
+    <div class="config-section-title">Meta Diaria</div>
+    <div class="config-row-flex">
+      <div class="config-field" style="flex:1"><label>Valor da Meta (R$)</label><input type="number" id="metaDiaria" value="8064.55" step="0.01"></div>
+      <button class="btn-cfg green" onclick="saveMeta()">Salvar Meta</button>
+    </div>
+  </div>
+  <div class="config-section">
+    <div class="config-section-title">Auto-Refresh</div>
+    <div class="config-row-flex">
+      <div class="config-field" style="flex:1"><label>Intervalo (segundos)</label><input type="number" id="refreshInterval" value="60" min="10" max="600"></div>
+      <div class="config-field" style="flex:1">
+        <label>Rotação de slides (seg)</label>
+        <input type="number" id="slideInterval" value="8" min="3" max="30">
+      </div>
+      <button class="btn-cfg orange" onclick="saveRefresh()">Salvar</button>
+    </div>
+  </div>
+  <div class="config-section">
+    <div class="config-section-title">Notificações por tipo de evento</div>
+    <div class="event-config-grid">
+      <div class="event-config-row">
+        <div class="event-config-name">
+          <span class="event-dot" style="background:var(--green)"></span>
+          Venda
+        </div>
+        <select id="soundEnabled">
+          <option value="1">Som ativado</option>
+          <option value="0">Som desativado</option>
+        </select>
+        <select id="soundPack">
+          <option value="classico">Clássico</option>
+          <option value="hud">HUD</option>
+          <option value="suave">Suave</option>
+        </select>
+        <select id="popupEnabled">
+          <option value="1">Pop-up ativado</option>
+          <option value="0">Pop-up desativado</option>
+        </select>
+        <button class="btn-cfg green" onclick="testNotification()">Testar</button>
+      </div>
+      <div class="event-config-row event-config-row-disabled">
+        <div class="event-config-name">
+          <span class="event-dot" style="background:var(--ink2)"></span>
+          Carrinho abandonado
+        </div>
+        <div class="event-config-pending">Planilha atual não recebe esse dado — configuração some ativa quando existir integração</div>
+      </div>
+      <div class="event-config-row event-config-row-disabled">
+        <div class="event-config-name">
+          <span class="event-dot" style="background:var(--ink2)"></span>
+          Pix gerado
+        </div>
+        <div class="event-config-pending">Planilha atual não recebe esse dado — configuração some ativa quando existir integração</div>
+      </div>
+      <div class="event-config-row event-config-row-disabled">
+        <div class="event-config-name">
+          <span class="event-dot" style="background:var(--ink2)"></span>
+          Cartão recusado
+        </div>
+        <div class="event-config-pending">Planilha atual não recebe esse dado — configuração some ativa quando existir integração</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="config-toast" id="cfgToast" role="status" aria-live="polite"></div>
+
+<!-- MODE 1 — "Central": a pergunta "estamos ganhando?" respondida com
+     números reais lado a lado — faixa de indicadores em cima, ranking e
+     funil de conversão visíveis ao mesmo tempo. Painel de operação, não
+     cartão decorativo. -->
+<div class="view-mode1" id="view1">
+  <div class="cmd-stats">
+    <div class="cmd-stat">
+      <span class="cmd-stat-label">Vendas hoje</span>
+      <span class="cmd-stat-value" id="m1kH" style="color:var(--green)">R$ 0,00</span>
+      <span class="cmd-stat-sub" id="m1kHs">0 vendas</span>
+    </div>
+    <div class="cmd-stat">
+      <span class="cmd-stat-label">Meta diária</span>
+      <span class="cmd-stat-value" id="m1kMt">R$ 0,00</span>
+      <span class="cmd-stat-sub" id="m1kMts">0% atingido</span>
+    </div>
+    <div class="cmd-stat">
+      <span class="cmd-stat-label">% da meta</span>
+      <span class="cmd-stat-value" id="m1kPct" style="color:var(--accent)">0%</span>
+      <span class="cmd-stat-sub" id="m1kPctSub">—</span>
+    </div>
+    <div class="cmd-stat">
+      <span class="cmd-stat-label">Vendas no mês</span>
+      <span class="cmd-stat-value" id="m1kM" style="color:var(--purple)">R$ 0,00</span>
+      <span class="cmd-stat-sub" id="m1kMs">0 vendas</span>
+    </div>
+  </div>
+  <div class="cmd-layout">
+    <div class="cmd-board">
+      <div class="cmd-board-title">Ranking — Hoje</div>
+      <div class="leaderboard" id="m1tracks"></div>
+    </div>
+    <div class="cmd-board">
+      <div class="cmd-board-title">Funil por Produto — Hoje</div>
+      <div class="funnel" id="m1Funnel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODE 2 -->
+<div class="view-mode2" id="view2">
+  <div class="m2-top leaderboard leaderboard-compact" id="m2tracks"></div>
+  <div class="m2-bottom">
+    <div class="m2-kpis-feed">
+      <div class="m2-kpi-row">
+        <div class="m2-kpi"><div class="m2-kpi-label">Vendas Hoje</div><div class="m2-kpi-val" id="m2kH" style="color:var(--green)">R$ 0</div></div>
+        <div class="m2-kpi"><div class="m2-kpi-label">Meta Diaria</div><div class="m2-kpi-val" id="m2kMt">R$ 0</div></div>
+        <div class="m2-kpi"><div class="m2-kpi-label">Gap</div><div class="m2-kpi-val" id="m2kG" style="color:var(--red)">R$ 0</div></div>
+      </div>
+      <div class="m2-feed-title">Ultimas Vendas</div>
+      <div class="m2-feed" id="m2feed"></div>
+    </div>
+    <div class="m2-chart-panel">
+      <div class="m2-chart-title">Funil por Produto — Hoje</div>
+      <div class="funnel" id="productFunnel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODE 3 -->
+<div class="view-mode3" id="view3">
+  <div class="cmd-board-title">Ranking — Hoje</div>
+  <div class="leaderboard leaderboard-lg" id="view3tracks"></div>
+</div>
+
+<!-- MODE 4 -->
+<div class="view-mode4 active" id="view4">
+  <div class="m4-slide visible">
+    <div class="cmd-board-title">Ranking — Hoje</div>
+    <div class="leaderboard leaderboard-lg" id="m4s1"></div>
+  </div>
+  <div class="m4-slide" id="m4s2"><div class="m4-slide-kpis" id="m4kpis"></div></div>
+  <div class="m4-slide" id="m4s3"><div class="m4-slide-feed"><div class="m4-feed-title">Feed de Vendas &mdash; Hoje</div><div class="m4-feed-list" id="m4feed"></div></div></div>
+  <div class="m4-slide" id="m4s4"><div class="m4-slide-monthly"><div class="m4-feed-title">Ranking do M&ecirc;s &mdash; Individual</div><div class="m4-monthly-list" id="m4monthly"></div></div></div>
+  <div class="m4-progress" id="m4progress"></div>
+</div>
+
+<!-- CONNECTION STATS BAR -->
+<div class="conn-stats" id="connStats">
+  <div class="conn-stat"><div class="dot" id="connDot"></div><span id="connLabel">Desconectado</span></div>
+  <div class="conn-stat"><span id="connLastUpdate">--</span></div>
+  <div class="conn-stat"><span id="connErrors">Erros: 0</span></div>
+  <div class="conn-stat"><span id="connLatency">Latencia: --</span></div>
+</div>
+
+<script>
+// ================================================================
+// STATE MANAGEMENT (single source of truth)
+// ================================================================
+const State = {
+  vendors: ['BEATRIZ','JOAO VICTOR','JARDEL','MARCELO'],
+  nameMap: {
+    'BIA':'BEATRIZ','BEATRIZ':'BEATRIZ',
+    'JARDEL':'JARDEL',
+    'JOAO VICTOR':'JOAO VICTOR','JOÃO VICTOR':'JOAO VICTOR',
+    'MARCELO':'MARCELO'
+  },
+  displayNames: {
+    'BEATRIZ':'Beatriz','JOAO VICTOR':'Joao Victor','JARDEL':'Jardel',
+    'MARCELO':'Marcelo'
+  },
+  colors: {
+    'BEATRIZ':      {bar:'#3b82f6', bg:'rgba(59,130,246,0.25)',  glow:'rgba(59,130,246,0.15)'},
+    'JOAO VICTOR':  {bar:'#a855f7', bg:'rgba(168,85,247,0.25)', glow:'rgba(168,85,247,0.15)'},
+    'JARDEL':       {bar:'#ec4899', bg:'rgba(236,72,153,0.25)', glow:'rgba(236,72,153,0.15)'},
+    'MARCELO':      {bar:'#f97316', bg:'rgba(249,115,22,0.25)', glow:'rgba(249,115,22,0.15)'}
+  },
+  rawData: [],
+  dashData: null,
+  prevTotals: {},
+  bonusFlags: {},
+  isConnected: false,
+  currentMode: 4,
+  errorCount: 0,
+  lastFetchMs: 0,
+  lastUpdateTime: null,
+  fetchCount: 0
+};
+
+// ================================================================
+// DOM CACHE
+// ================================================================
+const DOM = {};
+function cacheDOM() {
+  ['loader','loaderSub','confetti','offlineBanner','dateInfo','refreshInfo','statusBadge',
+   'modeName','modeDropdown','cfgPanel','cfgOverlay','cfgToast',
+   'sheetId','apiKey','metaDiaria','refreshInterval','slideInterval',
+   'soundEnabled','popupEnabled','soundPack','themeDropdown','themeName',
+   'm1kH','m1kHs','m1kM','m1kMs','m1kMt','m1kMts','m1kPct','m1kPctSub','m1tracks','m1Funnel',
+   'm2kH','m2kMt','m2kG','m2tracks','m2feed','productFunnel',
+   'view1','view2','view3','view3tracks','view4',
+   'm4s1','m4kpis','m4feed','m4monthly','m4progress',
+   'saleNotif','notifTime','notifVendor','notifValue','notifProduct','notifMemeEmoji','notifMemeTitle',
+   'connDot','connLabel','connLastUpdate','connErrors','connLatency'
+  ].forEach(id => { DOM[id] = document.getElementById(id); });
+}
+
+// ================================================================
+// UTILITIES
+// ================================================================
+const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtK = v => v >= 1000 ? 'R$ ' + (v/1000).toFixed(1).replace('.', ',') + 'k' : fmt(v);
+
+// Escapa texto vindo da planilha antes de inserir no HTML — impede que um
+// nome de cliente/produto/vendedor com "<script>" ou similar seja executado.
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+
+// Identificador de vendedor usado em atributos/seletores DOM — baseado na
+// posição, nunca no nome (que vem da planilha e não pode ser confiável
+// dentro de um atributo HTML entre aspas).
+function vid(idx) { return 'vslot' + idx; }
+
+function normName(raw) {
+  if (!raw) return '';
+  const upper = raw.toUpperCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove accents
+  return State.nameMap[upper] || upper;
+}
+
+function pDate(s) {
+  if (!s) return null;
+  const p = s.replace(',', '').trim().split(/\s+/);
+  const d = p[0].split('/');
+  if (d.length < 3) return null;
+  const day = +d[0], month = +d[1], year = +d[2];
+  let h = 0, m = 0, c = 0;
+  if (p[1]) { const t = p[1].split(':'); h = +t[0]||0; m = +t[1]||0; c = +t[2]||0; }
+  const date = new Date(year, month-1, day, h, m, c);
+  if (isNaN(date.getTime())) return null;
+  // new Date() "rola" datas fora do intervalo (ex: 31/02 vira 03/03) em vez
+  // de rejeitar — confere se o que foi criado bate com o que foi digitado.
+  if (date.getDate() !== day || date.getMonth() !== month-1 || date.getFullYear() !== year) return null;
+  return date;
+}
+
+function pVal(v) {
+  if (!v) return 0;
+  let c = String(v).trim().replace(/^R\$\s*/i, '');
+  if (c.includes(',')) {
+    // Formato BR com decimais: "1.234,56" → ponto é separador de milhar
+    c = c.replace(/\./g, '').replace(',', '.');
+  } else if (/\.\d{3}$/.test(c)) {
+    // Formato BR sem decimais: "1.234" → moeda nunca tem 3 casas decimais,
+    // então o ponto aqui só pode ser separador de milhar, não decimal.
+    c = c.replace(/\./g, '');
+  }
+  const n = parseFloat(c);
+  return isNaN(n) ? 0 : n;
+}
+
+function isToday(d) {
+  if (!d) return false;
+  const n = new Date();
+  return d.getDate()===n.getDate() && d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+}
+
+function isMonth(d) {
+  if (!d) return false;
+  const n = new Date();
+  return d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+}
+
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0]).join('');
+}
+
+// Posição no placar (1 = líder) por vendas de hoje — sem isso, o "ranking"
+// só existia de nome; a ordem na tela era a ordem crua da planilha.
+// Ranking balanceado: valor vendido E número de vendas contam igual.
+// Sem isso, quem fecha 1 venda grande por sorte de ticket sempre fica na
+// frente de quem trabalhou mais fechando várias vendas menores.
+// Cada métrica é normalizada (0 a 1, relativa ao maior do time) e somada
+// com peso igual antes de ordenar — não é a soma bruta dos R$.
+function computeScores(vendors, countsByName, valorField) {
+  valorField = valorField || 'vendasHoje';
+  const maxValor = Math.max(...vendors.map(v => v[valorField]), 1);
+  const maxQtd = Math.max(...vendors.map(v => countsByName.get(v.nome) || 0), 1);
+  return vendors.map(v => {
+    const qtd = countsByName.get(v.nome) || 0;
+    const scoreValor = v[valorField] / maxValor;
+    const scoreQtd = qtd / maxQtd;
+    return { nome: v.nome, qtd, score: (scoreValor + scoreQtd) / 2 };
+  });
+}
+
+function computeRanks(vendors, countsByName, valorField) {
+  const scored = computeScores(vendors, countsByName || new Map(), valorField);
+  scored.sort((a, b) => b.score - a.score);
+  const ranks = new Map();
+  scored.forEach((v, i) => ranks.set(v.nome, i + 1));
+  return ranks;
+}
+
+// Conta quantas vendas cada vendedor fechou num conjunto de vendas cruas
+// (a mesma lista já filtrada por hoje/mês em refresh())
+function countByVendor(sales) {
+  const counts = new Map();
+  sales.forEach(s => counts.set(s.vendedor, (counts.get(s.vendedor) || 0) + 1));
+  return counts;
+}
+const padPos = n => String(n).padStart(2, '0'); // "01" em vez de "1" — leitura de painel técnico
+
+// ================================================================
+// UI HELPERS
+// ================================================================
+function showLoad(on, msg) {
+  DOM.loader.classList.toggle('on', on);
+  if (msg && DOM.loaderSub) DOM.loaderSub.textContent = msg;
+}
+
+function showToast(msg) {
+  DOM.cfgToast.textContent = msg;
+  DOM.cfgToast.classList.add('show');
+  setTimeout(() => DOM.cfgToast.classList.remove('show'), 2500);
+}
+
+function toggleConfig() {
+  const open = DOM.cfgPanel.classList.toggle('open');
+  DOM.cfgOverlay.classList.toggle('open', open);
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+function updateConnectionStatus(status) {
+  const badge = DOM.statusBadge;
+  badge.className = 'tv-live';
+  if (status === 'live') {
+    badge.textContent = 'LIVE';
+    /* default green (bug fix: removed classList.add with empty token) */
+    DOM.connDot.className = 'dot ok';
+    DOM.connLabel.textContent = 'Conectado';
+  } else if (status === 'error') {
+    badge.textContent = 'ERRO';
+    badge.classList.add('error');
+    DOM.connDot.className = 'dot err';
+    DOM.connLabel.textContent = 'Erro de conexao';
+  } else {
+    badge.textContent = 'CONECTANDO';
+    badge.classList.add('connecting');
+    DOM.connDot.className = 'dot warn';
+    DOM.connLabel.textContent = 'Conectando...';
+  }
+  DOM.connErrors.textContent = 'Erros: ' + State.errorCount;
+}
+
+function updateConnStats() {
+  if (State.lastUpdateTime) {
+    DOM.connLastUpdate.textContent = 'Atualizado: ' + State.lastUpdateTime.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }
+  DOM.connLatency.textContent = 'Latencia: ' + State.lastFetchMs + 'ms';
+}
+
+// ================================================================
+// NOTIFICATION SYSTEM
+// ================================================================
+let notifQueue = [];
+let notifShowing = false;
+const saleSoundCache = {};
+
+function tone(ctx, {type, freq, freqEnd, start, dur, peak}) {
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur * 0.85);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, start + Math.min(0.02, dur * 0.2));
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.start(start);
+  osc.stop(start + dur);
+}
+
+// 3 estilos sintetizados (sem arquivo de áudio externo — só osciladores).
+const SOUND_PACKS = {
+  // Clássico: o chime original de 2 notas
+  classico: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'square', freq:987.77, start:now, dur:0.09, peak:0.12});
+    tone(ctx, {type:'square', freq:1318.51, start:now + 0.09, dur:0.18, peak:0.12});
+  },
+  // HUD: varredura eletrônica + blip de confirmação — referência sci-fi
+  hud: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'sawtooth', freq:420, freqEnd:1400, start:now, dur:0.14, peak:0.09});
+    tone(ctx, {type:'square', freq:1760, start:now + 0.15, dur:0.08, peak:0.08});
+  },
+  // Suave: um único tom sino, sem o timbre "8-bit" do quadrado
+  suave: ctx => {
+    tone(ctx, {type:'sine', freq:740, start:ctx.currentTime, dur:0.35, peak:0.1});
+  }
+};
+
+function createSaleSound(pack) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const play = SOUND_PACKS[pack] || SOUND_PACKS.classico;
+    return () => play(ctx);
+  } catch { return null; }
+}
+
+function getSaleSound(pack) {
+  if (!saleSoundCache[pack]) saleSoundCache[pack] = createSaleSound(pack);
+  return saleSoundCache[pack];
+}
+
+// ================================================================
+// SONS DE CELEBRAÇÃO — tocam ~350ms depois do som normal de notificação,
+// junto com o cartão de "meme" (emoji + frase). 6 timbres sintetizados,
+// distribuídos entre os 30 cartões da biblioteca abaixo.
+// ================================================================
+const celebSoundCache = {};
+const CELEBRATION_SOUNDS = {
+  // Sirene tipo ambulância/viatura — duas notas alternando rápido
+  sirene: ctx => {
+    const now = ctx.currentTime;
+    for (let i = 0; i < 6; i++) {
+      tone(ctx, {type:'sawtooth', freq: i % 2 === 0 ? 880 : 660, start: now + i * 0.12, dur: 0.13, peak: 0.1});
+    }
+  },
+  // Buzina — nota grave e sustentada, tipo air horn
+  buzina: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'sawtooth', freq: 220, start: now, dur: 0.5, peak: 0.13});
+    tone(ctx, {type:'sawtooth', freq: 330, start: now, dur: 0.5, peak: 0.08});
+  },
+  // Caixa registradora — dois blips agudos e curtos
+  caixa: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'sine', freq: 1568, start: now, dur: 0.07, peak: 0.12});
+    tone(ctx, {type:'sine', freq: 2093, start: now + 0.08, dur: 0.12, peak: 0.12});
+  },
+  // Tambor/impacto — nota grave curta, tipo "queda de graves"
+  tambor: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'triangle', freq: 160, freqEnd: 50, start: now, dur: 0.3, peak: 0.16});
+  },
+  // Laser — varredura aguda rápida
+  laser: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'square', freq: 1800, freqEnd: 300, start: now, dur: 0.18, peak: 0.09});
+  },
+  // Aplauso/shimmer — sequência curta ascendente
+  aplauso: ctx => {
+    const now = ctx.currentTime;
+    [523, 659, 784, 1047].forEach((freq, i) => tone(ctx, {type:'sine', freq, start: now + i * 0.06, dur: 0.15, peak: 0.09}));
+  }
+};
+
+function getCelebrationSound(kind) {
+  if (!celebSoundCache[kind]) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const play = CELEBRATION_SOUNDS[kind] || CELEBRATION_SOUNDS.caixa;
+      celebSoundCache[kind] = () => play(ctx);
+    } catch { celebSoundCache[kind] = null; }
+  }
+  return celebSoundCache[kind];
+}
+
+// ================================================================
+// BIBLIOTECA DE CELEBRAÇÃO — 30 cartões (emoji + frase + cor + som).
+// Substitui GIF de meme (não é possível baixar conteúdo de terceiros com
+// direito autoral — ver conversa). Mesma mecânica: cada faixa de valor e
+// cada faixa de quantidade de vendas do dia tem seu próprio grupo de
+// cartões elegíveis, escolhido por sorteio pra não repetir sempre o mesmo.
+// ================================================================
+const MEME_LIBRARY = [
+  {emoji:'🔥', title:'PEGANDO FOGO', color:'#ff4d2e', sound:'sirene'},
+  {emoji:'🚀', title:'PRA LUA', color:'#3ec6e0', sound:'laser'},
+  {emoji:'💰', title:'CHUVA DE DINHEIRO', color:'#eab308', sound:'caixa'},
+  {emoji:'🐐', title:'O CABEÇA DO TIME', color:'#a855f7', sound:'aplauso'},
+  {emoji:'⚡', title:'RAIO', color:'#eab308', sound:'laser'},
+  {emoji:'🏆', title:'CAMPEÃO DO DIA', color:'#eab308', sound:'aplauso'},
+  {emoji:'🎯', title:'ALVO CERTEIRO', color:'#22c55e', sound:'caixa'},
+  {emoji:'💪', title:'MÁQUINA DE VENDER', color:'#ef4444', sound:'tambor'},
+  {emoji:'🦈', title:'TUBARÃO DAS VENDAS', color:'#3ec6e0', sound:'sirene'},
+  {emoji:'🌟', title:'ESTRELA DO TIME', color:'#eab308', sound:'aplauso'},
+  {emoji:'🥷', title:'SILENCIOSO E LETAL', color:'#a855f7', sound:'laser'},
+  {emoji:'🎉', title:'FESTA NO TIME', color:'#ec4899', sound:'aplauso'},
+  {emoji:'🐺', title:'LOBO SOLITÁRIO', color:'#838a97', sound:'tambor'},
+  {emoji:'🏎️', title:'VELOCIDADE MÁXIMA', color:'#ef4444', sound:'buzina'},
+  {emoji:'💎', title:'MÃOS DE DIAMANTE', color:'#3ec6e0', sound:'caixa'},
+  {emoji:'🍾', title:'ESTOUROU O CHAMPANHE', color:'#eab308', sound:'aplauso'},
+  {emoji:'🦾', title:'BRAÇO BIÔNICO', color:'#3ec6e0', sound:'tambor'},
+  {emoji:'🎸', title:'ARRASOU', color:'#ec4899', sound:'buzina'},
+  {emoji:'🥇', title:'MEDALHA DE OURO', color:'#eab308', sound:'aplauso'},
+  {emoji:'🌪️', title:'FUNIL EM CHAMAS', color:'#ff4d2e', sound:'sirene'},
+  {emoji:'🧨', title:'EXPLOSÃO DE VENDA', color:'#ef4444', sound:'tambor'},
+  {emoji:'🦅', title:'VOO DE ÁGUIA', color:'#3ec6e0', sound:'laser'},
+  {emoji:'🔋', title:'ENERGIA TOTAL', color:'#22c55e', sound:'buzina'},
+  {emoji:'🎢', title:'SÓ PRA CIMA', color:'#a855f7', sound:'laser'},
+  {emoji:'🐉', title:'DRAGÃO DAS METAS', color:'#ef4444', sound:'sirene'},
+  {emoji:'🛎️', title:'TOCA O SININHO', color:'#eab308', sound:'caixa'},
+  {emoji:'🏹', title:'FLECHADA CERTEIRA', color:'#22c55e', sound:'laser'},
+  {emoji:'🌋', title:'VULCÃO EM ERUPÇÃO', color:'#ff4d2e', sound:'sirene'},
+  {emoji:'🦿', title:'IMPARÁVEL', color:'#3ec6e0', sound:'tambor'},
+  {emoji:'👑', title:'REI DO DIA', color:'#eab308', sound:'aplauso'}
+];
+// Índices de MEME_LIBRARY elegíveis por faixa — sobrepostos de propósito
+// (um cartão pode caber em mais de uma faixa), sorteio dá a variedade.
+const VALUE_TIER_POOLS = {
+  pequena: [6,10,12,22,26],
+  media:   [0,1,4,7,14,17,21,23,27],
+  grande:  [2,5,8,9,13,15,16,19,20,24,28],
+  gigante: [3,11,18,25,29]
+};
+const COUNT_TIER_POOLS = {
+  primeira: [6,10,22,26],
+  tres:     [0,4,7,14,17,21],
+  cinco:    [2,8,9,13,16,19,24],
+  dez:      [3,11,18,25,28,29]
+};
+function valueTier(delta) {
+  if (delta >= 1000) return 'gigante';
+  if (delta >= 500) return 'grande';
+  if (delta >= 150) return 'media';
+  return 'pequena';
+}
+function countTier(n) {
+  if (n >= 10) return 'dez';
+  if (n >= 5) return 'cinco';
+  if (n >= 3) return 'tres';
+  return 'primeira';
+}
+function pickMeme(indexPool) {
+  const pool = indexPool.length ? indexPool : [0];
+  return MEME_LIBRARY[pool[Math.floor(Math.random() * pool.length)]];
+}
+
+function showSaleNotification(vendor, value, product, qtdHoje) {
+  if (DOM.popupEnabled.value === '0') return;
+  notifQueue.push({ vendor, value, product, qtdHoje: qtdHoje || 1 });
+  if (!notifShowing) processNotifQueue();
+}
+
+function processNotifQueue() {
+  if (!notifQueue.length) { notifShowing = false; return; }
+  notifShowing = true;
+  const n = notifQueue.shift();
+  const display = State.displayNames[n.vendor] || n.vendor;
+  const vendorColor = (State.colors[n.vendor] || {bar:'#fff'}).bar;
+  DOM.notifVendor.textContent = display;
+  DOM.notifVendor.style.color = vendorColor;
+  DOM.notifValue.textContent = fmt(n.value);
+  DOM.notifProduct.textContent = n.product || '';
+  DOM.notifTime.textContent = 'agora';
+
+  // Escolhe o cartão de celebração: faixa de valor da venda + quantas
+  // vendas esse vendedor já fez hoje — cada faixa tem seu próprio pool,
+  // pra não repetir sempre o mesmo cartão.
+  const meme = pickMeme([...VALUE_TIER_POOLS[valueTier(n.value)], ...COUNT_TIER_POOLS[countTier(n.qtdHoje)]]);
+  DOM.notifMemeEmoji.textContent = meme.emoji;
+  DOM.notifMemeTitle.textContent = meme.title;
+  DOM.saleNotif.style.setProperty('--meme-color', meme.color);
+
+  DOM.saleNotif.classList.add('show');
+
+  // 1) som normal de notificação (o mesmo configurado em Config)
+  if (DOM.soundEnabled.value === '1') {
+    const play = getSaleSound(DOM.soundPack.value);
+    if (play) play();
+  }
+  // 2) ~350ms depois, o som do cartão de celebração — sequência pedida:
+  //    "som normal, depois o gif/cartão aparece com o som dele"
+  setTimeout(() => {
+    const celebPlay = getCelebrationSound(meme.sound);
+    if (celebPlay) celebPlay();
+  }, 350);
+
+  setTimeout(() => {
+    DOM.saleNotif.classList.remove('show');
+    setTimeout(processNotifQueue, 300);
+  }, 5000);
+}
+
+function testNotification() {
+  showSaleNotification('BEATRIZ', 1500.00, 'Produto Teste', 4);
+}
+
+// ================================================================
+// CONFIG ACTIONS
+// ================================================================
+async function saveAPI(btn) {
+  if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
+  try {
+    await connectAndStart(false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+  }
+  showToast('API salva e reconectando...');
+}
+function saveMeta() {
+  if (State.isConnected) refresh();
+  showToast('Meta diaria atualizada!');
+}
+function saveRefresh() {
+  if (State.isConnected) startAutoRefresh();
+  showToast('Intervalos atualizados!');
+}
+
+// ================================================================
+// TEMA CLARO/ESCURO
+// ================================================================
+const THEME_NAMES = {mark42:'Mark 42', titanio:'Titânio', studio:'Studio'};
+
+function applyTheme(theme) {
+  if (theme === 'mark42' || theme === 'studio') {
+    document.documentElement.setAttribute('data-theme', theme);
+  } else {
+    document.documentElement.removeAttribute('data-theme'); // titânio = padrão do :root
+    theme = 'titanio';
+  }
+  DOM.themeName.textContent = THEME_NAMES[theme];
+  document.querySelectorAll('#themeDropdown .mode-opt').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick') === `pickTheme('${theme}')`);
+  });
+  try { localStorage.setItem('dashboardTheme', theme); } catch (e) {}
+}
+
+function toggleThemeMenu() { DOM.themeDropdown.classList.toggle('open'); }
+
+function pickTheme(theme) {
+  applyTheme(theme);
+  DOM.themeDropdown.classList.remove('open');
+}
+
+// ================================================================
+// MODE SWITCHING
+// ================================================================
+const MODE_NAMES = {1:'Barras + KPI', 2:'Tela Dividida', 3:'Tela Cheia', 4:'Rotação'};
+let m4Timer = null;
+
+function toggleModeMenu() { DOM.modeDropdown.classList.toggle('open'); }
+
+function pickMode(m) {
+  setMode(m);
+  DOM.modeDropdown.classList.remove('open');
+}
+
+function setMode(m) {
+  State.currentMode = m;
+  [1,2,3,4].forEach(i => {
+    const v = DOM['view'+i];
+    if (v) v.classList.toggle('active', i === m);
+  });
+  document.querySelectorAll('#modeDropdown .mode-opt').forEach((b,i) => b.classList.toggle('active', i+1===m));
+  DOM.modeName.textContent = MODE_NAMES[m] || 'Modo '+m;
+  if (m === 4) startM4Rotation(); else stopM4Rotation();
+  if (State.isConnected) refresh();
+}
+
+document.addEventListener('click', e => {
+  if (!DOM.modeDropdown.parentElement.contains(e.target)) DOM.modeDropdown.classList.remove('open');
+  if (!DOM.themeDropdown.parentElement.contains(e.target)) DOM.themeDropdown.classList.remove('open');
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key >= '1' && e.key <= '4') { setMode(+e.key); e.preventDefault(); }
+  if (e.key === 'f' || e.key === 'F') { toggleFullscreen(); e.preventDefault(); }
+  if (e.key === 'c' || e.key === 'C') { toggleConfig(); e.preventDefault(); }
+  if (e.key === 'r' || e.key === 'R') { if (State.isConnected) fetchAllData(); e.preventDefault(); }
+});
+
+// ================================================================
+// PARSE DASHBOARD TAB
+// ================================================================
+function parseDashboardTab(rows) {
+  if (!rows || rows.length < 11) return null;
+  const r = { dataAnalisada: rows[2] ? (rows[2][1]||'') : '', vendors:[], totalHoje:0, totalMensal:0 };
+  for (let i = 3; i <= 7; i++) {
+    const row = rows[i];
+    if (!row) continue;
+    const nome = normName(row[7]);
+    if (!nome) continue;
+    r.vendors.push({
+      nome,
+      vendasHoje: pVal(row[8]),
+      metaDiaria: pVal(row[9]),
+      gapDiario: pVal(row[10]),
+      vendasMes: pVal(row[11]),
+      gapAcumulado: pVal(row[12])
+    });
+  }
+  if (rows[8]) r.totalHoje = pVal(rows[8][8]);
+  if (rows[9]) r.totalMensal = pVal(rows[9][8]);
+  return r;
+}
+
+// ================================================================
+// DATA FETCHING
+// ================================================================
+let refreshTimer = null, countdown = 0, countdownTimer = null;
+let fetchSeq = 0; // evita que uma resposta antiga sobrescreva uma mais nova
+
+async function connectAndStart(showFullLoader = true) {
+  const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
+  if (!sid || !key) { showToast('Preencha Spreadsheet ID e API Key'); return; }
+  // Só usa o loader de tela cheia na primeira conexão (nada mais na tela
+  // ainda). Reconectar pelo painel de config usa o spinner local do botão —
+  // cobrir o painel que a pessoa acabou de mexer seria desorientador.
+  if (showFullLoader) showLoad(true, 'Buscando dados...');
+  updateConnectionStatus('connecting');
+  const ok = await fetchAllData();
+  if (showFullLoader) showLoad(false);
+  if (ok) {
+    State.isConnected = true;
+    updateConnectionStatus('live');
+    DOM.cfgPanel.classList.remove('open');
+    DOM.cfgOverlay.classList.remove('open');
+    if (State.dashData) {
+      State.dashData.vendors.forEach(v => {
+        State.prevTotals[v.nome] = v.vendasHoje;
+        State.bonusFlags[v.nome] = v.metaDiaria > 0 && v.vendasHoje >= v.metaDiaria;
+      });
+    }
+    startAutoRefresh();
+    if (State.currentMode === 4) startM4Rotation();
+  }
+}
+
+async function fetchAllData() {
+  const seq = ++fetchSeq;
+  const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values`;
+  const t0 = performance.now();
+  try {
+    const [dR, rR] = await Promise.all([
+      fetch(`${base}/${encodeURIComponent('DASHBOARD!A1:P20')}?key=${key}`),
+      fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${key}`)
+    ]);
+    if (!dR.ok) throw new Error('DASHBOARD: ' + dR.status);
+    if (!rR.ok) throw new Error('DADOS BRUTOS: ' + rR.status);
+    const [dJ, rJ] = await Promise.all([dR.json(), rR.json()]);
+
+    // Se uma busca mais nova já começou enquanto esta esperava a rede,
+    // descarta este resultado desatualizado em vez de sobrescrever o mais novo.
+    if (seq !== fetchSeq) return false;
+
+    State.dashData = parseDashboardTab(dJ.values || []);
+
+    State.rawData = [];
+    if (rJ.values && rJ.values.length > 1) {
+      for (let i = 1; i < rJ.values.length; i++) {
+        const row = rJ.values[i];
+        if (!row[0]) continue;
+        const status = (row[7] || '').toLowerCase().trim();
+        // Filter cancelled/invalid sales
+        if (status === 'cancelado' || status === 'cancelada') continue;
+        State.rawData.push({
+          data: pDate(row[0]),
+          vendedor: normName(row[1]),
+          produto: (row[2] || '').trim(),
+          valor: pVal(row[3]),
+          cliente: (row[4] || '').trim(),
+          status
+        });
+      }
+    }
+
+    State.lastFetchMs = Math.round(performance.now() - t0);
+    State.lastUpdateTime = new Date();
+    State.fetchCount++;
+    // Toda busca bem-sucedida limpa um "ERRO" anterior — sem isso, o selo
+    // ficava vermelho pra sempre mesmo depois da conexão voltar sozinha.
+    updateConnectionStatus('live');
+    updateConnStats();
+    refresh();
+    return true;
+  } catch (e) {
+    console.error('Fetch error:', e);
+    const wasHealthy = State.errorCount === 0;
+    State.errorCount++;
+    updateConnectionStatus('error');
+    updateConnStats();
+    // Só avisa no primeiro erro de uma sequência — evita ficar repetindo o
+    // toast a cada ciclo de auto-refresh enquanto o problema persiste.
+    if (wasHealthy) showToast(humanizeFetchError(e));
+    return false;
+  }
+}
+
+// Traduz o erro técnico em algo que quem está perto da TV consegue entender
+// e agir, sem precisar abrir o console do navegador.
+function humanizeFetchError(e) {
+  const msg = String((e && e.message) || e || '');
+  if (msg.includes('403')) return 'Acesso negado pelo Google — confira a API Key';
+  if (msg.includes('404')) return 'Planilha ou aba não encontrada — confira o Spreadsheet ID';
+  if (msg.includes('429')) return 'Muitas atualizações seguidas — aguardando o próximo ciclo';
+  if (msg.includes('DASHBOARD') || msg.includes('DADOS BRUTOS')) return 'A planilha não respondeu — tentando de novo em breve';
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Sem conexão com a internet';
+  return 'Não foi possível atualizar os dados agora';
+}
+
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  const iv = Math.max(10, Math.min(600, parseInt(DOM.refreshInterval.value) || 60));
+  countdown = iv;
+  countdownTimer = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) countdown = iv;
+    DOM.refreshInfo.textContent = 'Refresh ' + countdown + 's';
+  }, 1000);
+  refreshTimer = setInterval(async () => {
+    countdown = iv;
+    if (State.dashData) {
+      State.dashData.vendors.forEach(v => { State.prevTotals[v.nome] = v.vendasHoje; });
+    }
+    await fetchAllData();
+    detectNewSales();
+  }, iv * 1000);
+}
+
+// ================================================================
+// NEW SALE DETECTION
+// ================================================================
+function detectNewSales() {
+  if (!State.dashData) return;
+  State.dashData.vendors.forEach((v, idx) => {
+    const prev = State.prevTotals[v.nome] || 0;
+    const id = vid(idx);
+    // Flash bar on value change
+    if (v.vendasHoje > prev) {
+      [1,2,3,4].forEach(m => {
+        const bar = document.querySelector(`#view${m} [data-bar="${id}"], #m4s1 [data-bar="${id}"]`);
+        if (bar) { bar.classList.remove('flash'); void bar.offsetWidth; bar.classList.add('flash'); }
+      });
+      // Show notificação de celebração (meme + som) com o valor e a
+      // contagem de vendas do dia — as duas coisas escolhem o "meme"
+      const delta = v.vendasHoje - prev;
+      const qtdHoje = (State.todayCounts && State.todayCounts.get(v.nome)) || 1;
+      showSaleNotification(v.nome, delta, '', qtdHoje);
+    }
+    // Meta batida: o estilo dourado já é aplicado de forma declarativa
+    // dentro de buildLeaderboard a cada refresh — aqui só dispara o confete,
+    // uma vez, na transição de "não bateu" pra "bateu".
+    if (v.metaDiaria > 0 && v.vendasHoje >= v.metaDiaria && !State.bonusFlags[v.nome]) {
+      State.bonusFlags[v.nome] = true;
+      fireConfetti();
+    }
+  });
+}
+
+// ================================================================
+// ANIMATED VALUE UPDATE
+// ================================================================
+const animationFrames = {};
+function animTo(id, target) {
+  const el = DOM[id];
+  if (!el) return;
+  // Cancel previous animation
+  if (animationFrames[id]) cancelAnimationFrame(animationFrames[id]);
+  // Parse current displayed value
+  const currentText = el.textContent.replace(/[^0-9.,\-]/g, '').replace(/\./g, '').replace(',', '.');
+  const start = parseFloat(currentText) || 0;
+  const t0 = performance.now();
+  const duration = 800;
+  function update(now) {
+    const p = Math.min((now - t0) / duration, 1);
+    const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    el.textContent = fmt(start + (target - start) * eased);
+    if (p < 1) {
+      animationFrames[id] = requestAnimationFrame(update);
+    } else {
+      delete animationFrames[id];
+    }
+  }
+  animationFrames[id] = requestAnimationFrame(update);
+}
+
+// ================================================================
+// REFRESH ALL MODES
+// ================================================================
+function refresh() {
+  const now = new Date();
+  DOM.dateInfo.textContent = now.toLocaleDateString('pt-BR') + ' \u00B7 ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const metaInput = parseFloat(DOM.metaDiaria.value);
+  const meta = Number.isFinite(metaInput) ? metaInput : 8064.55; // "|| padrão" descartaria 0 digitado de propósito
+  const today = State.rawData.filter(d => isToday(d.data));
+  const month = State.rawData.filter(d => isMonth(d.data));
+  const tH = State.dashData ? State.dashData.totalHoje : today.reduce((s, d) => s + d.valor, 0);
+  const tM = State.dashData ? State.dashData.totalMensal : month.reduce((s, d) => s + d.valor, 0);
+  const gap = meta - tH;
+  const pctMeta = meta > 0 ? (tH / meta * 100) : 0;
+
+  // Mode 1 KPIs
+  animTo('m1kH', tH);
+  DOM.m1kHs.textContent = today.length + ' vendas';
+  animTo('m1kM', tM);
+  DOM.m1kMs.textContent = month.length + ' vendas';
+  animTo('m1kMt', meta);
+  DOM.m1kMts.textContent = pctMeta.toFixed(0) + '% atingido';
+  DOM.m1kPct.textContent = pctMeta.toFixed(0) + '%';
+  DOM.m1kPct.style.color = pctMeta >= 100 ? 'var(--green)' : 'var(--accent)';
+  DOM.m1kPctSub.textContent = gap > 0 ? ('faltam ' + fmt(gap)) : ('meta batida, +' + fmt(-gap));
+
+  // Mode 2 KPIs
+  animTo('m2kH', tH);
+  animTo('m2kMt', meta);
+  animTo('m2kG', Math.abs(gap));
+  DOM.m2kG.parentElement.querySelector('.m2-kpi-val').style.color = gap > 0 ? 'var(--red)' : 'var(--green)';
+
+  // Leaderboards — contagem de vendas por vendedor, pro ranking balanceado
+  const todayCounts = countByVendor(today);
+  const monthCounts = countByVendor(month);
+  State.todayCounts = todayCounts; // usado por detectNewSales pra escolher o cartão de celebração
+  if (State.dashData) buildAllBars(todayCounts);
+
+  // Feeds + Charts
+  buildFeed(today, 'm2feed', 8);
+  buildFeed(today, 'm4feed', 10);
+  buildProductFunnel(DOM.productFunnel, today);
+  buildProductFunnel(DOM.m1Funnel, today);
+  buildM4KPIs(tH, tM, meta, gap, today.length, month.length);
+  buildM4Monthly(monthCounts);
+}
+
+// ================================================================
+// RANKING DO MES (individual) — dados que a planilha ja manda
+// (vendasMes, gapAcumulado) mas que nenhuma tela mostrava ate agora
+// ================================================================
+function buildM4Monthly(monthCounts) {
+  if (!State.dashData || !State.dashData.vendors.length) { DOM.m4monthly.innerHTML = ''; return; }
+  const counts = monthCounts || new Map();
+  const ranks = computeRanks(State.dashData.vendors, counts, 'vendasMes');
+  const scores = computeScores(State.dashData.vendors, counts, 'vendasMes');
+  const qtdByName = new Map(scores.map(s => [s.nome, s.qtd]));
+  const ranked = [...State.dashData.vendors].sort((a, b) => ranks.get(a.nome) - ranks.get(b.nome));
+  DOM.m4monthly.innerHTML = ranked.map(v => {
+    const pos = ranks.get(v.nome);
+    const qtd = qtdByName.get(v.nome) || 0;
+    const col = State.colors[v.nome] || {bar:'#666'};
+    const display = State.displayNames[v.nome] || v.nome;
+    const gapAbs = Math.abs(v.gapAcumulado);
+    const gapTxt = v.gapAcumulado > 0 ? 'faltam ' + fmtK(gapAbs) + ' no mês' : fmtK(gapAbs) + ' acima no mês';
+    const gapColor = v.gapAcumulado > 0 ? 'var(--red)' : 'var(--green)';
+    return `
+      <div class="m4-monthly-item">
+        <span class="rank-badge" data-pos="${pos}">${padPos(pos)}</span>
+        <div class="m4-monthly-av" style="border-color:${col.bar};color:${col.bar}">${escapeHtml(initials(display))}</div>
+        <div class="m4-monthly-name" style="color:${col.bar}">${escapeHtml(display)} <span class="m4-monthly-qtd">${qtd} ${qtd===1?'venda':'vendas'}</span></div>
+        <div class="m4-monthly-right">
+          <div class="m4-monthly-val">${fmt(v.vendasMes)}</div>
+          <div class="m4-monthly-gap" style="color:${gapColor}">${gapTxt}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ================================================================
+// BUILD BARS
+// ================================================================
+function buildAllBars(countsByName) {
+  if (!State.dashData || !State.dashData.vendors.length) return;
+  buildLeaderboard(DOM.m1tracks, State.dashData.vendors, countsByName);
+  buildLeaderboard(DOM.m2tracks, State.dashData.vendors, countsByName);
+  buildLeaderboard(DOM.view3tracks, State.dashData.vendors, countsByName);
+  buildLeaderboard(DOM.m4s1, State.dashData.vendors, countsByName);
+}
+
+// Leaderboard em lista — substitui as colunas de barra. Ordena por
+// PONTUAÇÃO BALANCEADA (valor + quantidade, peso igual — ver computeScores),
+// mas mantém cada vendedor numa "raia" estável no DOM (via vid(idx) da
+// ordem original da planilha) e só reordena visualmente com CSS `order`.
+// Isso preserva a transição suave da barra ao atualizar valores.
+function buildLeaderboard(cont, vendors, countsByName) {
+  if (!cont || !vendors.length) return;
+  const maxV = Math.max(...vendors.map(v => v.vendasHoje), 1);
+  const scores = computeScores(vendors, countsByName);
+  const scoreByName = new Map(scores.map(s => [s.nome, s]));
+  const ranks = computeRanks(vendors, countsByName);
+
+  const sig = vendors.map(v => v.nome).join('|');
+  if (cont.dataset.vendorSig !== sig) {
+    cont.innerHTML = '';
+    vendors.forEach((v, idx) => {
+      const col = State.colors[v.nome] || {bar:'#666', bg:'rgba(100,100,100,0.2)'};
+      const id = vid(idx);
+      const display = State.displayNames[v.nome] || v.nome;
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      row.innerHTML = `
+        <span class="rank-badge" data-rankbadge="${id}"></span>
+        <div class="lb-avatar" data-avatar="${id}" style="border-color:${col.bar};color:${col.bar}">${escapeHtml(initials(display))}</div>
+        <div class="lb-main">
+          <div class="lb-name-row">
+            <span class="lb-name" data-vname="${id}" style="color:${col.bar}">${escapeHtml(display)}</span>
+            <span class="lb-hit-tag" data-hit="${id}" hidden>meta batida</span>
+            <span class="lb-qtd" data-qtd="${id}">0 vendas</span>
+          </div>
+          <div class="lb-bar-track"><div class="lb-bar-fill" data-bar="${id}" style="width:0%;background:${col.bar}"></div></div>
+        </div>
+        <div class="lb-stats">
+          <div class="lb-value" data-sold="${id}">R$ 0</div>
+          <div class="lb-detail" data-detail="${id}">--</div>
+        </div>`;
+      cont.appendChild(row);
+    });
+    cont.dataset.vendorSig = sig;
+  }
+
+  vendors.forEach((v, idx) => {
+    const pct = v.metaDiaria > 0 ? v.vendasHoje / v.metaDiaria * 100 : 0;
+    const hit = pct >= 100;
+    const id = vid(idx);
+    const pos = ranks.get(v.nome);
+    const qtd = (scoreByName.get(v.nome) || {}).qtd || 0;
+
+    const row = cont.querySelector(`[data-rankbadge="${id}"]`)?.closest('.lb-row');
+    if (row) row.style.order = pos;
+
+    const rb = cont.querySelector(`[data-rankbadge="${id}"]`);
+    if (rb) { rb.textContent = padPos(pos); rb.setAttribute('data-pos', pos); }
+
+    const bar = cont.querySelector(`[data-bar="${id}"]`);
+    if (bar) bar.style.width = Math.min(v.vendasHoje / maxV * 100, 100) + '%';
+
+    const sold = cont.querySelector(`[data-sold="${id}"]`);
+    if (sold) sold.textContent = fmt(v.vendasHoje);
+
+    const qtdEl = cont.querySelector(`[data-qtd="${id}"]`);
+    if (qtdEl) qtdEl.textContent = qtd + (qtd === 1 ? ' venda' : ' vendas');
+
+    const dtl = cont.querySelector(`[data-detail="${id}"]`);
+    if (dtl) {
+      const gapAbs = Math.abs(v.gapDiario);
+      dtl.textContent = v.gapDiario > 0 ? 'faltam ' + fmtK(gapAbs) : fmtK(gapAbs) + ' acima';
+      dtl.style.color = v.gapDiario > 0 ? 'var(--red)' : 'var(--green)';
+    }
+
+    const hitTag = cont.querySelector(`[data-hit="${id}"]`);
+    if (hitTag) hitTag.hidden = !hit;
+    const av = cont.querySelector(`[data-avatar="${id}"]`);
+    if (av) av.classList.toggle('gold', hit);
+  });
+}
+
+// ================================================================
+// MODE 4
+// ================================================================
+function buildM4KPIs(tH, tM, meta, gap, qH, qM) {
+  const pct = meta > 0 ? (tH/meta*100).toFixed(0) : 0;
+  DOM.m4kpis.innerHTML = `
+    <div class="m4-kpi-big"><div class="m4-kpi-big-label">Vendas Hoje</div><div class="m4-kpi-big-val" style="color:var(--green)">${fmt(tH)}</div><div class="m4-kpi-big-sub">${qH} vendas</div></div>
+    <div class="m4-kpi-big"><div class="m4-kpi-big-label">Meta Diaria</div><div class="m4-kpi-big-val">${fmt(meta)}</div><div class="m4-kpi-big-sub">${pct}% atingido</div></div>
+    <div class="m4-kpi-big"><div class="m4-kpi-big-label">Vendas no Mes</div><div class="m4-kpi-big-val" style="color:var(--accent)">${fmt(tM)}</div><div class="m4-kpi-big-sub">${qM} vendas</div></div>`;
+}
+
+function startM4Rotation() {
+  stopM4Rotation();
+  const slides = [...document.querySelectorAll('#view4 .m4-slide')];
+  const dur = Math.max(3, parseInt(DOM.slideInterval.value) || 8);
+  let slideIdx = 0;
+  slides.forEach((s,i) => s.classList.toggle('visible', i === 0));
+  DOM.m4progress.style.width = '0%';
+  let elapsed = 0;
+  m4Timer = setInterval(() => {
+    elapsed++;
+    const pct = (elapsed % dur) / dur * 100;
+    DOM.m4progress.style.width = pct + '%';
+    if (elapsed % dur === 0) {
+      slides[slideIdx].classList.remove('visible');
+      slideIdx = (slideIdx + 1) % slides.length;
+      slides[slideIdx].classList.add('visible');
+    }
+  }, 1000);
+}
+
+function stopM4Rotation() {
+  if (m4Timer) { clearInterval(m4Timer); m4Timer = null; }
+}
+
+// ================================================================
+// FEED
+// ================================================================
+function buildFeed(today, containerId, max) {
+  const sorted = [...today].sort((a,b) => (b.data||0) - (a.data||0)).slice(0, max || 10);
+  const f = DOM[containerId];
+  if (!f) return;
+  if (!sorted.length) {
+    f.innerHTML = '<div style="text-align:center;color:var(--text3);padding:40px;font-size:1rem;opacity:0.6">Aguardando vendas...</div>';
+    return;
+  }
+  const col = v => State.colors[v] ? State.colors[v].bar : 'var(--accent)';
+  f.innerHTML = sorted.map(s => {
+    const display = State.displayNames[s.vendedor] || s.vendedor;
+    return `
+    <div class="feed-item">
+      <div class="feed-av" style="border-color:${col(s.vendedor)};color:${col(s.vendedor)}">${escapeHtml(initials(display))}</div>
+      <div class="feed-info"><div class="feed-name">${escapeHtml(s.cliente) || '--'}</div><div class="feed-prod">${escapeHtml(s.produto)} &middot; ${escapeHtml(display)}</div></div>
+      <div class="feed-right"><div class="feed-val">${fmt(s.valor)}</div><div class="feed-time">${s.data ? s.data.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '--'}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ================================================================
+// CHART
+// ================================================================
+// Funil por produto: cada linha da planilha já tem o produto (coluna C),
+// isso É dado real — diferente de carrinho/pix/recusado, que não existem
+// na origem. Mostra onde o faturamento do dia está concentrado, e a queda
+// percentual de um produto pro próximo (não é decoração, é leitura real
+// de funil: 1º lugar = 100%, os outros mostram quanto ficam atrás dele).
+function buildProductFunnel(cont, sales) {
+  if (!cont) return;
+  const porProduto = new Map();
+  sales.forEach(s => {
+    const nome = s.produto || 'Sem produto';
+    const atual = porProduto.get(nome) || { valor: 0, qtd: 0 };
+    atual.valor += s.valor; atual.qtd += 1;
+    porProduto.set(nome, atual);
+  });
+  const linhas = [...porProduto.entries()].sort((a, b) => b[1].valor - a[1].valor);
+  if (!linhas.length) {
+    cont.innerHTML = '<div class="funnel-empty">Aguardando vendas de hoje...</div>';
+    return;
+  }
+  const maxValor = linhas[0][1].valor;
+  cont.innerHTML = linhas.map(([produto, d], i) => {
+    const pct = maxValor > 0 ? (d.valor / maxValor * 100) : 0;
+    const dropTxt = i === 0 ? '' : `<span class="funnel-stage-drop">${pct.toFixed(0)}% do 1º colocado</span>`;
+    return `
+      <div class="funnel-stage">
+        <div class="funnel-stage-top">
+          <span class="funnel-stage-label">${escapeHtml(produto)}</span>
+          <span class="funnel-stage-meta">${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'} &middot; <strong>${fmt(d.valor)}</strong></span>
+        </div>
+        <div class="funnel-stage-track">
+          <div class="funnel-stage-fill" style="width:${Math.max(pct, 2)}%; background:${FUNNEL_COLORS[i % FUNNEL_COLORS.length]}"></div>
+        </div>
+        ${dropTxt}
+      </div>`;
+  }).join('');
+}
+const FUNNEL_COLORS = ['#0052ff', '#00b341', '#7c3aed', '#ff8a00', '#ff2d78', '#00b8d4'];
+
+let rankChart = null;
+let chartLibWarned = false;
+function buildRankChart(month) {
+  // Se o Chart.js não carregou (CDN bloqueado/offline), não deixa o resto do
+  // refresh() parar por causa disso — só o gráfico fica sem atualizar.
+  if (typeof Chart === 'undefined') {
+    if (!chartLibWarned) { console.warn('Chart.js indisponível — gráfico de ranking mensal desativado nesta sessão.'); chartLibWarned = true; }
+    return;
+  }
+  // Lista de vendedores válidos vem da planilha (dinâmica), não de uma lista
+  // fixa — senão um vendedor novo aparece nas barras mas some do gráfico.
+  const roster = State.dashData ? State.dashData.vendors.map(v => v.nome) : State.vendors;
+  const vd = {};
+  month.forEach(s => {
+    if (roster.includes(s.vendedor)) vd[s.vendedor] = (vd[s.vendedor]||0) + s.valor;
+  });
+  const sorted = Object.entries(vd).sort((a,b) => b[1] - a[1]);
+  if (rankChart) rankChart.destroy();
+  const canvas = DOM.m2cRank;
+  if (!canvas) return;
+  rankChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => State.displayNames[s[0]] || s[0]),
+      datasets: [{
+        data: sorted.map(s => s[1]),
+        backgroundColor: sorted.map(e => State.colors[e[0]] ? State.colors[e[0]].bg : '#333'),
+        borderColor: sorted.map(e => State.colors[e[0]] ? State.colors[e[0]].bar : '#666'),
+        borderWidth: 2,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: {display:false},
+        tooltip: {
+          backgroundColor:'rgba(28,28,28,0.95)', borderColor:'#333', borderWidth:1,
+          bodyFont:{family:'JetBrains Mono', size:12}, padding:12, cornerRadius:8,
+          callbacks:{label:ctx=>fmt(ctx.parsed.x)}
+        }
+      },
+      scales: {
+        y: {ticks:{color:'#bbb', font:{family:'Inter', weight:700, size:13}}, grid:{display:false}},
+        x: {ticks:{color:'#555', font:{family:'JetBrains Mono', size:10}, callback:v=>fmtK(v)}, grid:{color:'rgba(26,26,26,0.5)'}}
+      }
+    }
+  });
+}
+
+// ================================================================
+// CONFETTI
+// ================================================================
+function fireConfetti() {
+  const c = DOM.confetti;
+  c.innerHTML = '';
+  c.classList.add('on');
+  const cols = ['#eab308','#3b82f6','#22c55e','#a855f7','#ec4899','#f97316'];
+  for (let i = 0; i < 100; i++) {
+    const p = document.createElement('div');
+    p.className = 'c-piece';
+    p.style.left = Math.random()*100 + '%';
+    p.style.top = '-10px';
+    p.style.background = cols[Math.floor(Math.random()*cols.length)];
+    const size = Math.random()*10 + 4;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    p.style.animationDuration = (Math.random()*2+2) + 's';
+    p.style.animationDelay = (Math.random()*1.5) + 's';
+    c.appendChild(p);
+  }
+  setTimeout(() => c.classList.remove('on'), 5500);
+}
+
+// ================================================================
+// VISIBILITY API - pause/resume when tab not visible
+// ================================================================
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopM4Rotation();
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  } else {
+    if (State.isConnected && State.currentMode === 4) startM4Rotation();
+    if (State.isConnected) startAutoRefresh();
+  }
+});
+
+// ================================================================
+// CONEXAO COM A INTERNET (nivel do navegador — diferente de erro da
+// API do Google, que pode falhar mesmo com internet normal)
+// ================================================================
+window.addEventListener('offline', () => { DOM.offlineBanner.classList.add('show'); document.body.classList.add('is-offline'); });
+window.addEventListener('online', () => {
+  DOM.offlineBanner.classList.remove('show');
+  document.body.classList.remove('is-offline');
+  if (State.isConnected) fetchAllData(); // internet voltou — busca na hora, sem esperar o proximo ciclo
+});
+
+// ================================================================
+// INIT
+// ================================================================
+window.addEventListener('load', () => {
+  cacheDOM();
+  applyTheme(document.documentElement.getAttribute('data-theme') || 'titanio');
+  if (!navigator.onLine) { DOM.offlineBanner.classList.add('show'); document.body.classList.add('is-offline'); }
+  const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
+  if (sid && key) {
+    connectAndStart();
+  } else {
+    // Primeiro uso sem configuracao preenchida — antes disso a tela ficava
+    // parada em "CONECTANDO" pra sempre, sem nenhuma pista do que fazer.
+    updateConnectionStatus('error');
+    DOM.statusBadge.textContent = 'CONFIGURAR';
+    showToast('Preencha a Spreadsheet ID e a API Key em Config pra começar');
+  }
+});
+</script>
+</body>
+</html>

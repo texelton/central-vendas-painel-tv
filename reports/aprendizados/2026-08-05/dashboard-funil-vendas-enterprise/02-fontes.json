@@ -1,0 +1,88 @@
+{
+  "fontes": [
+    {
+      "id": "F1",
+      "titulo": "Stripe Dashboard Design Breakdown: Trust Through Clarity",
+      "url": "https://www.925studios.co/blog/stripe-dashboard-design-breakdown",
+      "nivel": "Bronze",
+      "claim_ids": ["C1", "C2"]
+    },
+    {
+      "id": "F2",
+      "titulo": "HubSpot Sales Funnel Stages: Examples & Best Practices",
+      "url": "https://www.hublead.io/blog/mastering-hubspot-sales-funnel-stages",
+      "nivel": "Prata",
+      "claim_ids": ["C3"]
+    },
+    {
+      "id": "F3",
+      "titulo": "HubSpot Community — Sales Funnel Metrics Best Practices",
+      "url": "https://community.hubspot.com/t5/Dashboards-Reporting/Sales-Funnel-Metrics-Best-Practics/m-p/1211009",
+      "nivel": "Prata",
+      "claim_ids": ["C3"]
+    },
+    {
+      "id": "F4",
+      "titulo": "E-Commerce Cart & Checkout Usability Research — Baymard Institute",
+      "url": "https://baymard.com/research/checkout-usability",
+      "nivel": "Ouro",
+      "claim_ids": ["C4", "C5"]
+    },
+    {
+      "id": "F5",
+      "titulo": "Designing efficient dashboards with the Tufte way",
+      "url": "https://medium.com/design-bootcamp/designing-efficient-dashboards-with-the-tufte-way-9209e79f2ffb",
+      "nivel": "Bronze",
+      "claim_ids": ["C6"]
+    },
+    {
+      "id": "F6",
+      "titulo": "Executive dashboards — Edward Tufte (site oficial do autor)",
+      "url": "https://www.edwardtufte.com/notebook/executive-dashboards/",
+      "nivel": "Ouro",
+      "claim_ids": ["C6"]
+    },
+    {
+      "id": "F7",
+      "titulo": "The Command Center Design Guide: Building for Operational Intelligence in 2026 — Activu Corporation",
+      "url": "https://www.activu.com/the-command-center-design-guide-building-for-operational-intelligence-in-2026/",
+      "nivel": "Prata",
+      "claim_ids": ["C7"]
+    },
+    {
+      "id": "F8",
+      "titulo": "Horizontal Funnel Charts: Step-by-Step Guide",
+      "url": "https://growth-onomics.com/horizontal-funnel-charts-step-by-step-guide/",
+      "nivel": "Bronze",
+      "claim_ids": ["C8"]
+    },
+    {
+      "id": "F9",
+      "titulo": "3 Ways to Use Mixpanel's Funnels for Better Products — Contentsquare",
+      "url": "https://contentsquare.com/guides/mixpanel-glossary/funnels/",
+      "nivel": "Prata",
+      "claim_ids": ["C8"]
+    },
+    {
+      "id": "F10",
+      "titulo": "Typography & Viewing Distance Guide for Digital Signage — MediaSignage",
+      "url": "https://digitalsignage.com/digital_signage/docs/guides/typography-viewing-distance/",
+      "nivel": "Prata",
+      "claim_ids": ["C9", "C10"]
+    },
+    {
+      "id": "F11",
+      "titulo": "Font Size and Legibility for Videowall Content — Extron",
+      "url": "https://www.extron.com/article/videowallfontsize",
+      "nivel": "Prata",
+      "claim_ids": ["C9", "C10"]
+    },
+    {
+      "id": "F12",
+      "titulo": "Verificação direta na planilha real do Matheus (Google Sheets API v4, consulta ao vivo)",
+      "url": "n/a — consulta direta via API, 2026-08-05",
+      "nivel": "Ouro",
+      "claim_ids": ["C11"]
+    }
+  ]
+}

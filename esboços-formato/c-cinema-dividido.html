@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Esboço C — Cinema Dividido</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; }
+  body { font-family:-apple-system,sans-serif; color:#fff; display:flex; height:100vh; }
+  /* SEM header, SEM card, SEM borda em lugar nenhum. A tela vira 2 blocos
+     de cor sólida que vão até a borda física da TV — como um cartaz de
+     cinema em 2 painéis, não uma janela de aplicativo. */
+  .bloco { height:100vh; display:flex; flex-direction:column; justify-content:center; padding:5vw; }
+  .esquerda { width:58vw; background:#0b0f1a; }
+  .direita { width:42vw; background:#141a2b; }
+
+  .rot { font-size:1.1vw; color:#5a6a85; letter-spacing:0.3vw; margin-bottom:2vh; }
+  .num-gigante { font-size:9.5vw; font-weight:900; line-height:0.92; letter-spacing:-0.4vw; }
+  .verde { color:#4ade80; }
+  .barra-meta { height:1.4vh; background:#1e2740; margin-top:3vh; border-radius:99px; overflow:hidden; }
+  .barra-meta-fill { height:100%; width:82%; background:#4ade80; }
+  .meta-txt { font-size:1.2vw; color:#7a8ba8; margin-top:1.4vh; font-family:monospace; }
+
+  .direita .rot { color:#7a8ba8; }
+  .linha {
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:2.2vh 0; border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  .linha:last-child { border-bottom:none; }
+  .linha .pos { font-size:1vw; color:#4a5a75; font-weight:700; width:2vw; }
+  .linha .nome { font-size:1.6vw; font-weight:800; flex:1; }
+  .linha .valor { font-size:1.3vw; font-family:monospace; color:#c8d3e6; }
+</style>
+</head>
+<body>
+  <div class="bloco esquerda">
+    <div class="rot">vendas hoje</div>
+    <div class="num-gigante verde">R$ 13.522</div>
+    <div class="barra-meta"><div class="barra-meta-fill"></div></div>
+    <div class="meta-txt">168% da meta · 31 vendas</div>
+  </div>
+  <div class="bloco direita">
+    <div class="rot">quem tá na frente</div>
+    <div class="linha"><span class="pos">01</span><span class="nome">Beatriz</span><span class="valor">R$ 6.492</span></div>
+    <div class="linha"><span class="pos">02</span><span class="nome">Jardel</span><span class="valor">R$ 5.052</span></div>
+    <div class="linha"><span class="pos">03</span><span class="nome">Joao Victor</span><span class="valor">R$ 1.977</span></div>
+  </div>
+</body>
+</html>

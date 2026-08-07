@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Esboço A — Faixa Contínua</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; background:#000; }
+  body {
+    font-family:-apple-system,sans-serif; color:#fff;
+    display:flex; flex-direction:column; height:100vh;
+  }
+  /* SEM header bar, SEM cards, SEM bordas — a tela inteira é o mesmo plano.
+     O número domina o centro; a lista vira uma faixa que RODA sem parar,
+     tipo painel de aeroporto/aparelho publicitário. */
+  .palco {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; position:relative;
+  }
+  .rotulo { font-size:1.4vw; letter-spacing:0.3vw; color:#888; margin-bottom:1vh; }
+  .numero { font-size:14vw; font-weight:900; line-height:0.9; letter-spacing:-0.5vw; }
+  .sub { font-size:1.6vw; color:#aaa; margin-top:1vh; }
+  .marca-dagua { position:absolute; top:3vh; left:3vw; font-size:1.1vw; color:#444; }
+  .relogio { position:absolute; top:3vh; right:3vw; font-size:1.1vw; color:#444; }
+
+  .faixa-wrap { height:16vh; overflow:hidden; position:relative; border-top:1px solid #1a1a1a; }
+  .faixa { display:flex; align-items:center; height:100%; white-space:nowrap; animation: rolar 22s linear infinite; }
+  .item { display:inline-flex; align-items:baseline; gap:1.2vw; padding:0 4vw; }
+  .item .pos { font-size:1.6vw; color:#555; font-weight:700; }
+  .item .nome { font-size:2.4vw; font-weight:800; }
+  .item .valor { font-size:2vw; color:#4ade80; font-weight:700; }
+  .item .sep { color:#333; font-size:2vw; }
+  @keyframes rolar { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+</style>
+</head>
+<body>
+  <div class="marca-dagua">TIME COMERCIAL</div>
+  <div class="relogio">05/08 · 09:14</div>
+  <div class="palco">
+    <div class="rotulo">vendas hoje</div>
+    <div class="numero">R$ 13.522</div>
+    <div class="sub">31 vendas · 168% da meta</div>
+  </div>
+  <div class="faixa-wrap">
+    <div class="faixa" id="faixa"></div>
+  </div>
+<script>
+  const dados = [
+    {pos:'1º', nome:'Beatriz', valor:'R$ 6.492'},
+    {pos:'2º', nome:'Jardel', valor:'R$ 5.052'},
+    {pos:'3º', nome:'Joao Victor', valor:'R$ 1.977'},
+  ];
+  const html = dados.map(d => `<span class="item"><span class="pos">${d.pos}</span><span class="nome">${d.nome}</span><span class="valor">${d.valor}</span></span><span class="sep">•</span>`).join('');
+  document.getElementById('faixa').innerHTML = html + html; // duplica pra loop sem costura
+</script>
+</body>
+</html>
