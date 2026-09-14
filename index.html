@@ -32,7 +32,11 @@
   html, body { height:100%; overflow:hidden; }
   body {
     background:var(--bg); color:var(--fg);
-    font-family:'Inter', -apple-system, sans-serif;
+    /* Sem fonte de emoji explícita no fim da lista, os emoji da comemoração
+       de venda viram um quadrado vazio em sistemas sem -apple-system
+       (Windows, Linux, Android, TVs) — essas fontes garantem o desenho
+       certo em qualquer aparelho, não só no Mac. */
+    font-family:'Inter', -apple-system, "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
     -webkit-font-smoothing:antialiased;
   }
   button, input, select { font-family:inherit; }
@@ -68,9 +72,14 @@
   @keyframes blink { 50% { opacity:0.25; } }
   .icon-btn {
     width:34px; height:34px; border-radius:50%; background:none; border:1px solid var(--line);
-    color:var(--fg-dim); font-size:0.95rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    color:var(--fg-dim); cursor:pointer; display:flex; align-items:center; justify-content:center;
     transition:border-color 0.15s ease, color 0.15s ease;
   }
+  /* SVG embutido em vez de caractere de fonte — ⚙/⤢/✕ dependiam de fonte de
+     símbolo instalada no sistema (falhava em Linux/Windows sem a fonte
+     certa, virava quadrado vazio). Vetor desenhado renderiza igual em
+     qualquer aparelho, sem depender de fonte nenhuma. */
+  .icon-btn svg { width:16px; height:16px; }
   .icon-btn:hover { border-color:var(--accent); color:var(--accent); }
   .icon-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 
@@ -321,6 +330,7 @@
   .burst-emoji {
     font-size:clamp(4rem, 9vw, 6.5rem); line-height:1;
     filter:drop-shadow(0 0 40px var(--meme-color, var(--accent)));
+    font-family:"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   }
   .burst.show .burst-emoji { animation:burstBounce 3s ease-in-out 1.6s; }
   @keyframes burstBounce {
@@ -405,8 +415,8 @@
     <span class="topbar-clock" id="clock">--:--</span>
     <div class="topbar-actions">
       <button class="live-pill" id="livePill"><span class="dot"></span><span id="liveLabel">conectando</span></button>
-      <button class="icon-btn" id="fullscreenBtn" title="Tela cheia" aria-label="Tela cheia">⤢</button>
-      <button class="icon-btn" id="drawerBtn" title="Configurações" aria-label="Configurações">⚙</button>
+      <button class="icon-btn" id="fullscreenBtn" title="Tela cheia" aria-label="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      <button class="icon-btn" id="drawerBtn" title="Configurações" aria-label="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </div>
 
@@ -449,13 +459,13 @@
 <aside class="drawer" id="drawer" aria-label="Configurações">
   <div class="drawer-header">
     <span class="drawer-title">Configurações</span>
-    <button class="icon-btn" id="drawerCloseBtn" aria-label="Fechar">✕</button>
+    <button class="icon-btn" id="drawerCloseBtn" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
 
   <div class="drawer-section">
     <div class="drawer-section-title">Conexão com a planilha</div>
-    <div class="drawer-field"><label>Spreadsheet ID</label><input id="sheetId" value="1OtL3Z9gprDdBxB9CBh-dCwniFPhRiI3xiaDaYbAlLa0"></div>
-    <div class="drawer-field"><label>API Key Google</label><input id="apiKey" type="password" value="AIzaSyDx2xy1pA40xirNCimHJ9Rbga4gNU48O60"></div>
+    <div class="drawer-field"><label>Spreadsheet ID</label><input id="sheetId" value="1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls"></div>
+    <div class="drawer-field"><label>API Key Google</label><input id="apiKey" type="password" value="AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM"></div>
     <button class="drawer-btn solid" onclick="saveAPI(this)">Salvar e reconectar</button>
   </div>
 
@@ -535,22 +545,47 @@
 // no resto do projeto (mesma planilha, mesmas abas DASHBOARD e DADOS
 // BRUTOS). Só a apresentação abaixo é nova.
 // ================================================================
+// Lista própria do projeto "central-vendas-tempo-real" — validada por UTM
+// de verdade (src/servicos/classificador_utm.py), não mais a lista fixa
+// de 4 pessoas do contrato antigo do Matheus. "Jardel"/"Beatriz" não
+// aparecem aqui de propósito: são do time do Matheus, não deste pipeline.
 const State = {
-  vendors: ['BIA','JOAO VICTOR','JARDEL','MARCELO','DUDA'],
+  vendors: ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL'],
   nameMap: {
     'BIA':'BIA',
-    'JARDEL':'JARDEL',
-    'JOAO VICTOR':'JOAO VICTOR','JOÃO VICTOR':'JOAO VICTOR',
+    'JOAO':'JOAO',
+    'JOAOV':'JOAOV',
+    'MATHEUS':'MATHEUS',
+    'LAIS':'LAIS',
+    'ELTON':'ELTON',
     'MARCELO':'MARCELO',
-    'DUDA':'DUDA'
+    'WAL MACEDO':'WAL MACEDO',
+    'BELLMORAISS':'BELLMORAISS',
+    'ANGARA':'ANGARA',
+    'DUDA':'DUDA',
+    'MILLENA':'MILLENA',
+    'JARDEL':'JARDEL'
   },
-  displayNames: { 'BIA':'Bia','JOAO VICTOR':'Joao Victor','JARDEL':'Jardel','MARCELO':'Marcelo','DUDA':'Mª Eduardha' },
+  displayNames: {
+    'BIA':'Bia', 'JOAO':'Joao', 'JOAOV':'Joao Victor', 'MATHEUS':'Matheus',
+    'LAIS':'Lais', 'ELTON':'Elton', 'MARCELO':'Marcelo', 'WAL MACEDO':'Wal Macedo',
+    'BELLMORAISS':'Bellmoraiss', 'ANGARA':'Angara', 'DUDA':'Mª Eduardha', 'MILLENA':'Millena',
+    'JARDEL':'Jardel'
+  },
   colors: {
     'BIA':         '#3ec6ff',
-    'JOAO VICTOR': '#b785f7',
-    'JARDEL':      '#ff5f96',
-    'MARCELO':     '#ff8a4c',
-    'DUDA':        '#22ff00'
+    'JOAO':        '#b785f7',
+    'JOAOV':       '#ff5f96',
+    'MATHEUS':     '#ff8a4c',
+    'LAIS':        '#34d399',
+    'ELTON':       '#fbbf24',
+    'MARCELO':     '#60a5fa',
+    'WAL MACEDO':  '#a3e635',
+    'BELLMORAISS': '#f472b6',
+    'ANGARA':      '#22d3ee',
+    'DUDA':        '#22ff00',
+    'JARDEL':      '#eab308',
+    'MILLENA':     '#fb7185'
   },
   rawData: [],
   dashData: null,
@@ -1074,10 +1109,14 @@ function testDirectNotification() { showDirectSaleNotification(240); }
 // ================================================================
 let refreshTimer = null, fetchSeq = 0;
 
+// Linhas 4-18 da planilha (até 15 vendedores) — ampliado do limite
+// original de 5 porque a lista real de vendedores (via UTM correta) é
+// maior que o time fixo de 4-5 pessoas do contrato antigo do Matheus.
+// Total do dia/mês agora ficam nas linhas 19/20 (não mais 9/10).
 function parseDashboardTab(rows) {
-  if (!rows || rows.length < 11) return null;
+  if (!rows || rows.length < 20) return null;
   const r = { vendors:[], totalHoje:0, totalMensal:0 };
-  for (let i = 3; i <= 7; i++) {
+  for (let i = 3; i <= 17; i++) {
     const row = rows[i];
     if (!row) continue;
     const nome = normName(row[7]);
@@ -1089,8 +1128,8 @@ function parseDashboardTab(rows) {
       vendasMes: pVal(row[11])
     });
   }
-  if (rows[8]) r.totalHoje = pVal(rows[8][8]);
-  if (rows[9]) r.totalMensal = pVal(rows[9][8]);
+  if (rows[18]) r.totalHoje = pVal(rows[18][8]);
+  if (rows[19]) r.totalMensal = pVal(rows[19][8]);
   return r;
 }
 
@@ -1101,7 +1140,7 @@ async function fetchAllData() {
   const t0 = performance.now();
   try {
     const [dR, rR] = await Promise.all([
-      fetch(`${base}/${encodeURIComponent('DASHBOARD!A1:P20')}?key=${key}`),
+      fetch(`${base}/${encodeURIComponent('DASHBOARD!A1:P22')}?key=${key}`),
       fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${key}`)
     ]);
     if (!dR.ok) throw new Error('DASHBOARD: ' + dR.status);
