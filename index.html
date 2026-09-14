@@ -23,7 +23,10 @@
     --red: #fb5b5b;
     --yellow: #fbbf24;
     --purple: #b785f7;
+    --gold: #ffd166;
     --line: rgba(255,255,255,0.09);
+    --surface: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+    --panel-border: rgba(255,255,255,0.085);
   }
   :root[data-accent="laranja"] { --accent: #ff8a4c; }
   :root[data-accent="violeta"] { --accent: #b785f7; }
@@ -42,6 +45,15 @@
   button, input, select { font-family:inherit; }
 
   #flowCanvas { position:fixed; inset:0; z-index:0; display:block; }
+  /* Vinheta: escurece as bordas e acende sutilmente o centro-topo — sem
+     isso o fundo é um vazio plano numa TV grande. É só luz, não elemento
+     interativo, por isso pointer-events:none e sem nenhum dado nela. */
+  .vignette {
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -8%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      radial-gradient(ellipse 140% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
 
   .scene { position:fixed; inset:0; z-index:1; pointer-events:none; }
   .scene a, .scene button, .scene input, .scene select { pointer-events:auto; }
@@ -53,8 +65,13 @@
     padding:clamp(20px, 3vh, 32px) clamp(28px, 4vw, 48px);
   }
   .brand {
+    display:inline-flex; align-items:center; gap:9px;
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.68rem, 1vw, 0.8rem);
     font-weight:600; letter-spacing:2.5px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .brand::before {
+    content:''; width:8px; height:8px; border-radius:2.5px; background:var(--accent);
+    box-shadow:0 0 12px var(--accent); flex-shrink:0;
   }
   .topbar-clock {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.68rem, 1vw, 0.8rem);
@@ -64,7 +81,9 @@
   .live-pill {
     display:flex; align-items:center; gap:7px;
     font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:700;
-    letter-spacing:1.4px; color:var(--fg-dim); background:none; border:none; cursor:default;
+    letter-spacing:1.4px; color:var(--fg-dim); cursor:default;
+    background:rgba(255,255,255,0.04); border:1px solid var(--line);
+    padding:7px 13px 7px 11px; border-radius:99px;
   }
   .live-pill .dot { width:7px; height:7px; border-radius:50%; background:var(--green); }
   .live-pill.error .dot { background:var(--red); }
@@ -91,7 +110,9 @@
   }
   .hero-block {
     flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between;
-    padding:0 clamp(28px, 5vw, 56px);
+    padding:clamp(26px, 3.6vh, 40px) clamp(28px, 5vw, 56px);
+    background:var(--surface); border:1px solid var(--panel-border); border-radius:22px;
+    box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
   }
 
   /* ---------- hero: número gigante flutuando, sem caixa ---------- */
@@ -103,10 +124,12 @@
     font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--fg-dim);
   }
   .hero-value {
-    font-weight:900; letter-spacing:-2px; line-height:0.95; color:var(--fg);
+    font-weight:900; letter-spacing:-2px; line-height:0.95;
     font-size:clamp(2.6rem, 5.2vw, 4.8rem);
     text-shadow:0 0 60px color-mix(in srgb, var(--accent) 35%, transparent);
     font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--accent) 30%, white) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
   }
   .hero-row { display:flex; align-items:baseline; gap:14px; margin-top:2px; }
   .hero-chip {
@@ -114,6 +137,23 @@
     font-weight:700; color:var(--accent);
   }
   .hero-chip.dim { color:var(--fg-dim); font-weight:600; }
+  /* Barra de progresso da meta: a mesma informação do "% da meta" em texto,
+     só que visível de longe numa TV — olho lê barra preenchida mais rápido
+     que ler e calcular uma porcentagem. */
+  .goal-track {
+    width:min(420px, 60vw); height:6px; border-radius:99px;
+    background:rgba(255,255,255,0.08); margin-top:16px; overflow:hidden;
+  }
+  .goal-fill {
+    height:100%; width:0%; border-radius:99px;
+    background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, white));
+    box-shadow:0 0 14px var(--accent);
+    transition:width 1s cubic-bezier(0.25,0.46,0.45,0.94), background 0.4s ease, box-shadow 0.4s ease;
+  }
+  .goal-fill.complete {
+    background:linear-gradient(90deg, var(--green), color-mix(in srgb, var(--green) 55%, white));
+    box-shadow:0 0 14px var(--green);
+  }
 
   /* ---------- stats secundárias: flutuando à direita ---------- */
   .side-stats {
@@ -131,13 +171,20 @@
 
   /* ---------- pista de corrida: ranking sem cards, sem bordas grossas ---------- */
   .track-zone {
-    flex:1 1 0; min-height:0; padding:0 clamp(28px, 5vw, 56px);
+    flex:1 1 0; min-height:0; padding:clamp(22px, 3vh, 32px) clamp(28px, 5vw, 56px);
     display:flex; flex-direction:column;
+    background:var(--surface); border:1px solid var(--panel-border); border-radius:22px;
+    box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
   }
   .track-title {
     flex:0 0 auto; margin-bottom:clamp(14px, 2vh, 22px);
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.65rem, 0.9vw, 0.76rem);
     font-weight:600; letter-spacing:1.8px; text-transform:uppercase; color:var(--fg-dim);
+    display:flex; align-items:center; gap:9px;
+  }
+  .track-title::before, .funnel-title::before {
+    content:''; width:7px; height:7px; border-radius:2px; background:var(--accent);
+    box-shadow:0 0 10px var(--accent); flex-shrink:0;
   }
   /* #lanes precisa ser flex de verdade — senão .lane{flex:1} não tem efeito
      nenhum, as pistas ficam pequenas no topo e sobra um vazio enorme embaixo. */
@@ -165,6 +212,14 @@
      da interface (rótulos/metadados continuam pequenos, só o dado central
      de cada linha cresce). */
   .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); }
+  /* 1º lugar do dia ganha peso visual extra — reforça a competição entre
+     o time em vez de deixar o ranking parecer uma lista neutra. */
+  .lane-first .lane-rank { color:var(--gold); text-shadow:0 0 12px var(--gold); }
+  .lane-first .lane-name { text-shadow:0 0 22px currentColor; }
+  .lane-crown {
+    margin-right:6px; filter:drop-shadow(0 0 8px var(--gold));
+    font-family:"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
   /* faixa "não identificado": fora da corrida — sem marcador, linha
      tracejada, cor neutra — deixa claro que não é um vendedor competindo. */
   .lane-unid { opacity:0.75; }
@@ -178,14 +233,16 @@
 
   /* ---------- funil fluido: forma que afunila, não barras em caixa ---------- */
   .funnel-zone {
-    flex:1 1 0; min-height:0; padding:0 clamp(28px, 5vw, 56px);
+    flex:1 1 0; min-height:0; padding:clamp(22px, 3vh, 32px) clamp(28px, 5vw, 56px);
     display:flex; flex-direction:column;
+    background:var(--surface); border:1px solid var(--panel-border); border-radius:22px;
+    box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
   }
   .funnel-title {
     flex:0 0 auto;
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.65rem, 0.9vw, 0.76rem);
     font-weight:600; letter-spacing:1.8px; text-transform:uppercase; color:var(--fg-dim);
-    margin-bottom:10px;
+    margin-bottom:10px; display:flex; align-items:center; gap:9px;
   }
   /* Gap real entre estágios em vez de encostar um no outro — cada estágio
      continua mais estreito que o anterior (a leitura de "funil" se mantém
@@ -388,7 +445,7 @@
     .lane-unid .lane-info { flex-wrap:wrap; row-gap:2px; }
     .lane-unid .lane-qtd { white-space:normal; flex-shrink:1; flex-basis:100%; order:3; }
 
-    .track-zone, .funnel-zone { padding:0 clamp(20px, 5vw, 32px); }
+    .track-zone, .funnel-zone { padding:clamp(16px, 3vh, 22px) clamp(20px, 5vw, 32px); }
     /* No desktop as duas zonas dividem o espaço meio a meio porque cada
        linha tem altura previsível. No mobile a linha "Funil direto" pode
        quebrar em 2 linhas de texto — se as zonas continuarem 50/50 fixo,
@@ -439,6 +496,7 @@
 </div>
 
 <canvas id="flowCanvas"></canvas>
+<div class="vignette"></div>
 
 <div class="scene">
   <div class="topbar">
@@ -460,6 +518,7 @@
           <span class="hero-chip" id="heroPct">0% da meta</span>
           <span class="hero-chip dim" id="heroCount">0 vendas</span>
         </div>
+        <div class="goal-track"><div class="goal-fill" id="goalFill"></div></div>
       </div>
 
       <div class="side-stats">
@@ -711,7 +770,7 @@ function countByVendor(sales) {
 const DOM = {};
 function cacheDOM() {
   ['clock','livePill','liveLabel','fullscreenBtn','drawerBtn','drawerCloseBtn','drawer','drawerOverlay',
-   'heroValue','heroPct','heroCount','statMeta','statMonth','lanes','funnelBands',
+   'heroValue','heroPct','heroCount','goalFill','statMeta','statMonth','lanes','funnelBands',
    'sheetId','apiKey','metaDiaria','refreshInterval','soundEnabled','soundPack','popupEnabled',
    'toast','loader','loaderMsg','offlineBanner',
    'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle',
@@ -865,14 +924,15 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified) {
     const color = State.colors[v.nome] || '#f5f5f7';
     const display = State.displayNames[v.nome] || v.nome;
     const rank = rankOf.get(v.nome) || (idx+1);
+    const isFirst = rank === 1 && (byValor.get(v.nome) || 0) > 0;
     return `
-      <div class="lane" data-vslot="${vid(idx)}" style="order:${rank}">
+      <div class="lane${isFirst ? ' lane-first' : ''}" data-vslot="${vid(idx)}" style="order:${rank}">
         <span class="lane-rank">${String(rank).padStart(2,'0')}</span>
         <div class="lane-line">
           <div class="lane-marker" style="left:${pct}%; background:${color}; box-shadow:0 0 14px ${color};"></div>
         </div>
         <div class="lane-info">
-          <span class="lane-name" style="color:${color}">${escapeHtml(display)}</span>
+          <span class="lane-name" style="color:${color}">${isFirst ? '<span class="lane-crown">👑</span>' : ''}${escapeHtml(display)}</span>
           <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
           <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}</span>
         </div>
@@ -964,6 +1024,10 @@ function refresh() {
   animTo(DOM.heroValue, tH, true);
   DOM.heroPct.textContent = pctMeta.toFixed(0) + '% da meta';
   DOM.heroPct.style.color = pctMeta >= 100 ? 'var(--green)' : 'var(--accent)';
+  if (DOM.goalFill) {
+    DOM.goalFill.style.width = Math.min(100, Math.max(0, pctMeta)) + '%';
+    DOM.goalFill.classList.toggle('complete', pctMeta >= 100);
+  }
   DOM.heroCount.textContent = todayKnownCount + ' vendas' + (gap > 0 ? (' · faltam ' + fmt(gap)) : '');
   DOM.statMeta.textContent = fmt(meta);
   DOM.statMonth.textContent = fmt(tM) + ' · ' + monthKnown.length + ' vendas';
