@@ -217,8 +217,8 @@
   .lane-first .lane-rank { color:var(--gold); text-shadow:0 0 12px var(--gold); }
   .lane-first .lane-name { text-shadow:0 0 22px currentColor; }
   .lane-crown {
-    margin-right:6px; filter:drop-shadow(0 0 8px var(--gold));
-    font-family:"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    width:0.8em; height:0.8em; margin-right:7px; vertical-align:-0.08em;
+    color:var(--gold); filter:drop-shadow(0 0 8px var(--gold)); flex-shrink:0;
   }
   /* faixa "não identificado": fora da corrida — sem marcador, linha
      tracejada, cor neutra — deixa claro que não é um vendedor competindo. */
@@ -691,6 +691,14 @@ const State = {
 
 const FUNNEL_COLORS = ['#3ec6ff', '#34d399', '#b785f7', '#ff8a4c', '#ff5f96', '#fbbf24'];
 
+// Coroa do 1º lugar como desenho vetorial (SVG), não emoji — emoji colorido
+// (👑) depende de um pacote de fonte que o sistema precisa ter instalado, e
+// TVs/Linux embarcado (relatado: "Linux ZMX") geralmente não têm, mostrando
+// um quadrado vazio no lugar. SVG embutido desenha igual em qualquer
+// aparelho, sem depender de fonte nenhuma (mesmo motivo do ícone de
+// engrenagem/tela cheia no topo já ser SVG em vez de caractere).
+const CROWN_SVG = '<svg class="lane-crown" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 18 2.5 9 8 12 12 5 16 12 21.5 9 20 18Z"/><rect x="3.2" y="17.2" width="17.6" height="2.6" rx="1"/></svg>';
+
 // ================================================================
 // HELPERS DE DADOS — parsing e regras de negócio portados do dashboard
 // original: mesma leitura de planilha, mesmo ranking balanceado.
@@ -932,7 +940,7 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified) {
           <div class="lane-marker" style="left:${pct}%; background:${color}; box-shadow:0 0 14px ${color};"></div>
         </div>
         <div class="lane-info">
-          <span class="lane-name" style="color:${color}">${isFirst ? '<span class="lane-crown">👑</span>' : ''}${escapeHtml(display)}</span>
+          <span class="lane-name" style="color:${color}">${isFirst ? CROWN_SVG : ''}${escapeHtml(display)}</span>
           <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
           <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}</span>
         </div>
