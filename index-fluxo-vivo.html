@@ -1277,7 +1277,7 @@ function parseDashboardTab(rows) {
   return r;
 }
 
-async function fetchAllData() {
+async function fetchAllData(confirmando) {
   const seq = ++fetchSeq;
   const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values`;
@@ -1292,17 +1292,30 @@ async function fetchAllData() {
     const [dJ, rJ] = await Promise.all([dR.json(), rR.json()]);
     if (seq !== fetchSeq) return false;
 
-    State.dashData = parseDashboardTab(dJ.values || []);
-    State.rawData = [];
+    const novoDash = parseDashboardTab(dJ.values || []);
+    const novoRaw = [];
     if (rJ.values && rJ.values.length > 1) {
       for (let i = 1; i < rJ.values.length; i++) {
         const row = rJ.values[i];
         if (!row[0]) continue;
         const status = (row[7] || '').toLowerCase().trim();
         if (status === 'cancelado' || status === 'cancelada') continue;
-        State.rawData.push({ data:pDate(row[0]), vendedor:normName(row[1]), produto:(row[2]||'').trim(), valor:pVal(row[3]), status });
+        novoRaw.push({ data:pDate(row[0]), vendedor:normName(row[1]), produto:(row[2]||'').trim(), valor:pVal(row[3]), status });
       }
     }
+    // Leitura que ENCOLHEU de repente (aba vazia ou com menos linhas que a
+    // anterior) pode ser só o instante em que a planilha está sendo
+    // reescrita — aceitar isso zerava a tela e, na leitura seguinte, todo
+    // valor "voltava" e disparava comemoração como se fosse venda nova.
+    // Por isso lê de novo depois de alguns segundos antes de acreditar;
+    // reembolso real e virada de mês continuam funcionando, só demoram
+    // uma leitura a mais pra aparecer.
+    if (!confirmando && State.rawData.length > 0 && novoRaw.length < State.rawData.length) {
+      await new Promise(r => setTimeout(r, 4000));
+      return fetchAllData(true);
+    }
+    State.dashData = novoDash;
+    State.rawData = novoRaw;
     State.lastFetchMs = Math.round(performance.now() - t0);
     State.lastUpdateTime = new Date();
     updateConnectionStatus('live');
