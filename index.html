@@ -334,6 +334,30 @@
   }
   @keyframes contactTickerScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
 
+  /* ---------- comentários do Instagram/Facebook (pedido do usuário em
+     2026-09-25): mesma estrutura compacta da central de contato — linha
+     de números + letreiro — mas em roxo, pra nunca confundir "ligar pro
+     cliente" com "responder comentário". Os dados vêm do monitor de
+     comentários (projeto monitor-comentarios-instagram-facebook), que já
+     analisa cada comentário com IA. Só aparece se houve comentário hoje. ---------- */
+  .comments-zone {
+    background:linear-gradient(180deg, rgba(183,133,247,0.07), rgba(255,255,255,0.012));
+    border-color:rgba(183,133,247,0.28);
+  }
+  .comments-zone .contact-title::before { background:var(--purple); box-shadow:0 0 10px var(--purple); }
+  .comments-zone .contact-stat b { color:var(--purple); }
+  .comments-zone .contact-stat.sale b { color:var(--green); }
+  .comments-zone .contact-stat.danger b { color:var(--red); }
+  .comments-zone.has-late { border-color:rgba(52,211,153,0.45); animation:commentsPulse 2.4s ease-in-out infinite; }
+  @keyframes commentsPulse {
+    0%,100% { box-shadow:0 24px 60px -34px rgba(0,0,0,0.6), 0 0 0 rgba(52,211,153,0); }
+    50% { box-shadow:0 24px 60px -34px rgba(0,0,0,0.6), 0 0 34px rgba(52,211,153,0.3); }
+  }
+  .comments-zone .contact-ticker-item .t { color:var(--fg-dim); }
+  .comments-zone .contact-ticker-item .tag { font-family:'IBM Plex Mono',monospace; font-size:0.72em; letter-spacing:1px; text-transform:uppercase; }
+  .comments-zone .contact-ticker-item .tag.venda { color:var(--green); }
+  .comments-zone .contact-ticker-item .tag.negativo { color:var(--red); }
+
   /* ---------- toast, loader, offline ---------- */
   .toast {
     position:fixed; top:24px; left:50%; transform:translate(-50%,-14px); z-index:400;
@@ -496,7 +520,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .lane-marker, .funnel-band, .burst, .burst-emoji, .burst-flash, .loader-ring, .contact-zone, .contact-ticker { animation:none !important; transition:none !important; }
+    .lane-marker, .funnel-band, .burst, .burst-emoji, .burst-flash, .loader-ring, .contact-zone, .contact-ticker, .comments-zone { animation:none !important; transition:none !important; }
   }
 
   /* ==============================
@@ -635,6 +659,21 @@
       </div>
     </div>
 
+    <div class="contact-zone comments-zone" id="commentsZone" hidden>
+      <div class="contact-head">
+        <span class="contact-title">comentários — instagram e facebook</span>
+        <div class="contact-summary">
+          <span class="contact-stat">hoje <b id="commentsTotal">0</b></span>
+          <span class="contact-stat sale">oportunidades <b id="commentsSales">0</b></span>
+          <span class="contact-stat danger">negativos <b id="commentsNegative">0</b></span>
+          <span class="contact-stat">sem resposta <b id="commentsPending">0</b></span>
+        </div>
+      </div>
+      <div class="contact-ticker-mask" id="commentsTickerMask" hidden>
+        <div class="contact-ticker" id="commentsTicker"></div>
+      </div>
+    </div>
+
     <div class="track-zone">
       <span class="track-title">ranking — hoje</span>
       <div id="lanes"></div>
@@ -705,6 +744,10 @@
       <span class="event-pending">toca 2x: na venda, e quando passam 20min sem contato</span>
     </div>
     <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--purple)"></span>Comentário (oportunidade de venda)</div>
+      <span class="event-pending">toca quando a IA marca um comentário novo como venda</span>
+    </div>
+    <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--fg-faint)"></span>Carrinho abandonado</div>
       <span class="event-pending">planilha não recebe esse dado</span>
     </div>
@@ -720,6 +763,7 @@
       <button class="drawer-btn" onclick="testNotification()">Testar venda do time</button>
       <button class="drawer-btn" onclick="testDirectNotification()">Testar funil direto</button>
       <button class="drawer-btn" onclick="testContatoNotification()">Testar contato</button>
+      <button class="drawer-btn" onclick="testComentarioNotification()">Testar comentário</button>
     </div>
   </div>
 </aside>
@@ -918,7 +962,8 @@ function cacheDOM() {
    'toast','loader','loaderMsg','offlineBanner',
    'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle',
    'directNotif','directNotifValue',
-   'contactZone','contactPendCount','contactPendNext','contactLateCount','contactTickerMask','contactTicker'
+   'contactZone','contactPendCount','contactPendNext','contactLateCount','contactTickerMask','contactTicker',
+   'commentsZone','commentsTotal','commentsSales','commentsNegative','commentsPending','commentsTickerMask','commentsTicker'
   ].forEach(id => DOM[id] = document.getElementById(id));
 }
 
@@ -1281,6 +1326,26 @@ function playContatoVencidoSound() {
   if (contatoVencidoSoundCache) contatoVencidoSoundCache();
 }
 function testContatoNotification() { playContatoNovoSound(); }
+// Som de comentário com oportunidade de venda (pedido do usuário em
+// 2026-09-25) — três notas subindo, suaves (seno): timbre diferente da
+// comemoração, do assobio e dos dois bipes da central de contato.
+let comentarioSoundCache = null;
+function playComentarioSound() {
+  if (comentarioSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      comentarioSoundCache = () => {
+        const now = ctx.currentTime;
+        [659.3, 830.6, 987.8].forEach((freq, i) => tone(ctx, {type:'sine', freq, start: now + i * 0.11, dur:0.16, peak:0.14}));
+      };
+    } catch { comentarioSoundCache = false; }
+  }
+  if (comentarioSoundCache) comentarioSoundCache();
+}
+function testComentarioNotification() {
+  playComentarioSound();
+  showToast('Comentário: oportunidade de venda no Instagram');
+}
 
 // Ícones da comemoração como SVG embutido, não emoji — mesmo motivo da
 // coroa do ranking (ver CROWN_SVG acima): emoji colorido depende de um
@@ -1681,6 +1746,69 @@ function renderContato() {
 }
 function tickContato() { if (State.isConnected) renderContato(); }
 setInterval(tickContato, 5000);
+
+// ================================================================
+// COMENTÁRIOS DO INSTAGRAM/FACEBOOK (pedido do usuário em 2026-09-25).
+// Lê o resumo do dia do monitor de comentários (outro servidor no
+// Railway, projeto monitor-comentarios-instagram-facebook), que já
+// analisou cada comentário com IA. Independente da planilha: se o
+// monitor cair, só esta faixa some — vendas, ranking e funil seguem.
+// Endereço ou chave vazios = faixa desligada, o painel fica como antes.
+// ================================================================
+const COMENTARIOS_API_BASE = '';
+const COMENTARIOS_CHAVE = '';
+const comentariosState = { alertados: new Set(), baselinePronto: false, buscando: false };
+
+async function fetchComentarios() {
+  if (!COMENTARIOS_API_BASE || !COMENTARIOS_CHAVE || comentariosState.buscando || !DOM.commentsZone) return;
+  comentariosState.buscando = true;
+  try {
+    const r = await fetch(COMENTARIOS_API_BASE + '/tv/comentarios-hoje?chave=' + encodeURIComponent(COMENTARIOS_CHAVE));
+    if (r.ok) renderComentarios(await r.json());
+  } catch (e) { /* monitor fora do ar — mantém o último resumo até a próxima tentativa */ }
+  comentariosState.buscando = false;
+}
+
+function renderComentarios(dados) {
+  const pendentes = dados.aguardando_resposta || [];
+
+  // Mesma regra de linha de base do resto do painel: o que já existia
+  // quando a página abriu não toca som — só oportunidade que chegar depois.
+  const vendas = pendentes.filter(c => c.tipo === 'venda');
+  if (!comentariosState.baselinePronto) {
+    vendas.forEach(c => comentariosState.alertados.add(c.id));
+    comentariosState.baselinePronto = true;
+  } else {
+    const novas = vendas.filter(c => !comentariosState.alertados.has(c.id));
+    novas.forEach(c => comentariosState.alertados.add(c.id));
+    if (novas.length) {
+      if (DOM.soundEnabled.value === '1') playComentarioSound();
+      showToast('Comentário: oportunidade de venda — ' + (novas[0].autor || 'sem nome'));
+    }
+  }
+
+  DOM.commentsZone.hidden = !dados.total_hoje;
+  if (!dados.total_hoje) return;
+  DOM.commentsTotal.textContent = dados.total_hoje;
+  DOM.commentsSales.textContent = dados.oportunidades;
+  DOM.commentsNegative.textContent = dados.negativos;
+  DOM.commentsPending.textContent = pendentes.length;
+  DOM.commentsZone.classList.toggle('has-late', vendas.length > 0);
+
+  // Letreiro com quem ainda espera resposta (venda primeiro) — mesma
+  // lógica da central de contato: altura fixa, não empurra o ranking.
+  DOM.commentsTickerMask.hidden = pendentes.length === 0;
+  if (pendentes.length) {
+    const agora = Date.now();
+    const ordenados = [...vendas, ...pendentes.filter(c => c.tipo !== 'venda')];
+    const itensHtml = ordenados.map(c => `<span class="contact-ticker-item"><span class="tag ${c.tipo === 'venda' ? 'venda' : 'negativo'}">${c.tipo === 'venda' ? 'venda' : 'negativo'}</span>${escapeHtml(c.autor || 'sem nome')} · ${escapeHtml(c.resumo || '')} <span class="t">há ${fmtMin(agora - new Date(c.recebido_em).getTime())}</span></span>`).join('');
+    DOM.commentsTicker.innerHTML = itensHtml + itensHtml;
+  } else {
+    DOM.commentsTicker.innerHTML = '';
+  }
+}
+setInterval(fetchComentarios, 10000);
+window.addEventListener('load', fetchComentarios);
 
 async function connectAndStart(showFullLoader) {
   const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
