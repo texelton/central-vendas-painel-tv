@@ -247,7 +247,7 @@
   /* Gap real entre estágios em vez de encostar um no outro — cada estágio
      continua mais estreito que o anterior (a leitura de "funil" se mantém
      pela largura decrescente), só que agora com respiro visível entre eles. */
-  .funnel-bands { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(6px, 1vh, 12px); }
+  .funnel-bands { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(3px, 0.6vh, 10px); }
   /* A forma que afunila (clip-path) fica numa camada separada, atrás do
      texto — texto nunca pode ficar ilegível só porque a faixa estreitou. */
   .funnel-band {
@@ -272,6 +272,67 @@
     flex:1; display:flex; align-items:center; justify-content:center;
     font-family:'IBM Plex Mono',monospace; font-size:0.85rem; color:var(--fg-faint);
   }
+
+  /* ---------- central de contato: só aparece quando existe pelo menos 1
+     venda do produto que exige contato ativo hoje (pedido do usuário em
+     2026-09-25) — nos outros dias o layout volta a ser hero/ranking/funil
+     exatamente como já era, sem espaço reservado à toa. ---------- */
+  /* Zona compacta de propósito: cabeçalho (título+números) numa única
+     linha, letreiro curto embaixo — o orçamento de altura da TV é fixo
+     (sem rolagem), e essa zona só aparece às vezes, então precisa roubar
+     o mínimo possível do espaço do ranking/funil quando aparece. */
+  .contact-zone {
+    flex:0 0 auto; padding:clamp(9px, 1.2vh, 14px) clamp(28px, 5vw, 56px);
+    margin-block:clamp(-14px, -1.4vh, -8px);
+    background:linear-gradient(180deg, rgba(251,191,36,0.07), rgba(255,255,255,0.012));
+    border:1px solid rgba(251,191,36,0.28); border-radius:18px;
+    box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
+  }
+  .contact-zone.has-late { border-color:rgba(251,91,91,0.45); animation:contactPulse 2.4s ease-in-out infinite; }
+  @keyframes contactPulse {
+    0%,100% { box-shadow:0 24px 60px -34px rgba(0,0,0,0.6), 0 0 0 rgba(251,91,91,0); }
+    50% { box-shadow:0 24px 60px -34px rgba(0,0,0,0.6), 0 0 34px rgba(251,91,91,0.35); }
+  }
+  .contact-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; }
+  .contact-title {
+    display:flex; align-items:center; gap:9px;
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem);
+    font-weight:600; letter-spacing:1.6px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .contact-title::before {
+    content:''; width:7px; height:7px; border-radius:2px; background:var(--yellow);
+    box-shadow:0 0 10px var(--yellow); flex-shrink:0;
+  }
+  .contact-summary { display:flex; align-items:baseline; gap:clamp(16px, 2.4vw, 30px); flex-wrap:wrap; }
+  .contact-stat {
+    display:flex; align-items:baseline; gap:7px;
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.66rem, 0.92vw, 0.78rem);
+    font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .contact-stat b {
+    font-size:1.55em; font-weight:800; letter-spacing:-0.5px; color:var(--yellow);
+    font-variant-numeric:tabular-nums;
+  }
+  .contact-stat.danger b { color:var(--red); }
+  .contact-stat i { font-style:normal; font-size:0.86em; color:var(--fg-faint); text-transform:none; letter-spacing:0; }
+  /* Letreiro em vez de lista vertical: a altura da zona fica sempre a
+     mesma (cabeçalho + 1 linha), não importa se tem 1 ou 30 atrasados —
+     numa TV sem mouse, uma lista que cresce empurraria o ranking pra fora
+     da tela (era exatamente o que acontecia antes). */
+  .contact-ticker-mask {
+    margin-top:8px; overflow:hidden; white-space:nowrap;
+    -webkit-mask-image:linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+    mask-image:linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  }
+  .contact-ticker { display:inline-flex; animation:contactTickerScroll 26s linear infinite; }
+  .contact-ticker-item {
+    display:inline-flex; align-items:baseline; gap:8px; padding:0 clamp(16px, 2.4vw, 28px);
+    font-weight:700; font-size:clamp(0.78rem, 1.15vw, 0.94rem); color:var(--fg); white-space:nowrap;
+  }
+  .contact-ticker-item .t {
+    font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--red); font-size:0.82em;
+  }
+  @keyframes contactTickerScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
 
   /* ---------- toast, loader, offline ---------- */
   .toast {
@@ -410,7 +471,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .lane-marker, .funnel-band, .burst, .burst-emoji, .burst-flash, .loader-ring { animation:none !important; transition:none !important; }
+    .lane-marker, .funnel-band, .burst, .burst-emoji, .burst-flash, .loader-ring, .contact-zone, .contact-ticker { animation:none !important; transition:none !important; }
   }
 
   /* ==============================
@@ -536,6 +597,19 @@
       </div>
     </div>
 
+    <div class="contact-zone" id="contactZone" hidden>
+      <div class="contact-head">
+        <span class="contact-title">central de contato — rating bancário</span>
+        <div class="contact-summary">
+          <span class="contact-stat">aguardando <b id="contactPendCount">0</b><i id="contactPendNext"></i></span>
+          <span class="contact-stat danger">atrasados <b id="contactLateCount">0</b></span>
+        </div>
+      </div>
+      <div class="contact-ticker-mask" id="contactTickerMask">
+        <div class="contact-ticker" id="contactTicker"></div>
+      </div>
+    </div>
+
     <div class="track-zone">
       <span class="track-title">ranking — hoje</span>
       <div id="lanes"></div>
@@ -595,6 +669,10 @@
       <span class="event-pending">som de assobio, aviso sem comemoração</span>
     </div>
     <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--yellow)"></span>Contato (Rating Bancário)</div>
+      <span class="event-pending">toca 2x: na venda, e quando passam 20min sem contato</span>
+    </div>
+    <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--fg-faint)"></span>Carrinho abandonado</div>
       <span class="event-pending">planilha não recebe esse dado</span>
     </div>
@@ -609,6 +687,7 @@
     <div class="drawer-row" style="margin-top:14px">
       <button class="drawer-btn" onclick="testNotification()">Testar venda do time</button>
       <button class="drawer-btn" onclick="testDirectNotification()">Testar funil direto</button>
+      <button class="drawer-btn" onclick="testContatoNotification()">Testar contato</button>
     </div>
   </div>
 </aside>
@@ -689,8 +768,22 @@ const State = {
   errorCount: 0,
   lastFetchMs: 0,
   lastUpdateTime: null,
-  metaAtual: 8064.55
+  metaAtual: 8064.55,
+  // Central de contato (pedido do usuário em 2026-09-25): venda desse
+  // produto exige que a Bia ligue pro cliente em até 20min. Os dois Sets
+  // guardam o orderId de quem já disparou cada som, pra nunca repetir.
+  // contatoBaselinePronto só vira true depois da 1ª leitura pós-conexão —
+  // antes disso as vendas de hoje ainda não são "novas", são o que já
+  // existia quando a página abriu (mesma regra do resto do painel).
+  contatoAlertados: new Set(),
+  contatoVencidosAlertados: new Set(),
+  contatoBaselinePronto: false
 };
+const PRODUTO_CONTATO_TERMO = 'rating banc'; // casa "Rating Bancário" em qualquer versão do produto
+const CONTATO_PRAZO_MS = 20 * 60 * 1000;
+function ehProdutoContato(produto) {
+  return String(produto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(PRODUTO_CONTATO_TERMO);
+}
 
 const FUNNEL_COLORS = ['#3ec6ff', '#34d399', '#b785f7', '#ff8a4c', '#ff5f96', '#fbbf24'];
 
@@ -785,7 +878,8 @@ function cacheDOM() {
    'sheetId','apiKey','metaDiaria','refreshInterval','soundEnabled','soundPack','popupEnabled',
    'toast','loader','loaderMsg','offlineBanner',
    'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle',
-   'directNotif','directNotifValue'
+   'directNotif','directNotifValue',
+   'contactZone','contactPendCount','contactPendNext','contactLateCount','contactTickerMask','contactTicker'
   ].forEach(id => DOM[id] = document.getElementById(id));
 }
 
@@ -1114,6 +1208,41 @@ function playWhistleSound() {
   if (whistleSoundCache) whistleSoundCache();
 }
 
+// Sons da central de contato (pedido do usuário em 2026-09-25) — dois sons
+// PRÓPRIOS, diferentes de tudo que já existe: um toca junto da venda
+// normal, avisando que essa é do produto que exige ligação; o outro toca
+// sozinho, minutos depois, se os 20min passarem sem a linha ter sido
+// zerada por uma venda nova. Nenhum dos dois usa o timbre da comemoração
+// (evita a Bia confundir "vendemos" com "liga pro cliente").
+let contatoNovoSoundCache = null;
+function playContatoNovoSound() {
+  if (contatoNovoSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      contatoNovoSoundCache = () => {
+        const now = ctx.currentTime;
+        tone(ctx, {type:'triangle', freq:1046.5, start:now, dur:0.12, peak:0.13});
+        tone(ctx, {type:'triangle', freq:1046.5, start:now + 0.16, dur:0.12, peak:0.13});
+      };
+    } catch { contatoNovoSoundCache = false; }
+  }
+  if (contatoNovoSoundCache) contatoNovoSoundCache();
+}
+let contatoVencidoSoundCache = null;
+function playContatoVencidoSound() {
+  if (contatoVencidoSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      contatoVencidoSoundCache = () => {
+        const now = ctx.currentTime;
+        [0, 1, 2].forEach(i => tone(ctx, {type:'square', freq:1568, start: now + i * 0.22, dur:0.14, peak:0.14}));
+      };
+    } catch { contatoVencidoSoundCache = false; }
+  }
+  if (contatoVencidoSoundCache) contatoVencidoSoundCache();
+}
+function testContatoNotification() { playContatoNovoSound(); }
+
 // Ícones da comemoração como SVG embutido, não emoji — mesmo motivo da
 // coroa do ranking (ver CROWN_SVG acima): emoji colorido depende de um
 // pacote de fonte que a TV com Linux embarcado não tem instalado, e
@@ -1300,7 +1429,7 @@ async function fetchAllData(confirmando) {
         if (!row[0]) continue;
         const status = (row[7] || '').toLowerCase().trim();
         if (status === 'cancelado' || status === 'cancelada') continue;
-        novoRaw.push({ data:pDate(row[0]), vendedor:normName(row[1]), produto:(row[2]||'').trim(), valor:pVal(row[3]), status });
+        novoRaw.push({ data:pDate(row[0]), vendedor:normName(row[1]), produto:(row[2]||'').trim(), valor:pVal(row[3]), cliente:(row[4]||'').trim(), orderId:(row[6]||'').trim(), status });
       }
     }
     // Leitura que ENCOLHEU de repente (aba vazia ou com menos linhas que a
@@ -1380,6 +1509,72 @@ function detectNewSales() {
   if (unidAtual > unidPrev) showDirectSaleNotification(unidAtual - unidPrev);
   State.prevUnidTotal = unidAtual;
 }
+
+// ================================================================
+// CENTRAL DE CONTATO — vendas do produto de Rating Bancário exigem ligar
+// pro cliente em até 20min (pedido do usuário em 2026-09-25). Roda numa
+// contagem própria de 5s (tickContato), independente do ciclo de busca na
+// planilha, pra pegar o instante exato em que os 20min vencem — não só
+// quando a planilha for lida de novo.
+// ================================================================
+function getContatosHoje() {
+  return State.rawData
+    .filter(s => s.data && isToday(s.data) && ehProdutoContato(s.produto))
+    .map(s => ({ ...s, prazo: new Date(s.data.getTime() + CONTATO_PRAZO_MS) }))
+    .sort((a, b) => a.data - b.data); // mais antigo primeiro = quem tem que ligar primeiro
+}
+function fmtMin(ms) {
+  const min = Math.max(0, Math.round(ms / 60000));
+  return min <= 1 ? '1 min' : min + ' min';
+}
+function renderContato() {
+  if (!State.contatoBaselinePronto) return;
+  const agora = new Date();
+  const contatos = getContatosHoje();
+
+  // Venda nova desse produto (chegou depois que a página conectou) —
+  // toca o som de "precisa ligar", separado da comemoração normal.
+  contatos.forEach(c => {
+    if (!c.orderId || State.contatoAlertados.has(c.orderId)) return;
+    State.contatoAlertados.add(c.orderId);
+    if (DOM.soundEnabled.value === '1') playContatoNovoSound();
+  });
+
+  const pendentes = contatos.filter(c => c.prazo > agora);
+  const atrasados = contatos.filter(c => c.prazo <= agora);
+
+  // Acabou de vencer os 20min sem uma venda nova ter zerado o contador —
+  // toca o som de atraso uma única vez por venda.
+  atrasados.forEach(c => {
+    if (!c.orderId || State.contatoVencidosAlertados.has(c.orderId)) return;
+    State.contatoVencidosAlertados.add(c.orderId);
+    if (DOM.soundEnabled.value === '1') playContatoVencidoSound();
+  });
+
+  const total = pendentes.length + atrasados.length;
+  DOM.contactZone.hidden = total === 0;
+  DOM.contactZone.classList.toggle('has-late', atrasados.length > 0);
+  if (total === 0) { DOM.contactTicker.innerHTML = ''; return; }
+
+  DOM.contactPendCount.textContent = pendentes.length;
+  DOM.contactLateCount.textContent = atrasados.length;
+  DOM.contactPendNext.textContent = pendentes.length
+    ? '· próx. em ' + fmtMin(pendentes[0].prazo - agora) : '';
+
+  // Atrasados na ordem: quem venceu primeiro aparece primeiro — é quem a
+  // Bia deveria ter ligado há mais tempo, prioridade de ligação. Vira um
+  // letreiro que rola (duplicado pra rolar sem corte), não uma lista
+  // vertical — assim a altura da zona nunca muda, tenha 1 ou 30 atrasados,
+  // e o ranking/funil embaixo nunca são empurrados pra fora da tela.
+  DOM.contactTickerMask.hidden = atrasados.length === 0;
+  if (atrasados.length) {
+    const itensHtml = atrasados.map(c => `<span class="contact-ticker-item">${escapeHtml(c.cliente || 'Cliente sem nome na planilha')} <span class="t">há ${fmtMin(agora - c.prazo)}</span></span>`).join('');
+    DOM.contactTicker.innerHTML = itensHtml + itensHtml;
+  }
+}
+function tickContato() { if (State.isConnected) renderContato(); }
+setInterval(tickContato, 5000);
+
 async function connectAndStart(showFullLoader) {
   const sid = DOM.sheetId.value.trim(), key = DOM.apiKey.value.trim();
   if (!sid || !key) { showToast('Preencha Spreadsheet ID e API Key'); return; }
@@ -1397,6 +1592,20 @@ async function connectAndStart(showFullLoader) {
     const baseline = computeTodayTotals();
     State.vendors.forEach(nome => { State.prevTotals[nome] = baseline.get(nome) || 0; });
     State.prevUnidTotal = computeUnidTotal();
+    // Mesma lógica de linha de base pra central de contato: venda de hoje
+    // que já existia quando a página abriu não dispara som — só quem
+    // vencer ou aparecer DEPOIS da conexão. O que já estava atrasado no
+    // momento de abrir a página entra direto na lista (sem som), porque a
+    // Bia precisa ver mesmo se a TV só ligou/recarregou agora.
+    const contatosBase = getContatosHoje();
+    const agoraBase = new Date();
+    contatosBase.forEach(c => {
+      if (!c.orderId) return;
+      State.contatoAlertados.add(c.orderId);
+      if (c.prazo <= agoraBase) State.contatoVencidosAlertados.add(c.orderId);
+    });
+    State.contatoBaselinePronto = true;
+    renderContato();
     startAutoRefresh();
   }
 }
