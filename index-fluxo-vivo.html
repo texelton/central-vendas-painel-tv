@@ -432,6 +432,31 @@
   .event-selects { display:flex; gap:6px; }
   .event-selects select { padding:6px 8px; font-size:0.72rem; background:#131318; border:1px solid var(--line); border-radius:6px; color:var(--fg); }
 
+  /* ---------- central de contato na gaveta: lista com botão "Atendido"
+     — a TV (letreiro) é só pra ver, aqui é pra clicar, no celular/notebook
+     de quem vai ligar pro cliente. ---------- */
+  .contact-drawer-empty { font-size:0.8rem; color:var(--fg-faint); padding:6px 0; }
+  .contact-drawer-list { display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; }
+  .contact-drawer-row {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 12px; border-radius:10px; background:#131318; border:1px solid var(--line);
+  }
+  .contact-drawer-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .contact-drawer-name {
+    font-size:0.85rem; font-weight:700; color:var(--fg);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;
+  }
+  .contact-drawer-time { font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--fg-dim); }
+  .contact-drawer-time.late { color:var(--red); }
+  .contact-drawer-btn {
+    flex-shrink:0; padding:7px 12px; border-radius:8px; border:1px solid rgba(52,211,153,0.4);
+    background:rgba(52,211,153,0.1); color:var(--green); font-weight:700; font-size:0.75rem; cursor:pointer;
+    transition:background 0.15s ease, transform 0.1s ease;
+  }
+  .contact-drawer-btn:hover { background:rgba(52,211,153,0.2); }
+  .contact-drawer-btn:active { transform:scale(0.96); }
+  .contact-drawer-btn:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+
   /* ---------- burst de celebração: brilho, não cartaz com moldura ---------- */
   .burst-flash {
     position:fixed; inset:0; z-index:498; pointer-events:none; opacity:0;
@@ -630,6 +655,13 @@
   </div>
 
   <div class="drawer-section">
+    <div class="drawer-section-title">Central de contato — Rating Bancário</div>
+    <div class="contact-drawer-list" id="contactDrawerList">
+      <div class="contact-drawer-empty">Ninguém aguardando contato agora.</div>
+    </div>
+  </div>
+
+  <div class="drawer-section">
     <div class="drawer-section-title">Conexão com a planilha</div>
     <div class="drawer-field"><label>Spreadsheet ID</label><input id="sheetId" value="1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls"></div>
     <div class="drawer-field"><label>API Key Google</label><input id="apiKey" type="password" value="AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM"></div>
@@ -777,10 +809,17 @@ const State = {
   // existia quando a página abriu (mesma regra do resto do painel).
   contatoAlertados: new Set(),
   contatoVencidosAlertados: new Set(),
-  contatoBaselinePronto: false
+  contatoBaselinePronto: false,
+  // orderId de quem já foi marcado como "Atendido" — vem do servidor
+  // (fetchAtendidos), compartilhado entre TV e o aparelho de quem liga.
+  atendidos: new Set()
 };
 const PRODUTO_CONTATO_TERMO = 'rating banc'; // casa "Rating Bancário" em qualquer versão do produto
 const CONTATO_PRAZO_MS = 20 * 60 * 1000;
+// Servidor próprio (central-vendas-tempo-real) — só usado pelo botão
+// "Atendido": grava e lê quem já foi contatado, pra sincronizar entre a TV
+// e o celular/notebook de quem liga pro cliente (ver src/fluxo_vivo/rota.py).
+const CONTATO_API_BASE = 'https://app-production-fec2.up.railway.app';
 function ehProdutoContato(produto) {
   return String(produto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(PRODUTO_CONTATO_TERMO);
 }
@@ -1520,12 +1559,78 @@ function detectNewSales() {
 function getContatosHoje() {
   return State.rawData
     .filter(s => s.data && isToday(s.data) && ehProdutoContato(s.produto))
+    .filter(s => !s.orderId || !State.atendidos.has(s.orderId))
     .map(s => ({ ...s, prazo: new Date(s.data.getTime() + CONTATO_PRAZO_MS) }))
     .sort((a, b) => a.data - b.data); // mais antigo primeiro = quem tem que ligar primeiro
 }
+// Busca no servidor quem já foi marcado como "Atendido" (ver
+// src/fluxo_vivo/rota.py) — roda de tempos em tempos, sozinha, pra pegar
+// um clique feito em OUTRO aparelho (a Bia liga do celular, não da TV).
+let atendidosBuscaEmAndamento = false;
+async function fetchAtendidos() {
+  if (atendidosBuscaEmAndamento) return;
+  atendidosBuscaEmAndamento = true;
+  try {
+    const r = await fetch(CONTATO_API_BASE + '/fluxo-vivo/contatos/atendidos');
+    if (r.ok) {
+      const j = await r.json();
+      State.atendidos = new Set(j.atendidos || []);
+      renderContato();
+    }
+  } catch (e) { /* servidor fora do ar — mantém o que já sabia até a próxima tentativa */ }
+  atendidosBuscaEmAndamento = false;
+}
+setInterval(fetchAtendidos, 8000);
+// Clique no botão "Atendido" (gaveta) — some da tela na hora (otimista) e
+// confirma no servidor depois; se falhar, volta a aparecer e avisa.
+async function marcarAtendido(orderId) {
+  if (!orderId) return;
+  State.atendidos.add(orderId);
+  renderContato();
+  try {
+    const r = await fetch(CONTATO_API_BASE + '/fluxo-vivo/contatos/' + encodeURIComponent(orderId) + '/atender', {method:'POST'});
+    if (!r.ok) throw new Error(String(r.status));
+  } catch (e) {
+    State.atendidos.delete(orderId);
+    renderContato();
+    showToast('Não consegui salvar — confira a internet e tente de novo');
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const lista = document.getElementById('contactDrawerList');
+  if (lista) lista.addEventListener('click', e => {
+    const btn = e.target.closest('.contact-drawer-btn');
+    if (btn) marcarAtendido(btn.dataset.orderid);
+  });
+});
 function fmtMin(ms) {
   const min = Math.max(0, Math.round(ms / 60000));
   return min <= 1 ? '1 min' : min + ' min';
+}
+// Lista clicável da gaveta (⚙) — diferente do letreiro da TV, aqui dá pra
+// apertar "Atendido" com o dedo/mouse. Mostra atrasados primeiro (mais
+// urgente) e depois quem ainda está no prazo, cada grupo na própria ordem
+// de quem vence/venceu primeiro.
+function renderContatoDrawer(pendentes, atrasados, agora) {
+  const el = document.getElementById('contactDrawerList');
+  if (!el) return;
+  const todos = [...atrasados, ...pendentes];
+  if (!todos.length) {
+    el.innerHTML = '<div class="contact-drawer-empty">Ninguém aguardando contato agora.</div>';
+    return;
+  }
+  el.innerHTML = todos.map(c => {
+    const atrasado = c.prazo <= agora;
+    const status = atrasado ? 'atrasado há ' + fmtMin(agora - c.prazo) : 'faltam ' + fmtMin(c.prazo - agora);
+    return `
+      <div class="contact-drawer-row">
+        <div class="contact-drawer-info">
+          <span class="contact-drawer-name">${escapeHtml(c.cliente || 'Cliente sem nome na planilha')}</span>
+          <span class="contact-drawer-time${atrasado ? ' late' : ''}">${status}</span>
+        </div>
+        <button class="contact-drawer-btn" data-orderid="${escapeHtml(c.orderId)}">Atendido</button>
+      </div>`;
+  }).join('');
 }
 function renderContato() {
   if (!State.contatoBaselinePronto) return;
@@ -1550,6 +1655,8 @@ function renderContato() {
     State.contatoVencidosAlertados.add(c.orderId);
     if (DOM.soundEnabled.value === '1') playContatoVencidoSound();
   });
+
+  renderContatoDrawer(pendentes, atrasados, agora);
 
   const total = pendentes.length + atrasados.length;
   DOM.contactZone.hidden = total === 0;
@@ -1596,7 +1703,10 @@ async function connectAndStart(showFullLoader) {
     // que já existia quando a página abriu não dispara som — só quem
     // vencer ou aparecer DEPOIS da conexão. O que já estava atrasado no
     // momento de abrir a página entra direto na lista (sem som), porque a
-    // Bia precisa ver mesmo se a TV só ligou/recarregou agora.
+    // Bia precisa ver mesmo se a TV só ligou/recarregou agora. Busca quem
+    // já foi atendido ANTES de montar essa base, senão alguém marcado como
+    // atendido em outro aparelho entraria na base por engano.
+    await fetchAtendidos();
     const contatosBase = getContatosHoje();
     const agoraBase = new Date();
     contatosBase.forEach(c => {
