@@ -893,6 +893,18 @@ function normName(raw) {
   const upper = raw.toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
   return State.nameMap[upper] || upper;
 }
+// A planilha grava horário de São Paulo (fuso -3, sem horário de verão
+// desde 2019) — não o horário local do aparelho que está exibindo o
+// painel. `new Date(ano,mes,dia,h,m,s)` usa o fuso do PRÓPRIO aparelho;
+// numa TV configurada em outro fuso (ou até em UTC, comum em caixinha de
+// TV/Android box) isso fazia a contagem de 20min da central de contato
+// vir errada (relato do usuário em 2026-09-28: "o tempo da Bia está
+// errado" — é o tempo desde a compra do lead até ela precisar ligar).
+// A correção: monta o instante certo somando o deslocamento de São Paulo
+// pra UTC, e sempre lê de volta com getters de UTC — assim o resultado
+// não depende do fuso configurado no aparelho.
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+function camposSP(d) { return new Date(d.getTime() - SP_OFFSET_MS); }
 function pDate(s) {
   if (!s) return null;
   const p = s.replace(',', '').trim().split(/\s+/);
@@ -901,9 +913,10 @@ function pDate(s) {
   const day = +d[0], month = +d[1], year = +d[2];
   let h = 0, m = 0, c = 0;
   if (p[1]) { const t = p[1].split(':'); h = +t[0]||0; m = +t[1]||0; c = +t[2]||0; }
-  const date = new Date(year, month-1, day, h, m, c);
+  const date = new Date(Date.UTC(year, month-1, day, h, m, c) + SP_OFFSET_MS);
   if (isNaN(date.getTime())) return null;
-  if (date.getDate() !== day || date.getMonth() !== month-1 || date.getFullYear() !== year) return null;
+  const sp = camposSP(date);
+  if (sp.getUTCDate() !== day || sp.getUTCMonth() !== month-1 || sp.getUTCFullYear() !== year) return null;
   return date;
 }
 function pVal(v) {
@@ -916,13 +929,13 @@ function pVal(v) {
 }
 function isToday(d) {
   if (!d) return false;
-  const n = new Date();
-  return d.getDate()===n.getDate() && d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+  const a = camposSP(d), b = camposSP(new Date());
+  return a.getUTCDate()===b.getUTCDate() && a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
 }
 function isMonth(d) {
   if (!d) return false;
-  const n = new Date();
-  return d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+  const a = camposSP(d), b = camposSP(new Date());
+  return a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
 }
 const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 function hexToRgba(hex, a) {
@@ -993,12 +1006,12 @@ function buildTodaySeries() {
   const pts = [{t:0, v:0}];
   sales.forEach(s => {
     acc += s.valor;
-    const d = s.data;
-    const frac = (d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds()) / 86400;
+    const d = camposSP(s.data);
+    const frac = (d.getUTCHours()*3600 + d.getUTCMinutes()*60 + d.getUTCSeconds()) / 86400;
     pts.push({t:frac, v:acc});
   });
-  const now = new Date();
-  const nowFrac = (now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds()) / 86400;
+  const now = camposSP(new Date());
+  const nowFrac = (now.getUTCHours()*3600 + now.getUTCMinutes()*60 + now.getUTCSeconds()) / 86400;
   pts.push({t:Math.max(nowFrac, pts[pts.length-1].t), v:acc});
   return pts;
 }
@@ -1889,7 +1902,10 @@ function saveRefresh() { if (State.isConnected) startAutoRefresh(); }
 
 function tickClock() {
   const now = new Date();
-  DOM.clock.textContent = now.toLocaleDateString('pt-BR') + ' · ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  // Sempre horário de São Paulo na tela, mesmo se o aparelho estiver
+  // configurado noutro fuso — timeZone explícito, não o fuso do sistema.
+  const opts = {timeZone:'America/Sao_Paulo'};
+  DOM.clock.textContent = now.toLocaleDateString('pt-BR', opts) + ' · ' + now.toLocaleTimeString('pt-BR', {...opts, hour:'2-digit', minute:'2-digit'});
 }
 setInterval(tickClock, 1000);
 
