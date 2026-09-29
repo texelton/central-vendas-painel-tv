@@ -251,6 +251,10 @@
      cortaria qualquer coisa que tentasse "escapar" verticalmente dela. ---------- */
   .lead-tooltip {
     position:fixed; z-index:900; width:280px; max-width:88vw;
+    /* Jornada longa (muitas etapas) pode deixar o card mais alto que a
+     * tela cabe — rolagem interna em vez de vazar pra fora (relatado
+     * pelo usuário em 2026-09-29: card sumindo por baixo da tela). */
+    max-height:80vh; overflow-y:auto;
     background:#101014; border:1px solid var(--panel-border); border-radius:14px;
     padding:16px 18px; box-shadow:0 30px 70px -20px rgba(0,0,0,0.7);
     opacity:0; transform:translateY(6px) scale(0.98); pointer-events:none;
@@ -942,14 +946,26 @@ function mostrarTooltip(card) {
 function posicionarTooltip(card) {
   const r = card.getBoundingClientRect();
   const tt = DOM.leadTooltip;
+  const margem = 12;
   const largura = tt.offsetWidth || 280;
   let left = r.left + r.width / 2 - largura / 2;
-  left = Math.max(12, Math.min(left, window.innerWidth - largura - 12));
-  const alturaEstim = tt.offsetHeight || 200;
-  const cabeAcima = r.top - alturaEstim - 14 > 0;
-  const top = cabeAcima ? (r.top - alturaEstim - 14) : (r.bottom + 14);
+  left = Math.max(margem, Math.min(left, window.innerWidth - largura - margem));
+
+  // Card com jornada longa fica mais alto — escolhe o lado (cima/baixo)
+  // que tem mais espaço, e SEMPRE prende dentro da tela no final (nunca
+  // deixa vazar por baixo nem por cima, mesmo perto da borda da tela —
+  // relatado pelo usuário em 2026-09-29).
+  const altura = tt.offsetHeight || 200;
+  const espacoAcima = r.top - margem;
+  const espacoAbaixo = window.innerHeight - r.bottom - margem;
+  let top;
+  if (espacoAcima >= altura) top = r.top - altura - 14;
+  else if (espacoAbaixo >= altura) top = r.bottom + 14;
+  else top = espacoAcima > espacoAbaixo ? margem : window.innerHeight - altura - margem;
+  top = Math.max(margem, Math.min(top, window.innerHeight - altura - margem));
+
   tt.style.left = left + 'px';
-  tt.style.top = Math.max(12, top) + 'px';
+  tt.style.top = top + 'px';
 }
 function esconderTooltip() { DOM.leadTooltip.classList.remove('show'); }
 function ligarHoverDosCards() {
