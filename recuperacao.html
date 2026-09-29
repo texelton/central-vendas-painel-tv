@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recuperação — Time Comercial</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+  /* ==============================
+     RECUPERAÇÃO — segundo painel de TV, separado do Fluxo Vivo. Mesmo
+     sistema visual (tokens, senha, tom escuro) pra parecer a mesma
+     família de painel, mas conteúdo próprio: quem abandonou carrinho,
+     ficou com PIX pendente ou cartão recusado hoje, e quem pagou — com
+     a jornada de cada cliente até a etapa atual.
+     ============================== */
+  :root {
+    --bg: #060608;
+    --fg: #f5f5f7;
+    --fg-dim: #83838f;
+    --fg-faint: #4d4d57;
+    --accent: #3ec6ff;
+    --green: #34d399;
+    --red: #fb5b5b;
+    --yellow: #fbbf24;
+    --purple: #b785f7;
+    --line: rgba(255,255,255,0.09);
+    --surface: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+    --panel-border: rgba(255,255,255,0.085);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+  body {
+    background:var(--bg); color:var(--fg);
+    font-family:'Inter', -apple-system, "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button, input, select { font-family:inherit; }
+
+  .vignette {
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -8%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      radial-gradient(ellipse 140% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
+
+  .scene { position:fixed; inset:0; z-index:2; }
+  .scene a, .scene button, .scene input, .scene select { pointer-events:auto; }
+
+  .topbar {
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:clamp(20px, 3vh, 32px) clamp(28px, 4vw, 48px);
+  }
+  .brand {
+    display:inline-flex; align-items:center; gap:9px;
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.68rem, 1vw, 0.8rem);
+    font-weight:600; letter-spacing:2.5px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .brand::before {
+    content:''; width:8px; height:8px; border-radius:2.5px; background:var(--yellow);
+    box-shadow:0 0 12px var(--yellow); flex-shrink:0;
+  }
+  .topbar-clock {
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.68rem, 1vw, 0.8rem);
+    color:var(--fg-faint); font-weight:600; letter-spacing:0.5px;
+  }
+  .topbar-actions { display:flex; align-items:center; gap:clamp(10px, 1.4vw, 18px); }
+  .live-pill {
+    display:flex; align-items:center; gap:7px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:700;
+    letter-spacing:1.4px; color:var(--fg-dim); cursor:default;
+    background:rgba(255,255,255,0.04); border:1px solid var(--line);
+    padding:7px 13px 7px 11px; border-radius:99px;
+  }
+  .live-pill .dot { width:7px; height:7px; border-radius:50%; background:var(--green); }
+  .live-pill.error .dot { background:var(--red); }
+  .live-pill.connecting .dot { background:var(--yellow); animation:blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:0.25; } }
+  .icon-btn {
+    width:34px; height:34px; border-radius:50%; background:none; border:1px solid var(--line);
+    color:var(--fg-dim); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:border-color 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn svg { width:16px; height:16px; }
+  .icon-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .icon-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .icon-btn.muted { color:var(--red); border-color:rgba(251,91,91,0.4); }
+
+  .stage {
+    position:absolute; left:0; right:0; top:clamp(78px, 11vh, 110px); bottom:clamp(20px, 3vh, 32px);
+    display:flex; flex-direction:column; gap:clamp(14px, 2.2vh, 24px);
+  }
+
+  /* ---------- resumo do painel principal ---------- */
+  .resumo-zone {
+    flex:0 0 auto; padding:clamp(14px, 2vh, 20px) clamp(28px, 5vw, 56px);
+    background:var(--surface); border:1px solid var(--panel-border); border-radius:20px;
+    box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
+    display:flex; align-items:center; gap:clamp(28px, 5vw, 64px); flex-wrap:wrap;
+  }
+  .resumo-item { display:flex; flex-direction:column; gap:2px; }
+  .resumo-label {
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem);
+    font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .resumo-valor {
+    font-weight:800; letter-spacing:-0.5px; color:var(--fg);
+    font-size:clamp(1.15rem, 1.9vw, 1.55rem); font-variant-numeric:tabular-nums;
+  }
+  .resumo-valor .qtd { font-weight:600; color:var(--fg-dim); font-size:0.62em; margin-left:6px; }
+
+  /* ---------- quadro de recuperação: 4 faixas ---------- */
+  .board { flex:1; min-height:0; display:flex; flex-direction:column; gap:clamp(10px, 1.6vh, 16px); }
+  .lane {
+    flex:1; min-height:0; display:flex; flex-direction:column; gap:8px;
+    padding:clamp(12px, 1.6vh, 18px) clamp(24px, 4vw, 44px);
+    background:var(--surface); border-radius:18px; border:1px solid var(--panel-border);
+    box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
+    border-left:3px solid var(--lane-color, var(--accent));
+  }
+  .lane-head { flex:0 0 auto; display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+  .lane-title {
+    display:flex; align-items:center; gap:9px;
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.72rem, 1vw, 0.86rem);
+    font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:var(--fg);
+  }
+  .lane-title::before {
+    content:''; width:8px; height:8px; border-radius:2px; background:var(--lane-color, var(--accent));
+    box-shadow:0 0 10px var(--lane-color, var(--accent)); flex-shrink:0;
+  }
+  .lane-count {
+    font-weight:800; font-size:clamp(1.1rem, 1.7vw, 1.4rem); color:var(--lane-color, var(--accent));
+    font-variant-numeric:tabular-nums;
+  }
+  .lane-cards { flex:1; min-height:0; display:flex; align-items:stretch; gap:10px; overflow:hidden; }
+  .lane-empty {
+    flex:1; display:flex; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:0.78rem; color:var(--fg-faint);
+  }
+
+  .lead-card {
+    flex:0 0 auto; width:clamp(128px, 11.5vw, 168px);
+    background:rgba(255,255,255,0.035); border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; display:flex; flex-direction:column; justify-content:space-between; gap:6px;
+    transition:transform 0.2s ease, border-color 0.2s ease;
+  }
+  .lead-card.novo { animation:cardPop 0.5s cubic-bezier(0.34,1.56,0.64,1); border-color:var(--lane-color, var(--accent)); }
+  @keyframes cardPop { 0%{ transform:scale(0.85); opacity:0.3; } 100%{ transform:scale(1); opacity:1; } }
+  .lead-card-nome {
+    font-weight:700; font-size:clamp(0.82rem, 1.1vw, 0.94rem); color:var(--fg);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .lead-card-produto {
+    font-size:clamp(0.66rem, 0.85vw, 0.74rem); color:var(--fg-dim);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .lead-card-tempo {
+    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--fg-faint);
+    font-variant-numeric:tabular-nums;
+  }
+  .lead-card-trilha { display:flex; gap:4px; margin-top:2px; }
+  .trilha-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+  .lane-overflow {
+    flex:0 0 auto; width:clamp(60px, 6vw, 84px); display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:700; color:var(--fg-dim);
+    background:rgba(255,255,255,0.02); border:1px dashed var(--line); border-radius:12px;
+  }
+
+  /* ---------- alerta de mudança nova ---------- */
+  .alert-banner {
+    position:fixed; top:76px; left:50%; transform:translate(-50%,-14px); z-index:480;
+    display:flex; align-items:baseline; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-weight:700;
+    color:#04141c; background:var(--fg); padding:11px 22px; border-radius:99px;
+    opacity:0; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events:none;
+    box-shadow:0 12px 30px -8px rgba(0,0,0,0.5);
+  }
+  .alert-banner.show { opacity:1; transform:translate(-50%,0); }
+  .alert-banner .dot { width:8px; height:8px; border-radius:50%; background:var(--banner-color, var(--accent)); flex-shrink:0; align-self:center; }
+  .alert-banner-name { font-weight:800; }
+  .alert-banner-etapa { font-size:0.82em; opacity:0.75; }
+
+  .toast {
+    position:fixed; top:24px; left:50%; transform:translate(-50%,-14px); z-index:400;
+    font-family:'IBM Plex Mono',monospace; font-size:0.8rem; font-weight:600;
+    color:var(--bg); background:var(--fg); padding:10px 20px; border-radius:99px;
+    opacity:0; transition:all 0.25s ease; pointer-events:none;
+  }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+
+  .loader {
+    display:none; position:fixed; inset:0; z-index:900; background:var(--bg);
+    flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  }
+  .loader.on { display:flex; }
+  .loader-ring {
+    width:40px; height:40px; border-radius:50%;
+    border:3px solid var(--line); border-top-color:var(--accent);
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loader-msg { font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--fg-dim); }
+
+  .offline-banner {
+    display:none; position:fixed; top:0; left:0; right:0; z-index:600;
+    background:var(--red); color:#1a0000; text-align:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:0.78rem;
+    padding:9px; letter-spacing:0.3px;
+  }
+  .offline-banner.show { display:block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lead-card, .alert-banner, .loader-ring { animation:none !important; transition:none !important; }
+  }
+
+  @media (max-width: 780px) {
+    .stage { top:clamp(96px, 15vh, 130px); }
+    .topbar { flex-wrap:wrap; row-gap:8px; }
+    .resumo-zone { flex-direction:column; align-items:flex-start; gap:10px; }
+    .board { overflow-y:auto; }
+    .lane { flex:0 0 auto; min-height:150px; }
+    .lane-cards { overflow-x:auto; }
+  }
+
+  .lock-screen {
+    position:fixed; inset:0; z-index:3000; background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .lock-screen.hidden { display:none; }
+  .lock-box { display:flex; flex-direction:column; align-items:center; gap:14px; width:min(90vw, 340px); }
+  .lock-title { font-weight:800; font-size:1.3rem; letter-spacing:0.02em; }
+  .lock-sub { color:var(--fg-faint); font-size:0.85rem; margin-bottom:8px; text-align:center; }
+  .lock-input {
+    width:100%; box-sizing:border-box; background:#101014; color:var(--fg);
+    border:1px solid var(--line); border-radius:10px; padding:14px 16px; font-size:1rem;
+    text-align:center; letter-spacing:0.08em;
+  }
+  .lock-input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .lock-btn {
+    width:100%; background:var(--accent); color:#04121a; border:none; border-radius:10px;
+    padding:13px 16px; font-weight:700; font-size:0.95rem; cursor:pointer;
+  }
+  .lock-btn:active { transform:scale(0.98); }
+  .lock-error { color:#ff6b6b; font-size:0.8rem; min-height:1em; }
+</style>
+</head>
+<body>
+
+<div id="lockScreen" class="lock-screen">
+  <div class="lock-box">
+    <span class="lock-title">Time Comercial</span>
+    <span class="lock-sub">Digite a senha para ver o painel</span>
+    <input id="lockInput" class="lock-input" type="password" inputmode="text" autocomplete="off" placeholder="Senha" onkeydown="if(event.key==='Enter') tentarDesbloquear()" />
+    <button id="lockBtn" class="lock-btn" onclick="tentarDesbloquear()">Entrar</button>
+    <span id="lockError" class="lock-error"></span>
+  </div>
+</div>
+
+<div class="vignette"></div>
+
+<div class="scene">
+  <div class="topbar">
+    <span class="brand">Recuperação</span>
+    <span class="topbar-clock" id="clock">--:--</span>
+    <div class="topbar-actions">
+      <button class="live-pill" id="livePill"><span class="dot"></span><span id="liveLabel">conectando</span></button>
+      <button class="icon-btn" id="soundBtn" title="Som" aria-label="Ligar/desligar som">
+        <svg id="soundIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <svg id="soundIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
+      <button class="icon-btn" id="fullscreenBtn" title="Tela cheia" aria-label="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="resumo-zone" id="resumoZone">
+      <div class="resumo-item">
+        <span class="resumo-label">vendas hoje (Fluxo Vivo)</span>
+        <span class="resumo-valor" id="resumoHoje">R$ 0<span class="qtd" id="resumoHojeQtd"></span></span>
+      </div>
+      <div class="resumo-item">
+        <span class="resumo-label">vendas no mês</span>
+        <span class="resumo-valor" id="resumoMes">R$ 0<span class="qtd" id="resumoMesQtd"></span></span>
+      </div>
+    </div>
+
+    <div class="board" id="board">
+      <div class="lane" data-etapa="carrinho_abandonado" style="--lane-color:var(--yellow)">
+        <div class="lane-head">
+          <span class="lane-title">Carrinho abandonado</span>
+          <span class="lane-count" id="count-carrinho_abandonado">0</span>
+        </div>
+        <div class="lane-cards" id="cards-carrinho_abandonado"></div>
+      </div>
+      <div class="lane" data-etapa="pix_pendente" style="--lane-color:var(--accent)">
+        <div class="lane-head">
+          <span class="lane-title">PIX pendente</span>
+          <span class="lane-count" id="count-pix_pendente">0</span>
+        </div>
+        <div class="lane-cards" id="cards-pix_pendente"></div>
+      </div>
+      <div class="lane" data-etapa="cartao_recusado" style="--lane-color:var(--red)">
+        <div class="lane-head">
+          <span class="lane-title">Cartão recusado</span>
+          <span class="lane-count" id="count-cartao_recusado">0</span>
+        </div>
+        <div class="lane-cards" id="cards-cartao_recusado"></div>
+      </div>
+      <div class="lane" data-etapa="pago" style="--lane-color:var(--green)">
+        <div class="lane-head">
+          <span class="lane-title">Pago</span>
+          <span class="lane-count" id="count-pago">0</span>
+        </div>
+        <div class="lane-cards" id="cards-pago"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alert-banner" id="alertBanner">
+  <span class="dot"></span>
+  <span class="alert-banner-name" id="alertBannerNome"></span>
+  <span class="alert-banner-etapa" id="alertBannerEtapa"></span>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="offline-banner" id="offlineBanner">Sem conexão com a internet — mostrando os últimos dados recebidos</div>
+<div class="loader on" id="loader"><div class="loader-ring"></div><span class="loader-msg" id="loaderMsg">Conectando...</span></div>
+
+<script>
+// ================================================================
+// CONFIG — mesmo servidor/planilha do Fluxo Vivo (ver
+// central-vendas-tempo-real/src/recuperacao/rota.py). A senha e o
+// localStorage são compartilhados com o Fluxo Vivo (mesma origem,
+// mesmo time) — desbloqueou um painel, desbloqueou os dois.
+// ================================================================
+const API_BASE = 'https://app-production-fec2.up.railway.app';
+const SHEET_ID = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
+const SHEET_KEY = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
+const SENHA_PAINEL = 'vendas2026';
+const ETAPAS = ['carrinho_abandonado', 'pix_pendente', 'cartao_recusado', 'pago'];
+const NOME_ETAPA = {
+  carrinho_abandonado: 'Carrinho abandonado',
+  pix_pendente: 'PIX pendente',
+  cartao_recusado: 'Cartão recusado',
+  pago: 'Pago',
+};
+const COR_ETAPA = { carrinho_abandonado: 'var(--yellow)', pix_pendente: 'var(--accent)', cartao_recusado: 'var(--red)', pago: 'var(--green)' };
+const REFRESH_MS = 15000; // mais rápido que o Fluxo Vivo (60s) — aqui a velocidade de reação importa
+
+const DOM = {};
+function cacheDOM() {
+  ['clock','livePill','liveLabel','soundBtn','soundIconOn','soundIconOff','fullscreenBtn',
+   'resumoHoje','resumoHojeQtd','resumoMes','resumoMesQtd',
+   'toast','loader','loaderMsg','offlineBanner',
+   'alertBanner','alertBannerNome','alertBannerEtapa'
+  ].forEach(id => DOM[id] = document.getElementById(id));
+}
+
+const State = { somOn: true, isConnected: false, vistos: new Set(), baselinePronto: false };
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+// ================================================================
+// RELÓGIO — mesmo truque do Fluxo Vivo: o relógio do APARELHO pode
+// estar errado (TV/Android box sem hora certa); corrige usando o
+// cabeçalho HTTP "Date" que toda resposta do servidor já traz.
+// ================================================================
+let relogioDriftMs = 0;
+function agoraCorrigido() { return new Date(Date.now() + relogioDriftMs); }
+function corrigirRelogio(headerDate) {
+  if (!headerDate) return;
+  const servidor = new Date(headerDate).getTime();
+  if (isNaN(servidor)) return;
+  relogioDriftMs = servidor - Date.now();
+}
+function fmtMin(ms) {
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  if (totalMin < 60) return totalMin <= 1 ? '1 min' : totalMin + ' min';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m === 0 ? h + 'h' : h + 'h ' + m + 'min';
+}
+
+// ================================================================
+// SOM — mesmo sintetizador do Fluxo Vivo (Web Audio API, sem arquivo
+// externo). Um som só, tocado em toda mudança nova, independente da
+// faixa — pedido do usuário: "notificação com som a cada nova mudança".
+// ================================================================
+function tone(ctx, {type, freq, freqEnd, start, dur, peak}) {
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur * 0.85);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, start + Math.min(0.02, dur * 0.2));
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.start(start); osc.stop(start + dur);
+}
+let alertSoundCache = null;
+function playAlertSound() {
+  if (!State.somOn) return;
+  if (alertSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      alertSoundCache = () => {
+        const now = ctx.currentTime;
+        tone(ctx, {type:'sine', freq:660, freqEnd:990, start:now, dur:0.14, peak:0.11});
+        tone(ctx, {type:'sine', freq:990, start:now+0.13, dur:0.16, peak:0.1});
+      };
+    } catch { alertSoundCache = false; }
+  }
+  if (alertSoundCache) alertSoundCache();
+}
+function toggleSom() {
+  State.somOn = !State.somOn;
+  try { localStorage.setItem('recuperacaoSomOn', State.somOn ? '1' : '0'); } catch (e) {}
+  DOM.soundIconOn.hidden = !State.somOn;
+  DOM.soundIconOff.hidden = State.somOn;
+  DOM.soundBtn.classList.toggle('muted', !State.somOn);
+}
+
+// ================================================================
+// ALERTA VISUAL — banner deslizante, fila simples (um de cada vez)
+// ================================================================
+let alertQueue = [], alertShowing = false;
+function enqueueAlert(nome, etapa) {
+  alertQueue.push({nome, etapa});
+  if (!alertShowing) processAlertQueue();
+}
+function processAlertQueue() {
+  if (!alertQueue.length) { alertShowing = false; return; }
+  alertShowing = true;
+  const a = alertQueue.shift();
+  DOM.alertBannerNome.textContent = a.nome;
+  DOM.alertBannerEtapa.textContent = '→ ' + (NOME_ETAPA[a.etapa] || a.etapa);
+  DOM.alertBanner.style.setProperty('--banner-color', COR_ETAPA[a.etapa] || 'var(--accent)');
+  DOM.alertBanner.classList.add('show');
+  playAlertSound();
+  setTimeout(() => {
+    DOM.alertBanner.classList.remove('show');
+    setTimeout(processAlertQueue, 300);
+  }, 3200);
+}
+
+// ================================================================
+// DADOS — busca o quadro de recuperação (servidor próprio) e o resumo
+// (mesma planilha do Fluxo Vivo, só leitura das duas linhas de total).
+// ================================================================
+async function buscarQuadro() {
+  const r = await fetch(API_BASE + '/recuperacao/hoje');
+  if (!r.ok) throw new Error('recuperacao: ' + r.status);
+  corrigirRelogio(r.headers.get('date'));
+  const j = await r.json();
+  return j.leads || [];
+}
+async function buscarResumo() {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+  const r = await fetch(`${base}/${encodeURIComponent('DASHBOARD!A19:L20')}?key=${SHEET_KEY}`);
+  if (!r.ok) return null;
+  const j = await r.json();
+  const rows = j.values || [];
+  const pVal = v => { if (!v) return 0; let c = String(v).trim().replace(/^R\$\s*/i,''); if (c.includes(',')) c = c.replace(/\./g,'').replace(',','.'); const n = parseFloat(c); return isNaN(n) ? 0 : n; };
+  return {
+    hoje: rows[0] ? pVal(rows[0][8]) : 0,
+    mes: rows[1] ? pVal(rows[1][8]) : 0,
+  };
+}
+
+function renderResumo(resumo) {
+  if (!resumo) return;
+  DOM.resumoHoje.firstChild.textContent = fmt(resumo.hoje);
+  DOM.resumoMes.firstChild.textContent = fmt(resumo.mes);
+}
+
+function renderQuadro(leads) {
+  const porEtapa = { carrinho_abandonado:[], pix_pendente:[], cartao_recusado:[], pago:[] };
+  leads.forEach(l => { if (porEtapa[l.etapa_atual]) porEtapa[l.etapa_atual].push(l); });
+
+  const agora = agoraCorrigido();
+  const novosIds = [];
+
+  ETAPAS.forEach(etapa => {
+    const lista = porEtapa[etapa].sort((a,b) => new Date(b.quando) - new Date(a.quando));
+    document.getElementById('count-' + etapa).textContent = lista.length;
+    const container = document.getElementById('cards-' + etapa);
+
+    if (!lista.length) {
+      container.innerHTML = '<div class="lane-empty">ninguém aqui agora</div>';
+      return;
+    }
+
+    const MAX_CARDS = 10;
+    const visiveis = lista.slice(0, MAX_CARDS);
+    const extras = lista.length - visiveis.length;
+
+    container.innerHTML = visiveis.map(l => {
+      const ehNovo = State.baselinePronto && !State.vistos.has(l.evento_id);
+      if (ehNovo) novosIds.push({id:l.evento_id, nome:l.nome, etapa});
+      const trilha = (l.etapas_anteriores || []).map(e =>
+        `<span class="trilha-dot" style="background:${COR_ETAPA[e.etapa] || 'var(--fg-faint)'}" title="${escapeHtml(NOME_ETAPA[e.etapa] || e.etapa)}"></span>`
+      ).join('');
+      return `
+        <div class="lead-card${ehNovo ? ' novo' : ''}">
+          <div>
+            <div class="lead-card-nome">${escapeHtml(l.nome)}</div>
+            <div class="lead-card-produto">${escapeHtml(l.produto || 'produto não identificado')}</div>
+          </div>
+          <div>
+            ${trilha ? `<div class="lead-card-trilha">${trilha}</div>` : ''}
+            <div class="lead-card-tempo">há ${fmtMin(agora - new Date(l.quando))}</div>
+          </div>
+        </div>`;
+    }).join('') + (extras > 0 ? `<div class="lane-overflow">+ ${extras}</div>` : '');
+  });
+
+  leads.forEach(l => State.vistos.add(l.evento_id));
+  if (!State.baselinePronto) {
+    State.baselinePronto = true;
+  } else {
+    novosIds.forEach(n => enqueueAlert(n.nome, n.etapa));
+  }
+}
+
+async function atualizarTudo() {
+  try {
+    updateConnectionStatus('connecting');
+    const [leads, resumo] = await Promise.all([buscarQuadro(), buscarResumo()]);
+    renderQuadro(leads);
+    renderResumo(resumo);
+    updateConnectionStatus('live');
+    DOM.offlineBanner.classList.remove('show');
+    return true;
+  } catch (e) {
+    console.error('Erro ao atualizar:', e);
+    updateConnectionStatus('error');
+    return false;
+  }
+}
+
+// ================================================================
+// UI helpers
+// ================================================================
+function showToast(msg) {
+  DOM.toast.textContent = msg;
+  DOM.toast.classList.add('show');
+  setTimeout(() => DOM.toast.classList.remove('show'), 2500);
+}
+function showLoad(on, msg) {
+  DOM.loader.classList.toggle('on', on);
+  if (msg) DOM.loaderMsg.textContent = msg;
+}
+function updateConnectionStatus(status) {
+  DOM.livePill.className = 'live-pill';
+  if (status === 'live') DOM.liveLabel.textContent = 'ao vivo';
+  else if (status === 'error') { DOM.livePill.classList.add('error'); DOM.liveLabel.textContent = 'erro de conexão'; }
+  else { DOM.livePill.classList.add('connecting'); DOM.liveLabel.textContent = 'conectando'; }
+}
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen().catch(() => {});
+}
+function tickClock() {
+  const now = agoraCorrigido();
+  const opts = {timeZone:'America/Sao_Paulo'};
+  DOM.clock.textContent = now.toLocaleDateString('pt-BR', opts) + ' · ' + now.toLocaleTimeString('pt-BR', {...opts, hour:'2-digit', minute:'2-digit'});
+}
+setInterval(tickClock, 1000);
+
+let refreshTimer = null;
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(atualizarTudo, REFRESH_MS);
+}
+
+// ================================================================
+// TRAVA DE ACESSO — mesma senha/mecanismo do Fluxo Vivo.
+// ================================================================
+function tentarDesbloquear() {
+  const input = document.getElementById('lockInput');
+  const erro = document.getElementById('lockError');
+  if (input.value === SENHA_PAINEL) {
+    try { localStorage.setItem('fluxoDesbloqueado', '1'); } catch (e) {}
+    document.getElementById('lockScreen').classList.add('hidden');
+  } else {
+    erro.textContent = 'Senha incorreta';
+    input.value = '';
+    input.focus();
+  }
+}
+(function verificarAcesso() {
+  let ok = false;
+  try { ok = localStorage.getItem('fluxoDesbloqueado') === '1'; } catch (e) {}
+  if (ok) document.getElementById('lockScreen')?.classList.add('hidden');
+})();
+
+// ================================================================
+// INIT
+// ================================================================
+window.addEventListener('load', async () => {
+  cacheDOM();
+  tickClock();
+  try { State.somOn = localStorage.getItem('recuperacaoSomOn') !== '0'; } catch (e) {}
+  DOM.soundIconOn.hidden = !State.somOn;
+  DOM.soundIconOff.hidden = State.somOn;
+  DOM.soundBtn.classList.toggle('muted', !State.somOn);
+  DOM.soundBtn.addEventListener('click', toggleSom);
+  DOM.fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  if (!navigator.onLine) DOM.offlineBanner.classList.add('show');
+
+  showLoad(true, 'Buscando dados...');
+  const ok = await atualizarTudo();
+  showLoad(false);
+  if (!ok) showToast('Não foi possível conectar ao servidor agora');
+  State.isConnected = true;
+  startAutoRefresh();
+});
+window.addEventListener('online', () => { DOM.offlineBanner.classList.remove('show'); atualizarTudo(); });
+window.addEventListener('offline', () => DOM.offlineBanner.classList.add('show'));
+</script>
+</body>
+</html>
