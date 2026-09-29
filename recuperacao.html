@@ -157,6 +157,31 @@
   /* ---------- botão de notificação do sistema ---------- */
   .icon-btn.ativo { color:var(--green); border-color:rgba(52,211,153,0.4); }
 
+  /* ---------- botão de dia anterior + tema cinza quando ativo (pedido
+     do usuário em 2026-09-29 — "pra não confundir" com dado ao vivo) ---------- */
+  .dia-btn {
+    display:flex; align-items:center; gap:7px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:700;
+    letter-spacing:0.4px; color:var(--fg-dim); cursor:pointer;
+    background:rgba(255,255,255,0.04); border:1px solid var(--line);
+    padding:7px 14px 7px 12px; border-radius:99px;
+    transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .dia-btn svg { width:15px; height:15px; flex-shrink:0; }
+  .dia-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .dia-btn.ativo {
+    background:rgba(251,191,36,0.14); border-color:rgba(251,191,36,0.5); color:var(--yellow);
+  }
+  body.modo-ontem {
+    --bg: #2b2b2f;
+    --surface: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.018));
+    --panel-border: rgba(255,255,255,0.14);
+  }
+  body.modo-ontem .live-pill.historico {
+    background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.4); color:var(--yellow);
+  }
+  body.modo-ontem .live-pill.historico .dot { background:var(--yellow); box-shadow:0 0 8px var(--yellow); }
+
   /* ---------- quadro de recuperação: 4 faixas ---------- */
   .board { flex:1; min-height:0; display:flex; flex-direction:column; gap:clamp(10px, 1.6vh, 16px); }
   .lane {
@@ -347,6 +372,10 @@
     <span class="topbar-clock" id="clock">--:--</span>
     <div class="topbar-actions">
       <button class="live-pill" id="livePill"><span class="dot"></span><span id="liveLabel">conectando</span></button>
+      <button class="dia-btn" id="diaBtn" title="Alternar entre hoje e o dia anterior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="diaBtnTexto">Ver dia de ontem</span>
+      </button>
       <button class="icon-btn" id="notifBtn" title="Avisos do sistema (aparecem por cima de outros programas)" aria-label="Ativar avisos do sistema">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       </button>
@@ -440,7 +469,7 @@ const REFRESH_MS = 15000; // mais rápido que o Fluxo Vivo (60s) — aqui a velo
 
 const DOM = {};
 function cacheDOM() {
-  ['clock','livePill','liveLabel','soundBtn','soundIconOn','soundIconOff','notifBtn','fullscreenBtn',
+  ['clock','livePill','liveLabel','diaBtn','diaBtnTexto','soundBtn','soundIconOn','soundIconOff','notifBtn','fullscreenBtn',
    'resumoVendedores',
    'toast','loader','loaderMsg','offlineBanner',
    'alertBanner','alertBannerNome','alertBannerEtapa','leadTooltip',
@@ -452,6 +481,7 @@ function cacheDOM() {
 // usuário em 2026-09-29: mostrar quem vendeu e quanto, igual lá.
 const State = {
   somOn: true, isConnected: false, vistos: new Set(), baselinePronto: false, leadPorEventoId: new Map(),
+  diasAtras: 0,
   vendors: ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL'],
   nameMap: {
     'BIA':'BIA', 'JOAO':'JOAO', 'JOAOV':'JOAOV', 'MATHEUS':'MATHEUS', 'LAIS':'LAIS', 'ELTON':'ELTON',
@@ -735,7 +765,7 @@ function processAlertQueue() {
 // (mesma planilha do Fluxo Vivo, só leitura das duas linhas de total).
 // ================================================================
 async function buscarQuadro() {
-  const r = await fetch(API_BASE + '/recuperacao/hoje');
+  const r = await fetch(API_BASE + '/recuperacao/hoje?dias_atras=' + State.diasAtras);
   if (!r.ok) throw new Error('recuperacao: ' + r.status);
   corrigirRelogio(r.headers.get('date'));
   const j = await r.json();
@@ -953,9 +983,17 @@ function ligarRolagemLateral() {
 async function atualizarTudo() {
   try {
     updateConnectionStatus('connecting');
-    const [leads, vendedores] = await Promise.all([buscarQuadro(), buscarVendedoresHoje()]);
-    renderQuadro(leads);
-    renderResumoVendedores(vendedores);
+    if (State.diasAtras === 0) {
+      const [leads, vendedores] = await Promise.all([buscarQuadro(), buscarVendedoresHoje()]);
+      renderQuadro(leads);
+      renderResumoVendedores(vendedores);
+    } else {
+      // Não existe planilha de dias passados (o Fluxo Vivo só guarda o
+      // dia de hoje) — o resumo por vendedor só faz sentido olhando hoje.
+      const leads = await buscarQuadro();
+      renderQuadro(leads);
+      DOM.resumoVendedores.innerHTML = '<span class="resumo-vazio">resumo por vendedor só está disponível pro dia de hoje</span>';
+    }
     updateConnectionStatus('live');
     DOM.offlineBanner.classList.remove('show');
     return true;
@@ -964,6 +1002,24 @@ async function atualizarTudo() {
     updateConnectionStatus('error');
     return false;
   }
+}
+
+// Alterna entre hoje e ontem (pedido do usuário em 2026-09-29) — troca o
+// tema pra cinza pra nunca confundir com dado ao vivo. Zera a linha de
+// base de "quem já vi" antes de buscar, pra trocar de dia nunca disparar
+// alerta/comemoração/notificação como se fosse novidade — nada num dia
+// passado é "novo".
+async function alternarDia() {
+  State.diasAtras = State.diasAtras === 0 ? 1 : 0;
+  const vendoOntem = State.diasAtras > 0;
+  document.body.classList.toggle('modo-ontem', vendoOntem);
+  DOM.diaBtn.classList.toggle('ativo', vendoOntem);
+  DOM.diaBtnTexto.textContent = vendoOntem ? 'Voltar para hoje' : 'Ver dia de ontem';
+  State.vistos = new Set();
+  State.baselinePronto = false;
+  showLoad(true, vendoOntem ? 'Buscando dia anterior...' : 'Voltando para hoje...');
+  await atualizarTudo();
+  showLoad(false);
 }
 
 // ================================================================
@@ -980,7 +1036,8 @@ function showLoad(on, msg) {
 }
 function updateConnectionStatus(status) {
   DOM.livePill.className = 'live-pill';
-  if (status === 'live') DOM.liveLabel.textContent = 'ao vivo';
+  if (status === 'live' && State.diasAtras > 0) { DOM.livePill.classList.add('historico'); DOM.liveLabel.textContent = 'dia anterior'; }
+  else if (status === 'live') DOM.liveLabel.textContent = 'ao vivo';
   else if (status === 'error') { DOM.livePill.classList.add('error'); DOM.liveLabel.textContent = 'erro de conexão'; }
   else { DOM.livePill.classList.add('connecting'); DOM.liveLabel.textContent = 'conectando'; }
 }
@@ -1037,6 +1094,7 @@ window.addEventListener('load', async () => {
   DOM.soundBtn.addEventListener('click', toggleSom);
   atualizarBotaoNotif();
   DOM.notifBtn.addEventListener('click', pedirPermissaoNotificacao);
+  DOM.diaBtn.addEventListener('click', alternarDia);
   DOM.fullscreenBtn.addEventListener('click', toggleFullscreen);
 
   if (!navigator.onLine) DOM.offlineBanner.classList.add('show');
