@@ -1773,8 +1773,8 @@ setInterval(tickContato, 5000);
 // monitor cair, só esta faixa some — vendas, ranking e funil seguem.
 // Endereço ou chave vazios = faixa desligada, o painel fica como antes.
 // ================================================================
-const COMENTARIOS_API_BASE = '';
-const COMENTARIOS_CHAVE = '';
+const COMENTARIOS_API_BASE = 'https://monitor-production-b6da.up.railway.app';
+const COMENTARIOS_CHAVE = 'b2aae5e3d58891148f75e06a51e2311bd7f47f7e';
 const comentariosState = { alertados: new Set(), baselinePronto: false, buscando: false };
 
 async function fetchComentarios() {
