@@ -868,6 +868,24 @@ function ehProdutoContato(produto) {
   return String(produto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(PRODUTO_CONTATO_TERMO);
 }
 
+// Relógio do aparelho pode estar adiantado/atrasado de verdade (não só
+// fuso errado — caixinha de TV/Android box às vezes nem sincroniza hora
+// sozinha). Relatado pelo usuário em 2026-09-29: venda que acabou de
+// acontecer já aparecia com mais de 1h de atraso — o cálculo de fuso
+// estava certo, mas "agora" no aparelho não era o "agora" de verdade.
+// Corrige sozinho: toda leitura da planilha já vem com um cabeçalho HTTP
+// "Date" (hora do servidor do Google, sempre certa) — a diferença entre
+// esse valor e o relógio do aparelho vira um ajuste aplicado em toda
+// conta de tempo daqui pra frente, sem precisar mexer no aparelho.
+let relogioDriftMs = 0;
+function agoraCorrigido() { return new Date(Date.now() + relogioDriftMs); }
+function corrigirRelogio(headerDate) {
+  if (!headerDate) return;
+  const servidor = new Date(headerDate).getTime();
+  if (isNaN(servidor)) return;
+  relogioDriftMs = servidor - Date.now();
+}
+
 const FUNNEL_COLORS = ['#3ec6ff', '#34d399', '#b785f7', '#ff8a4c', '#ff5f96', '#fbbf24'];
 
 // Coroa do 1º lugar como desenho vetorial (SVG), não emoji — emoji colorido
@@ -929,12 +947,12 @@ function pVal(v) {
 }
 function isToday(d) {
   if (!d) return false;
-  const a = camposSP(d), b = camposSP(new Date());
+  const a = camposSP(d), b = camposSP(agoraCorrigido());
   return a.getUTCDate()===b.getUTCDate() && a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
 }
 function isMonth(d) {
   if (!d) return false;
-  const a = camposSP(d), b = camposSP(new Date());
+  const a = camposSP(d), b = camposSP(agoraCorrigido());
   return a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
 }
 const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -1010,7 +1028,7 @@ function buildTodaySeries() {
     const frac = (d.getUTCHours()*3600 + d.getUTCMinutes()*60 + d.getUTCSeconds()) / 86400;
     pts.push({t:frac, v:acc});
   });
-  const now = camposSP(new Date());
+  const now = camposSP(agoraCorrigido());
   const nowFrac = (now.getUTCHours()*3600 + now.getUTCMinutes()*60 + now.getUTCSeconds()) / 86400;
   pts.push({t:Math.max(nowFrac, pts[pts.length-1].t), v:acc});
   return pts;
@@ -1535,6 +1553,7 @@ async function fetchAllData(confirmando) {
     ]);
     if (!dR.ok) throw new Error('DASHBOARD: ' + dR.status);
     if (!rR.ok) throw new Error('DADOS BRUTOS: ' + rR.status);
+    corrigirRelogio(dR.headers.get('date'));
     const [dJ, rJ] = await Promise.all([dR.json(), rR.json()]);
     if (seq !== fetchSeq) return false;
 
@@ -1563,7 +1582,7 @@ async function fetchAllData(confirmando) {
     State.dashData = novoDash;
     State.rawData = novoRaw;
     State.lastFetchMs = Math.round(performance.now() - t0);
-    State.lastUpdateTime = new Date();
+    State.lastUpdateTime = agoraCorrigido();
     updateConnectionStatus('live');
     refresh();
     return true;
@@ -1717,7 +1736,7 @@ function renderContatoDrawer(pendentes, atrasados, agora) {
 }
 function renderContato() {
   if (!State.contatoBaselinePronto) return;
-  const agora = new Date();
+  const agora = agoraCorrigido();
   const contatos = getContatosHoje();
 
   // Venda nova desse produto (chegou depois que a página conectou) —
@@ -1854,7 +1873,7 @@ async function connectAndStart(showFullLoader) {
     // atendido em outro aparelho entraria na base por engano.
     await fetchAtendidos();
     const contatosBase = getContatosHoje();
-    const agoraBase = new Date();
+    const agoraBase = agoraCorrigido();
     contatosBase.forEach(c => {
       if (!c.orderId) return;
       State.contatoAlertados.add(c.orderId);
@@ -1906,7 +1925,7 @@ function saveMeta() { if (State.isConnected) refresh(); showToast('Meta diária 
 function saveRefresh() { if (State.isConnected) startAutoRefresh(); }
 
 function tickClock() {
-  const now = new Date();
+  const now = agoraCorrigido();
   // Sempre horário de São Paulo na tela, mesmo se o aparelho estiver
   // configurado noutro fuso — timeZone explícito, não o fuso do sistema.
   const opts = {timeZone:'America/Sao_Paulo'};
