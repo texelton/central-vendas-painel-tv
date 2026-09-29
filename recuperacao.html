@@ -262,10 +262,6 @@
   }
   .lead-tooltip.show { opacity:1; transform:translateY(0) scale(1); }
   .lead-tooltip-nome { font-weight:800; font-size:1.05rem; color:var(--fg); }
-  .lead-tooltip-contato {
-    margin-top:6px; display:flex; flex-direction:column; gap:2px;
-    font-family:'IBM Plex Mono',monospace; font-size:0.74rem; color:var(--fg-dim);
-  }
   .lead-tooltip-hr { height:1px; background:var(--line); margin:12px 0; }
   .lead-tooltip-jornada-item { padding:8px 0; border-top:1px solid var(--line); }
   .lead-tooltip-jornada-item:first-child { border-top:none; padding-top:0; }
@@ -914,14 +910,6 @@ function renderQuadro(leads) {
 // só, reaproveitado (ver #leadTooltip no CSS/HTML), preenchido e
 // posicionado a cada card que o mouse passa por cima.
 // ================================================================
-function fmtTelefone(t) {
-  const d = String(t || '').replace(/\D/g, '');
-  if (d.length < 10) return t || 'não informado';
-  const ddi = d.length > 11 ? d.slice(0, d.length - 11) : '';
-  const resto = d.length > 11 ? d.slice(d.length - 11) : d;
-  const ddd = resto.slice(0, 2), meio = resto.length === 11 ? resto.slice(2, 7) : resto.slice(2, 6), fim = resto.slice(-4);
-  return (ddi ? '+' + ddi + ' ' : '') + '(' + ddd + ') ' + meio + '-' + fim;
-}
 function montarTooltipHtml(l) {
   const agora = agoraCorrigido();
   const jornadaCompleta = [...(l.etapas_anteriores || []), {etapa:l.etapa_atual, produto:l.produto, valor:l.valor, quando:l.quando, atual:true}];
@@ -940,10 +928,6 @@ function montarTooltipHtml(l) {
 
   return `
     <div class="lead-tooltip-nome">${escapeHtml(l.nome)}</div>
-    <div class="lead-tooltip-contato">
-      <span>✉ ${escapeHtml(l.email || 'não informado')}</span>
-      <span>☎ ${escapeHtml(fmtTelefone(l.telefone))}</span>
-    </div>
     <div class="lead-tooltip-hr"></div>
     ${itensHtml}`;
 }
