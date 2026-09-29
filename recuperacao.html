@@ -471,7 +471,9 @@
 const API_BASE = 'https://app-production-fec2.up.railway.app';
 const SHEET_ID = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
 const SHEET_KEY = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
-const SENHA_PAINEL = 'vendas2026';
+// Mais de uma senha válida (pedido do usuário em 2026-09-29: senha
+// própria pro João) — qualquer uma das duas destrava normalmente.
+const SENHAS_VALIDAS = new Set(['vendas2026', 'joao2026']);
 const ETAPAS = ['carrinho_abandonado', 'pix_pendente', 'cartao_recusado', 'pago'];
 const NOME_ETAPA = {
   carrinho_abandonado: 'Carrinho abandonado',
@@ -1089,7 +1091,7 @@ function startAutoRefresh() {
 function tentarDesbloquear() {
   const input = document.getElementById('lockInput');
   const erro = document.getElementById('lockError');
-  if (input.value === SENHA_PAINEL) {
+  if (SENHAS_VALIDAS.has(input.value)) {
     try { localStorage.setItem('fluxoDesbloqueado', '1'); } catch (e) {}
     document.getElementById('lockScreen').classList.add('hidden');
   } else {

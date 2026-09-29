@@ -1941,11 +1941,13 @@ window.addEventListener('online', () => { DOM.offlineBanner.classList.remove('sh
 // TRAVA DE ACESSO — só quem sabe a senha vê o painel
 // Troque a senha abaixo quando quiser (é só mudar este texto).
 // ================================================================
-const SENHA_PAINEL = 'vendas2026';
+// Mais de uma senha válida (pedido do usuário em 2026-09-29: senha
+// própria pro João) — qualquer uma das duas destrava normalmente.
+const SENHAS_VALIDAS = new Set(['vendas2026', 'joao2026']);
 function tentarDesbloquear() {
   const input = document.getElementById('lockInput');
   const erro = document.getElementById('lockError');
-  if (input.value === SENHA_PAINEL) {
+  if (SENHAS_VALIDAS.has(input.value)) {
     try { localStorage.setItem('fluxoDesbloqueado', '1'); } catch (e) {}
     document.getElementById('lockScreen').classList.add('hidden');
   } else {
