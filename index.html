@@ -1609,6 +1609,7 @@ function startAutoRefresh() {
   refreshTimer = setInterval(async () => {
     await fetchAllData();
     detectNewSales(); // compara com o total anterior e já atualiza State.prevTotals
+    fetchComentarios(); // mesmo relógio da planilha (pedido do usuário: não consultar a cada 10s)
   }, iv * 1000);
 }
 function computeTodayTotals() {
@@ -1844,7 +1845,7 @@ function renderComentarios(dados) {
     DOM.commentsTicker.innerHTML = '';
   }
 }
-setInterval(fetchComentarios, 10000);
+// Consulta uma vez ao abrir; depois segue o intervalo da planilha (startAutoRefresh).
 window.addEventListener('load', fetchComentarios);
 
 async function connectAndStart(showFullLoader) {
