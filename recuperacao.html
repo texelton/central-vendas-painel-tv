@@ -134,7 +134,17 @@
     font-weight:800; font-size:clamp(1.1rem, 1.7vw, 1.4rem); color:var(--lane-color, var(--accent));
     font-variant-numeric:tabular-nums;
   }
-  .lane-cards { flex:1; min-height:0; display:flex; align-items:stretch; gap:10px; overflow:hidden; }
+  /* Rolagem lateral pra ver todo mundo da faixa (pedido do usuário em
+     2026-09-29) — esse painel é pra usar com mouse/notebook, diferente do
+     Fluxo Vivo que fica só olhando numa TV sem interação. */
+  .lane-cards {
+    flex:1; min-height:0; display:flex; align-items:stretch; gap:10px;
+    overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; scrollbar-color:var(--line) transparent;
+  }
+  .lane-cards::-webkit-scrollbar { height:7px; }
+  .lane-cards::-webkit-scrollbar-track { background:transparent; }
+  .lane-cards::-webkit-scrollbar-thumb { background:var(--line); border-radius:99px; }
+  .lane-cards::-webkit-scrollbar-thumb:hover { background:var(--fg-faint); }
   .lane-empty {
     flex:1; display:flex; align-items:center;
     font-family:'IBM Plex Mono',monospace; font-size:0.78rem; color:var(--fg-faint);
@@ -162,12 +172,36 @@
   }
   .lead-card-trilha { display:flex; gap:4px; margin-top:2px; }
   .trilha-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .lead-card { cursor:default; }
 
-  .lane-overflow {
-    flex:0 0 auto; width:clamp(60px, 6vw, 84px); display:flex; align-items:center; justify-content:center;
-    font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:700; color:var(--fg-dim);
-    background:rgba(255,255,255,0.02); border:1px dashed var(--line); border-radius:12px;
+  /* ---------- detalhe ao passar o mouse: um único elemento flutuante
+     (position:fixed), reaproveitado por todos os cards — não pode ser um
+     popover DENTRO do card, porque a faixa tem rolagem lateral própria e
+     cortaria qualquer coisa que tentasse "escapar" verticalmente dela. ---------- */
+  .lead-tooltip {
+    position:fixed; z-index:900; width:280px; max-width:88vw;
+    background:#101014; border:1px solid var(--panel-border); border-radius:14px;
+    padding:16px 18px; box-shadow:0 30px 70px -20px rgba(0,0,0,0.7);
+    opacity:0; transform:translateY(6px) scale(0.98); pointer-events:none;
+    transition:opacity 0.15s ease, transform 0.15s ease;
   }
+  .lead-tooltip.show { opacity:1; transform:translateY(0) scale(1); }
+  .lead-tooltip-nome { font-weight:800; font-size:1.05rem; color:var(--fg); }
+  .lead-tooltip-contato {
+    margin-top:6px; display:flex; flex-direction:column; gap:2px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.74rem; color:var(--fg-dim);
+  }
+  .lead-tooltip-hr { height:1px; background:var(--line); margin:12px 0; }
+  .lead-tooltip-jornada-item { padding:8px 0; border-top:1px solid var(--line); }
+  .lead-tooltip-jornada-item:first-child { border-top:none; padding-top:0; }
+  .lead-tooltip-jornada-etapa { display:flex; align-items:center; gap:7px; font-weight:700; font-size:0.82rem; }
+  .lead-tooltip-jornada-etapa .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .lead-tooltip-jornada-info {
+    margin-top:4px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--fg-dim);
+  }
+  .lead-tooltip-jornada-produto { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lead-tooltip-jornada-valor { color:var(--fg); font-weight:700; flex-shrink:0; }
 
   /* ---------- alerta de mudança nova ---------- */
   .alert-banner {
@@ -326,6 +360,8 @@
   <span class="alert-banner-etapa" id="alertBannerEtapa"></span>
 </div>
 
+<div class="lead-tooltip" id="leadTooltip"></div>
+
 <div class="toast" id="toast"></div>
 <div class="offline-banner" id="offlineBanner">Sem conexão com a internet — mostrando os últimos dados recebidos</div>
 <div class="loader on" id="loader"><div class="loader-ring"></div><span class="loader-msg" id="loaderMsg">Conectando...</span></div>
@@ -356,11 +392,11 @@ function cacheDOM() {
   ['clock','livePill','liveLabel','soundBtn','soundIconOn','soundIconOff','fullscreenBtn',
    'resumoHoje','resumoHojeQtd','resumoMes','resumoMesQtd',
    'toast','loader','loaderMsg','offlineBanner',
-   'alertBanner','alertBannerNome','alertBannerEtapa'
+   'alertBanner','alertBannerNome','alertBannerEtapa','leadTooltip'
   ].forEach(id => DOM[id] = document.getElementById(id));
 }
 
-const State = { somOn: true, isConnected: false, vistos: new Set(), baselinePronto: false };
+const State = { somOn: true, isConnected: false, vistos: new Set(), baselinePronto: false, leadPorEventoId: new Map() };
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
@@ -499,18 +535,17 @@ function renderQuadro(leads) {
       return;
     }
 
-    const MAX_CARDS = 10;
-    const visiveis = lista.slice(0, MAX_CARDS);
-    const extras = lista.length - visiveis.length;
-
-    container.innerHTML = visiveis.map(l => {
+    // Todos os cards da faixa — sem limite (pedido do usuário em
+    // 2026-09-29: rolar pro lado pra ver todo mundo, ver .lane-cards).
+    container.innerHTML = lista.map(l => {
       const ehNovo = State.baselinePronto && !State.vistos.has(l.evento_id);
       if (ehNovo) novosIds.push({id:l.evento_id, nome:l.nome, etapa});
+      State.leadPorEventoId.set(l.evento_id, l);
       const trilha = (l.etapas_anteriores || []).map(e =>
         `<span class="trilha-dot" style="background:${COR_ETAPA[e.etapa] || 'var(--fg-faint)'}" title="${escapeHtml(NOME_ETAPA[e.etapa] || e.etapa)}"></span>`
       ).join('');
       return `
-        <div class="lead-card${ehNovo ? ' novo' : ''}">
+        <div class="lead-card${ehNovo ? ' novo' : ''}" data-evento-id="${l.evento_id}">
           <div>
             <div class="lead-card-nome">${escapeHtml(l.nome)}</div>
             <div class="lead-card-produto">${escapeHtml(l.produto || 'produto não identificado')}</div>
@@ -520,7 +555,7 @@ function renderQuadro(leads) {
             <div class="lead-card-tempo">há ${fmtMin(agora - new Date(l.quando))}</div>
           </div>
         </div>`;
-    }).join('') + (extras > 0 ? `<div class="lane-overflow">+ ${extras}</div>` : '');
+    }).join('');
   });
 
   leads.forEach(l => State.vistos.add(l.evento_id));
@@ -529,6 +564,77 @@ function renderQuadro(leads) {
   } else {
     novosIds.forEach(n => enqueueAlert(n.nome, n.etapa));
   }
+}
+
+// ================================================================
+// CARD DE DETALHE (hover) — pedido do usuário em 2026-09-29: passar o
+// mouse mostra informação mais completa do lead e da venda. Um elemento
+// só, reaproveitado (ver #leadTooltip no CSS/HTML), preenchido e
+// posicionado a cada card que o mouse passa por cima.
+// ================================================================
+function fmtTelefone(t) {
+  const d = String(t || '').replace(/\D/g, '');
+  if (d.length < 10) return t || 'não informado';
+  const ddi = d.length > 11 ? d.slice(0, d.length - 11) : '';
+  const resto = d.length > 11 ? d.slice(d.length - 11) : d;
+  const ddd = resto.slice(0, 2), meio = resto.length === 11 ? resto.slice(2, 7) : resto.slice(2, 6), fim = resto.slice(-4);
+  return (ddi ? '+' + ddi + ' ' : '') + '(' + ddd + ') ' + meio + '-' + fim;
+}
+function montarTooltipHtml(l) {
+  const agora = agoraCorrigido();
+  const jornadaCompleta = [...(l.etapas_anteriores || []), {etapa:l.etapa_atual, produto:l.produto, valor:l.valor, quando:l.quando, atual:true}];
+  const itensHtml = jornadaCompleta.slice().reverse().map(e => `
+    <div class="lead-tooltip-jornada-item">
+      <span class="lead-tooltip-jornada-etapa">
+        <span class="dot" style="background:${COR_ETAPA[e.etapa] || 'var(--fg-faint)'}"></span>
+        ${escapeHtml(NOME_ETAPA[e.etapa] || e.etapa)}${e.atual ? ' (agora)' : ''}
+      </span>
+      <div class="lead-tooltip-jornada-info">
+        <span class="lead-tooltip-jornada-produto" title="${escapeHtml(e.produto || '')}">${escapeHtml(e.produto || 'produto não identificado')}</span>
+        <span class="lead-tooltip-jornada-valor">${fmt(e.valor || 0)} · há ${fmtMin(agora - new Date(e.quando))}</span>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="lead-tooltip-nome">${escapeHtml(l.nome)}</div>
+    <div class="lead-tooltip-contato">
+      <span>✉ ${escapeHtml(l.email || 'não informado')}</span>
+      <span>☎ ${escapeHtml(fmtTelefone(l.telefone))}</span>
+    </div>
+    <div class="lead-tooltip-hr"></div>
+    ${itensHtml}`;
+}
+function mostrarTooltip(card) {
+  const l = State.leadPorEventoId.get(Number(card.dataset.eventoId));
+  if (!l) return;
+  DOM.leadTooltip.innerHTML = montarTooltipHtml(l);
+  DOM.leadTooltip.classList.add('show');
+  posicionarTooltip(card);
+}
+function posicionarTooltip(card) {
+  const r = card.getBoundingClientRect();
+  const tt = DOM.leadTooltip;
+  const largura = tt.offsetWidth || 280;
+  let left = r.left + r.width / 2 - largura / 2;
+  left = Math.max(12, Math.min(left, window.innerWidth - largura - 12));
+  const alturaEstim = tt.offsetHeight || 200;
+  const cabeAcima = r.top - alturaEstim - 14 > 0;
+  const top = cabeAcima ? (r.top - alturaEstim - 14) : (r.bottom + 14);
+  tt.style.left = left + 'px';
+  tt.style.top = Math.max(12, top) + 'px';
+}
+function esconderTooltip() { DOM.leadTooltip.classList.remove('show'); }
+function ligarHoverDosCards() {
+  document.getElementById('board').addEventListener('mouseover', e => {
+    const card = e.target.closest('.lead-card');
+    if (card) mostrarTooltip(card);
+  });
+  document.getElementById('board').addEventListener('mouseout', e => {
+    const card = e.target.closest('.lead-card');
+    const indo = e.relatedTarget && e.relatedTarget.closest('.lead-card');
+    if (card && !indo) esconderTooltip();
+  });
+  document.getElementById('board').addEventListener('scroll', esconderTooltip, true);
 }
 
 async function atualizarTudo() {
@@ -609,6 +715,7 @@ function tentarDesbloquear() {
 window.addEventListener('load', async () => {
   cacheDOM();
   tickClock();
+  ligarHoverDosCards();
   try { State.somOn = localStorage.getItem('recuperacaoSomOn') !== '0'; } catch (e) {}
   DOM.soundIconOn.hidden = !State.somOn;
   DOM.soundIconOff.hidden = State.somOn;
