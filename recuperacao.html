@@ -272,11 +272,12 @@
   .lead-tooltip-jornada-etapa { display:flex; align-items:center; gap:7px; font-weight:700; font-size:0.82rem; }
   .lead-tooltip-jornada-etapa .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
   .lead-tooltip-jornada-info {
-    margin-top:4px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    margin-top:4px; display:flex; flex-direction:column; gap:2px;
     font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--fg-dim);
   }
-  .lead-tooltip-jornada-produto { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .lead-tooltip-jornada-valor { color:var(--fg); font-weight:700; flex-shrink:0; }
+  .lead-tooltip-jornada-produto { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lead-tooltip-jornada-valor { color:var(--fg); font-weight:700; }
+  .lead-tooltip-jornada-data { color:var(--fg-dim); }
 
   /* ---------- alerta de mudança nova ---------- */
   .alert-banner {
@@ -700,6 +701,15 @@ function fmtMin(ms) {
   const m = totalMin % 60;
   return m === 0 ? h + 'h' : h + 'h ' + m + 'min';
 }
+// Data/hora exata (horário de São Paulo, explícito) de uma etapa da
+// jornada — pedido do usuário em 2026-09-29: com "há Xh" só, é difícil
+// saber se duas etapas bem próximas aconteceram no mesmo instante ou só
+// coincidem no arredondamento, e não dá pra ver se foi ontem ou hoje.
+function fmtDataHora(iso) {
+  const d = new Date(iso);
+  const opts = {timeZone:'America/Sao_Paulo'};
+  return d.toLocaleDateString('pt-BR', {...opts, day:'2-digit', month:'2-digit'}) + ' às ' + d.toLocaleTimeString('pt-BR', {...opts, hour:'2-digit', minute:'2-digit'});
+}
 
 // ================================================================
 // SOM — mesmo sintetizador do Fluxo Vivo (Web Audio API, sem arquivo
@@ -919,11 +929,12 @@ function montarTooltipHtml(l) {
     <div class="lead-tooltip-jornada-item">
       <span class="lead-tooltip-jornada-etapa">
         <span class="dot" style="background:${COR_ETAPA[e.etapa] || 'var(--fg-faint)'}"></span>
-        ${escapeHtml(NOME_ETAPA[e.etapa] || e.etapa)}${e.atual ? ' (agora)' : ''}
+        ${escapeHtml(NOME_ETAPA[e.etapa] || e.etapa)}${e.atual ? ' (atual)' : ''}
       </span>
       <div class="lead-tooltip-jornada-info">
         <span class="lead-tooltip-jornada-produto" title="${escapeHtml(e.produto || '')}">${escapeHtml(e.produto || 'produto não identificado')}</span>
-        <span class="lead-tooltip-jornada-valor">${fmt(e.valor || 0)} · há ${fmtMin(agora - new Date(e.quando))}</span>
+        <span class="lead-tooltip-jornada-valor">${fmt(e.valor || 0)}</span>
+        <span class="lead-tooltip-jornada-data">${fmtDataHora(e.quando)} · há ${fmtMin(agora - new Date(e.quando))}</span>
       </div>
     </div>`).join('');
 
