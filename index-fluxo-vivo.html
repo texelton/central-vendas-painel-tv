@@ -1681,9 +1681,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn) marcarAtendido(btn.dataset.orderid);
   });
 });
+// Passou de 1h, mostra em horas e minutos (ex: "1h 30min") — pedido do
+// usuário em 2026-09-28, pra não ficar lendo "169 min" numa TV.
 function fmtMin(ms) {
-  const min = Math.max(0, Math.round(ms / 60000));
-  return min <= 1 ? '1 min' : min + ' min';
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  if (totalMin < 60) return totalMin <= 1 ? '1 min' : totalMin + ' min';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m === 0 ? h + 'h' : h + 'h ' + m + 'min';
 }
 // Lista clicável da gaveta (⚙) — diferente do letreiro da TV, aqui dá pra
 // apertar "Atendido" com o dedo/mouse. Mostra atrasados primeiro (mais
