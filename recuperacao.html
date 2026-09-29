@@ -4,6 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recuperação — Time Comercial</title>
+
+<!-- Deixa instalar como aplicativo (Mac, Windows, Android, iPhone) —
+     pedido do usuário em 2026-09-29: assim o sistema trata como um app
+     próprio (ícone, nome, permissão de notificação separada), não "uma
+     aba qualquer do Chrome". -->
+<link rel="manifest" href="manifest-recuperacao.json">
+<link rel="icon" href="icones/icon-192.png">
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+<meta name="theme-color" content="#060608">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Recuperação">
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
@@ -1098,6 +1112,11 @@ window.addEventListener('load', async () => {
   tickClock();
   ligarHoverDosCards();
   ligarRolagemLateral();
+  // Registra o service worker (só existe pra permitir "instalar como
+  // app" — não guarda nada em cache, ver service-worker-recuperacao.js).
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker-recuperacao.js').catch(() => {});
+  }
   try { State.somOn = localStorage.getItem('recuperacaoSomOn') !== '0'; } catch (e) {}
   DOM.soundIconOn.hidden = !State.somOn;
   DOM.soundIconOff.hidden = State.somOn;
