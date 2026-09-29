@@ -636,6 +636,21 @@ function ligarHoverDosCards() {
   });
   document.getElementById('board').addEventListener('scroll', esconderTooltip, true);
 }
+// Roda do mouse manda "rolar pra baixo" (deltaY), não "rolar pro lado" —
+// isso não vira rolagem lateral sozinho, é preciso traduzir aqui (bug
+// relatado pelo usuário em 2026-09-29: rolagem não acontecia). Só desktop
+// (mobile já rola por toque, sem precisar disso, e tem rolagem vertical
+// da página que não pode ser sequestrada).
+function ligarRolagemLateral() {
+  document.getElementById('board').addEventListener('wheel', e => {
+    if (window.innerWidth <= 780) return;
+    const faixa = e.target.closest('.lane-cards');
+    if (!faixa || faixa.scrollWidth <= faixa.clientWidth) return;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    faixa.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, {passive:false});
+}
 
 async function atualizarTudo() {
   try {
@@ -716,6 +731,7 @@ window.addEventListener('load', async () => {
   cacheDOM();
   tickClock();
   ligarHoverDosCards();
+  ligarRolagemLateral();
   try { State.somOn = localStorage.getItem('recuperacaoSomOn') !== '0'; } catch (e) {}
   DOM.soundIconOn.hidden = !State.somOn;
   DOM.soundIconOff.hidden = State.somOn;
