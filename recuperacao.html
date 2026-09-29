@@ -93,23 +93,69 @@
     display:flex; flex-direction:column; gap:clamp(14px, 2.2vh, 24px);
   }
 
-  /* ---------- resumo do painel principal ---------- */
+  /* ---------- resumo: quem vendeu hoje e quanto (pedido do usuário em
+     2026-09-29 — não mais total do mês) ---------- */
   .resumo-zone {
     flex:0 0 auto; padding:clamp(14px, 2vh, 20px) clamp(28px, 5vw, 56px);
     background:var(--surface); border:1px solid var(--panel-border); border-radius:20px;
     box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
-    display:flex; align-items:center; gap:clamp(28px, 5vw, 64px); flex-wrap:wrap;
+    display:flex; flex-direction:column; gap:10px;
   }
-  .resumo-item { display:flex; flex-direction:column; gap:2px; }
   .resumo-label {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem);
     font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
   }
-  .resumo-valor {
-    font-weight:800; letter-spacing:-0.5px; color:var(--fg);
-    font-size:clamp(1.15rem, 1.9vw, 1.55rem); font-variant-numeric:tabular-nums;
+  .resumo-vendedores { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 26px; }
+  .resumo-vendedor { display:flex; align-items:baseline; gap:8px; }
+  .resumo-vendedor-nome { font-weight:700; font-size:clamp(0.85rem, 1.2vw, 1.02rem); }
+  .resumo-vendedor-valor {
+    font-family:'IBM Plex Mono',monospace; font-weight:800; color:var(--fg);
+    font-size:clamp(0.85rem, 1.2vw, 1.02rem); font-variant-numeric:tabular-nums;
   }
-  .resumo-valor .qtd { font-weight:600; color:var(--fg-dim); font-size:0.62em; margin-left:6px; }
+  .resumo-vazio { font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--fg-faint); }
+
+  /* ---------- burst de comemoração — igual ao Fluxo Vivo (pedido do
+     usuário em 2026-09-29: "igual aparece na outra tela do dashboard") ---------- */
+  .burst-flash {
+    position:fixed; inset:0; z-index:498; pointer-events:none; opacity:0;
+    background:radial-gradient(circle at 50% 42%, var(--meme-color, var(--accent)) 0%, transparent 62%);
+  }
+  .burst-flash.show { animation:burstFlash 1s ease-out; }
+  @keyframes burstFlash { 0%{opacity:0} 15%{opacity:0.3} 100%{opacity:0} }
+  .burst {
+    position:fixed; top:50%; left:50%; z-index:499; pointer-events:none;
+    transform:translate(-50%,-50%) scale(0.85); opacity:0; text-align:center;
+    transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
+  }
+  .burst.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .burst-emoji {
+    width:clamp(4rem, 9vw, 6.5rem); height:clamp(4rem, 9vw, 6.5rem);
+    margin:0 auto; color:var(--meme-color, var(--accent));
+    filter:drop-shadow(0 0 40px var(--meme-color, var(--accent)));
+  }
+  .burst-emoji svg { width:100%; height:100%; display:block; }
+  .burst.show .burst-emoji { animation:burstBounce 3s ease-in-out 1.6s; }
+  @keyframes burstBounce {
+    0%,100% { transform:scale(1) rotate(0deg); }
+    20% { transform:scale(1.14) rotate(-6deg); } 40% { transform:scale(1) rotate(6deg); }
+    60% { transform:scale(1.1) rotate(-4deg); } 80% { transform:scale(1) rotate(4deg); }
+  }
+  .burst-vendor { font-weight:800; font-size:clamp(1.3rem, 2.6vw, 1.9rem); margin-top:14px; }
+  .burst-value {
+    font-weight:900; letter-spacing:-1px; margin-top:2px; color:var(--meme-color, var(--accent));
+    font-size:clamp(2.2rem, 5vw, 3.4rem); text-shadow:0 0 50px var(--meme-color, var(--accent));
+    font-variant-numeric:tabular-nums;
+  }
+  .burst-title {
+    font-family:'IBM Plex Mono',monospace; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+    font-size:clamp(0.85rem, 1.4vw, 1.05rem); color:var(--meme-color, var(--accent)); margin-top:10px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .burst, .burst-emoji, .burst-flash { animation:none !important; transition:none !important; }
+  }
+
+  /* ---------- botão de notificação do sistema ---------- */
+  .icon-btn.ativo { color:var(--green); border-color:rgba(52,211,153,0.4); }
 
   /* ---------- quadro de recuperação: 4 faixas ---------- */
   .board { flex:1; min-height:0; display:flex; flex-direction:column; gap:clamp(10px, 1.6vh, 16px); }
@@ -301,6 +347,9 @@
     <span class="topbar-clock" id="clock">--:--</span>
     <div class="topbar-actions">
       <button class="live-pill" id="livePill"><span class="dot"></span><span id="liveLabel">conectando</span></button>
+      <button class="icon-btn" id="notifBtn" title="Avisos do sistema (aparecem por cima de outros programas)" aria-label="Ativar avisos do sistema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
       <button class="icon-btn" id="soundBtn" title="Som" aria-label="Ligar/desligar som">
         <svg id="soundIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
         <svg id="soundIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
@@ -311,14 +360,8 @@
 
   <div class="stage">
     <div class="resumo-zone" id="resumoZone">
-      <div class="resumo-item">
-        <span class="resumo-label">vendas hoje (Fluxo Vivo)</span>
-        <span class="resumo-valor" id="resumoHoje">R$ 0<span class="qtd" id="resumoHojeQtd"></span></span>
-      </div>
-      <div class="resumo-item">
-        <span class="resumo-label">vendas no mês</span>
-        <span class="resumo-valor" id="resumoMes">R$ 0<span class="qtd" id="resumoMesQtd"></span></span>
-      </div>
+      <span class="resumo-label">vendas do time hoje</span>
+      <div class="resumo-vendedores" id="resumoVendedores"><span class="resumo-vazio">carregando...</span></div>
     </div>
 
     <div class="board" id="board">
@@ -362,6 +405,14 @@
 
 <div class="lead-tooltip" id="leadTooltip"></div>
 
+<div class="burst-flash" id="burstFlash"></div>
+<div class="burst" id="burst">
+  <div class="burst-emoji" id="burstEmoji"></div>
+  <div class="burst-vendor" id="burstVendor"></div>
+  <div class="burst-value" id="burstValue"></div>
+  <div class="burst-title" id="burstTitle"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="offline-banner" id="offlineBanner">Sem conexão com a internet — mostrando os últimos dados recebidos</div>
 <div class="loader on" id="loader"><div class="loader-ring"></div><span class="loader-msg" id="loaderMsg">Conectando...</span></div>
@@ -389,14 +440,43 @@ const REFRESH_MS = 15000; // mais rápido que o Fluxo Vivo (60s) — aqui a velo
 
 const DOM = {};
 function cacheDOM() {
-  ['clock','livePill','liveLabel','soundBtn','soundIconOn','soundIconOff','fullscreenBtn',
-   'resumoHoje','resumoHojeQtd','resumoMes','resumoMesQtd',
+  ['clock','livePill','liveLabel','soundBtn','soundIconOn','soundIconOff','notifBtn','fullscreenBtn',
+   'resumoVendedores',
    'toast','loader','loaderMsg','offlineBanner',
-   'alertBanner','alertBannerNome','alertBannerEtapa','leadTooltip'
+   'alertBanner','alertBannerNome','alertBannerEtapa','leadTooltip',
+   'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle'
   ].forEach(id => DOM[id] = document.getElementById(id));
 }
 
-const State = { somOn: true, isConnected: false, vistos: new Set(), baselinePronto: false, leadPorEventoId: new Map() };
+// Mesma lista de vendedores do Fluxo Vivo (nome/cor/apelido) — pedido do
+// usuário em 2026-09-29: mostrar quem vendeu e quanto, igual lá.
+const State = {
+  somOn: true, isConnected: false, vistos: new Set(), baselinePronto: false, leadPorEventoId: new Map(),
+  vendors: ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL'],
+  nameMap: {
+    'BIA':'BIA', 'JOAO':'JOAO', 'JOAOV':'JOAOV', 'MATHEUS':'MATHEUS', 'LAIS':'LAIS', 'ELTON':'ELTON',
+    'MARCELO':'MARCELO', 'WAL MACEDO':'WAL MACEDO', 'BELLMORAISS':'BELLMORAISS', 'ANGARA':'ANGARA',
+    'DUDA':'DUDA', 'MILLENA':'MILLENA', 'JARDEL':'JARDEL'
+  },
+  displayNames: {
+    'BIA':'Bia', 'JOAO':'Joao', 'JOAOV':'Joao Victor', 'MATHEUS':'Matheus',
+    'LAIS':'Lais', 'ELTON':'Elton', 'MARCELO':'Marcelo', 'WAL MACEDO':'Wal Macedo',
+    'BELLMORAISS':'Bellmoraiss', 'ANGARA':'Angara', 'DUDA':'Mª Eduardha', 'MILLENA':'Millena',
+    'JARDEL':'Jardel'
+  },
+  colors: {
+    'BIA':'#3ec6ff', 'JOAO':'#b785f7', 'JOAOV':'#ff5f96', 'MATHEUS':'#ff8a4c', 'LAIS':'#34d399',
+    'ELTON':'#fbbf24', 'MARCELO':'#60a5fa', 'WAL MACEDO':'#a3e635', 'BELLMORAISS':'#f472b6',
+    'ANGARA':'#22d3ee', 'DUDA':'#22ff00', 'JARDEL':'#eab308', 'MILLENA':'#fb7185'
+  },
+  prevTotals: {},
+  vendedoresBaselinePronto: false
+};
+function normName(raw) {
+  if (!raw) return '';
+  const upper = raw.toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return State.nameMap[upper] || upper;
+}
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
@@ -404,6 +484,167 @@ function escapeHtml(s) {
   }[ch]));
 }
 const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+function pVal(v) {
+  if (!v) return 0;
+  let c = String(v).trim().replace(/^R\$\s*/i, '');
+  if (c.includes(',')) c = c.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(c);
+  return isNaN(n) ? 0 : n;
+}
+
+// ================================================================
+// COMEMORAÇÃO — mesmo pacote de ícones/sons do Fluxo Vivo (pedido do
+// usuário em 2026-09-29: "igual aparece na outra tela do dashboard").
+// SVG embutido em vez de emoji — não depende de fonte instalada no
+// aparelho (mesmo motivo de lá).
+// ================================================================
+const ICONS = {
+  fogo: '<path d="M12 2c-3 4-6 6-6 11a6 6 0 0 0 12 0c0-2-1-3.5-2.5-5 .3 2-.7 3-1.5 2.3C15 9 14.5 7 12 2z"/>',
+  foguete: '<path d="M12 2c2.5 2 4 5.5 4 9 0 2-.5 3.5-1 4.5l-3 3-3-3c-.5-1-1-2.5-1-4.5 0-3.5 1.5-7 4-9z"/><circle cx="12" cy="10" r="1.6" fill="rgba(0,0,0,.35)"/><path d="M8 14l-3 1 1-4 2 1z"/><path d="M16 14l3 1-1-4-2 1z"/><path d="M10 19l2 3 2-3z"/>',
+  dinheiro: '<path d="M12 3c-1 1.6-2.6 2-2.6 2H9c-2.8 1-4.5 3.6-4.5 7 0 4.5 3.3 8 7.5 8s7.5-3.5 7.5-8c0-3.4-1.7-6-4.5-7h-.4S13 4.6 12 3z"/><text x="12" y="16" font-size="7.5" font-weight="700" text-anchor="middle" fill="rgba(0,0,0,.4)">$</text>',
+  cabra: '<circle cx="12" cy="14" r="6"/><path d="M9 9C7 6 7 3 8 2c1 2 2 3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15 9c2-3 2-6 1-7-1 2-2 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14" r="1" fill="rgba(0,0,0,.4)"/><circle cx="14" cy="14" r="1" fill="rgba(0,0,0,.4)"/>',
+  raio: '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
+  trofeu: '<path d="M7 3h10v3a5 5 0 0 1-5 5 5 5 0 0 1-5-5V3z"/><path d="M7 4H4a3 3 0 0 0 3 5.8v-2A1 1 0 0 1 5.6 6H7V4z"/><path d="M17 4h3a3 3 0 0 1-3 5.8v-2A1 1 0 0 0 18.4 6H17V4z"/><rect x="11" y="11" width="2" height="4"/><rect x="8" y="17" width="8" height="2" rx="1"/><path d="M9 15h6l1 2H8z"/>',
+  alvo: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="2" fill="currentColor"/>',
+  musculo: '<rect x="1.5" y="10" width="3" height="4" rx="1"/><rect x="19.5" y="10" width="3" height="4" rx="1"/><rect x="4.8" y="8.5" width="2.6" height="7" rx="1"/><rect x="16.6" y="8.5" width="2.6" height="7" rx="1"/><rect x="7" y="11" width="10" height="2" rx="1"/>',
+  tubarao: '<path d="M12 3c1 4 2 7 2 10-3-.5-5-2.5-5.5-6C9.5 5 10.7 3.8 12 3z"/><path d="M2 17c4-2 7-2 10 0s6 2 10 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  estrela: '<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7L6 21l1.6-7L2.2 9.2l7.1-.6z"/>',
+  ninja: '<path d="M12 2c-3.9 0-7 3.2-7 7.2 0 3 1.8 5.5 4.4 6.6L12 22l2.6-6.2c2.6-1.1 4.4-3.6 4.4-6.6C19 5.2 15.9 2 12 2z"/><rect x="6.3" y="7.6" width="11.4" height="2.2" rx="1.1" fill="rgba(0,0,0,.5)"/>',
+  festa: '<path d="M5 19l6-13 7 7z"/><circle cx="17" cy="5" r="1"/><circle cx="20" cy="9" r="1"/><circle cx="14" cy="3" r="1"/><circle cx="19" cy="14" r="1"/>',
+  lobo: '<path d="M6 5l3 4h6l3-4 .5 5c.3 3-1.6 6-4.5 7l-1 3-1-3c-2.9-1-4.8-4-4.5-7z"/><path d="M9 15l-1 2 2-.5z"/><path d="M15 15l1 2-2-.5z"/>',
+  carro: '<rect x="2" y="11" width="20" height="5" rx="1.5"/><path d="M6 11l2-4h8l2 4z"/><circle cx="7" cy="17.3" r="2.3"/><circle cx="17" cy="17.3" r="2.3"/><circle cx="7" cy="17.3" r="1" fill="rgba(0,0,0,.5)"/><circle cx="17" cy="17.3" r="1" fill="rgba(0,0,0,.5)"/>',
+  diamante: '<path d="M4 9l4-6h8l4 6-8 12z"/><path d="M4 9h16M8 3l2 6M16 3l-2 6M9 9l3 12 3-12" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="0.7"/>',
+  champanhe: '<path d="M10 3h4l1 6-1 2h-4l-1-2z"/><path d="M9 11h6l1 9a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z"/><path d="M12 2l-1 2M15 4l1-1M9 4l-1-1" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/>',
+  bracao: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 2.5-2.1-.4a6.9 6.9 0 0 0-.6-1.4l1.2-1.8-1.4-1.4-1.8 1.2a6.9 6.9 0 0 0-1.4-.6L14.5 4h-2l-.4 2.1a6.9 6.9 0 0 0-1.4.6L8.9 5.5 7.5 6.9l1.2 1.8a6.9 6.9 0 0 0-.6 1.4L6 10.5v2l2.1.4a6.9 6.9 0 0 0 .6 1.4l-1.2 1.8 1.4 1.4 1.8-1.2a6.9 6.9 0 0 0 1.4.6l.4 2.1h2l.4-2.1a6.9 6.9 0 0 0 1.4-.6l1.8 1.2 1.4-1.4-1.2-1.8a6.9 6.9 0 0 0 .6-1.4l2.1-.4v-2z"/><circle cx="12" cy="12" r="2" fill="rgba(0,0,0,.5)"/>',
+  guitarra: '<circle cx="9" cy="16" r="5"/><circle cx="9" cy="16" r="2" fill="rgba(0,0,0,.35)"/><rect x="9.4" y="3" width="2" height="11" rx="1"/><rect x="8" y="2" width="4" height="2.4" rx="1"/>',
+  medalha: '<path d="M8 2l3 7-3 1z"/><path d="M16 2l-3 7 3 1z"/><circle cx="12" cy="16" r="6"/><path d="M12 12.5l1.2 2.5 2.7.3-2 1.9.5 2.7-2.4-1.3-2.4 1.3.5-2.7-2-1.9 2.7-.3z" fill="rgba(0,0,0,.35)"/>',
+  tornado: '<path d="M4 5h16M6 9h12M8 13h8M10 17h4" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" fill="none"/>',
+  dinamite: '<rect x="9" y="7" width="6" height="13" rx="1.5"/><rect x="8.5" y="9.5" width="7" height="1.6" fill="rgba(0,0,0,.35)"/><rect x="8.5" y="13.5" width="7" height="1.6" fill="rgba(0,0,0,.35)"/><path d="M12 7V4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="3" r="1.4"/>',
+  aguia: '<path d="M12 4c-1 2-1 3-1 4-3-2-7-2-9-1 2 1 4 3 5 5-2 0-4 1-5 2 3 1 6 1 8-.5.3 1.3 1.2 2.2 2 2.2s1.7-.9 2-2.2c2 1.5 5 1.5 8 .5-1-1-3-2-5-2 1-2 3-4 5-5-2-1-6-1-9 1 0-1 0-2-1-4z"/>',
+  bateria: '<rect x="3" y="8" width="16" height="8" rx="1.5"/><rect x="19.5" y="10.5" width="2" height="3" rx="0.6"/><path d="M12 9l-3 4h2.4l-1 3 3.6-4.4h-2.4z" fill="rgba(0,0,0,.4)"/>',
+  montanharussa: '<path d="M2 18c3 0 3-8 6-8s3 8 6 8 3-8 6-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="18" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="2"/>',
+  dragao: '<path d="M3 12c2-3 5-4 8-3-1-2 0-4 2-5 0 2 1 3 2 3 2 0 4 1 5 3-1 0-2 .3-2.6 1 .8.6 1.4 1.6 1.6 2.6-1-.6-2-1-3-1 .6 1 .6 2.3 0 3.4-2-2.4-5-3-7.6-2 .6.8.8 1.8.6 2.8-2-1-4-2.6-6-4.8z"/><circle cx="14" cy="9" r="0.7" fill="rgba(0,0,0,.5)"/>',
+  sino: '<path d="M12 2a1.6 1.6 0 0 1 1.6 1.6v.6C16.6 5 19 7.8 19 11.2V16l2 3H3l2-3v-4.8C5 7.8 7.4 5 10.4 4.2v-.6A1.6 1.6 0 0 1 12 2z"/><path d="M9 20a3 3 0 0 0 6 0z"/>',
+  arcoflecha: '<path d="M5 3c8 2 8 16 0 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 12h15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M17 9l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 3l2 3M5 21l2-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>',
+  vulcao: '<path d="M2 20l6-13 2 3 2-3 6 13z"/><path d="M9 5c0-1.5 1-2.5 1-4 1 1 .6 2 1.4 2.4C12 4.8 12 3.6 12 3c1 1 .6 2.6 0 3.4" fill="rgba(0,0,0,.4)"/>',
+  perna: '<path d="M9 3h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1v3h1a1 1 0 0 1 1 1v4a2 2 0 0 1-2 2H9a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h1v-3H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><circle cx="11" cy="9" r="0.8" fill="rgba(0,0,0,.4)"/><circle cx="11" cy="17" r="0.8" fill="rgba(0,0,0,.4)"/>',
+  coroa: '<path d="M4 18 2.5 9 8 12 12 5 16 12 21.5 9 20 18Z"/><rect x="3.2" y="17.2" width="17.6" height="2.6" rx="1"/>'
+};
+const MEME_LIBRARY = [
+  {icon:'fogo', title:'PEGANDO FOGO', color:'#ff4d2e', sound:'sirene'},
+  {icon:'foguete', title:'PRA LUA', color:'#3ec6ff', sound:'laser'},
+  {icon:'dinheiro', title:'CHUVA DE DINHEIRO', color:'#fbbf24', sound:'caixa'},
+  {icon:'cabra', title:'O CABEÇA DO TIME', color:'#b785f7', sound:'aplauso'},
+  {icon:'raio', title:'RAIO', color:'#fbbf24', sound:'laser'},
+  {icon:'trofeu', title:'CAMPEÃO DO DIA', color:'#fbbf24', sound:'aplauso'},
+  {icon:'alvo', title:'ALVO CERTEIRO', color:'#34d399', sound:'caixa'},
+  {icon:'musculo', title:'MÁQUINA DE VENDER', color:'#fb5b5b', sound:'tambor'},
+  {icon:'tubarao', title:'TUBARÃO DAS VENDAS', color:'#3ec6ff', sound:'sirene'},
+  {icon:'estrela', title:'ESTRELA DO TIME', color:'#fbbf24', sound:'aplauso'},
+  {icon:'ninja', title:'SILENCIOSO E LETAL', color:'#b785f7', sound:'laser'},
+  {icon:'festa', title:'FESTA NO TIME', color:'#ff5f96', sound:'aplauso'},
+  {icon:'lobo', title:'LOBO SOLITÁRIO', color:'#83838f', sound:'tambor'},
+  {icon:'carro', title:'VELOCIDADE MÁXIMA', color:'#fb5b5b', sound:'buzina'},
+  {icon:'diamante', title:'MÃOS DE DIAMANTE', color:'#3ec6ff', sound:'caixa'},
+  {icon:'champanhe', title:'ESTOUROU O CHAMPANHE', color:'#fbbf24', sound:'aplauso'},
+  {icon:'bracao', title:'BRAÇO BIÔNICO', color:'#3ec6ff', sound:'tambor'},
+  {icon:'guitarra', title:'ARRASOU', color:'#ff5f96', sound:'buzina'},
+  {icon:'medalha', title:'MEDALHA DE OURO', color:'#fbbf24', sound:'aplauso'},
+  {icon:'tornado', title:'FUNIL EM CHAMAS', color:'#ff4d2e', sound:'sirene'},
+  {icon:'dinamite', title:'EXPLOSÃO DE VENDA', color:'#fb5b5b', sound:'tambor'},
+  {icon:'aguia', title:'VOO DE ÁGUIA', color:'#3ec6ff', sound:'laser'},
+  {icon:'bateria', title:'ENERGIA TOTAL', color:'#34d399', sound:'buzina'},
+  {icon:'montanharussa', title:'SÓ PRA CIMA', color:'#b785f7', sound:'laser'},
+  {icon:'dragao', title:'DRAGÃO DAS METAS', color:'#fb5b5b', sound:'sirene'},
+  {icon:'sino', title:'TOCA O SININHO', color:'#fbbf24', sound:'caixa'},
+  {icon:'arcoflecha', title:'FLECHADA CERTEIRA', color:'#34d399', sound:'laser'},
+  {icon:'vulcao', title:'VULCÃO EM ERUPÇÃO', color:'#ff4d2e', sound:'sirene'},
+  {icon:'perna', title:'IMPARÁVEL', color:'#3ec6ff', sound:'tambor'},
+  {icon:'coroa', title:'REI DO DIA', color:'#fbbf24', sound:'aplauso'}
+];
+const VALUE_TIER_POOLS = { pequena:[6,10,12,22,26], media:[0,1,4,7,14,17,21,23,27], grande:[2,5,8,9,13,15,16,19,20,24,28], gigante:[3,11,18,25,29] };
+const COUNT_TIER_POOLS = { primeira:[6,10,22,26], tres:[0,4,7,14,17,21], cinco:[2,8,9,13,16,19,24], dez:[3,11,18,25,28,29] };
+function valueTier(delta) { if (delta >= 1000) return 'gigante'; if (delta >= 500) return 'grande'; if (delta >= 150) return 'media'; return 'pequena'; }
+function countTier(n) { if (n >= 10) return 'dez'; if (n >= 5) return 'cinco'; if (n >= 3) return 'tres'; return 'primeira'; }
+function pickMeme(pool) { const p = pool.length ? pool : [0]; return MEME_LIBRARY[p[Math.floor(Math.random()*p.length)]]; }
+
+function tone(ctx, {type, freq, freqEnd, start, dur, peak}) {
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur * 0.85);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, start + Math.min(0.02, dur * 0.2));
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.start(start); osc.stop(start + dur);
+}
+const SOUND_PACKS = {
+  classico: ctx => { const now = ctx.currentTime; tone(ctx,{type:'square',freq:987.77,start:now,dur:0.09,peak:0.12}); tone(ctx,{type:'square',freq:1318.51,start:now+0.09,dur:0.18,peak:0.12}); }
+};
+const saleSoundCache = {};
+function getSaleSound() {
+  if (!saleSoundCache.classico) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      saleSoundCache.classico = () => SOUND_PACKS.classico(ctx);
+    } catch { saleSoundCache.classico = null; }
+  }
+  return saleSoundCache.classico;
+}
+const CELEBRATION_SOUNDS = {
+  sirene: ctx => { const now = ctx.currentTime; for (let i=0;i<6;i++) tone(ctx,{type:'sawtooth',freq:i%2===0?880:660,start:now+i*0.12,dur:0.13,peak:0.1}); },
+  buzina: ctx => { const now = ctx.currentTime; tone(ctx,{type:'sawtooth',freq:220,start:now,dur:0.5,peak:0.13}); tone(ctx,{type:'sawtooth',freq:330,start:now,dur:0.5,peak:0.08}); },
+  caixa: ctx => { const now = ctx.currentTime; tone(ctx,{type:'sine',freq:1568,start:now,dur:0.07,peak:0.12}); tone(ctx,{type:'sine',freq:2093,start:now+0.08,dur:0.12,peak:0.12}); },
+  tambor: ctx => { tone(ctx,{type:'triangle',freq:160,freqEnd:50,start:ctx.currentTime,dur:0.3,peak:0.16}); },
+  laser: ctx => { tone(ctx,{type:'square',freq:1800,freqEnd:300,start:ctx.currentTime,dur:0.18,peak:0.09}); },
+  aplauso: ctx => { const now = ctx.currentTime; [523,659,784,1047].forEach((freq,i) => tone(ctx,{type:'sine',freq,start:now+i*0.06,dur:0.15,peak:0.09})); }
+};
+const celebSoundCache = {};
+function getCelebrationSound(kind) {
+  if (!celebSoundCache[kind]) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const play = CELEBRATION_SOUNDS[kind] || CELEBRATION_SOUNDS.caixa;
+      celebSoundCache[kind] = () => play(ctx);
+    } catch { celebSoundCache[kind] = null; }
+  }
+  return celebSoundCache[kind];
+}
+
+let notifQueue = [], notifShowing = false;
+function showSaleNotification(vendor, value) {
+  notifQueue.push({vendor, value});
+  if (!notifShowing) processNotifQueue();
+}
+function processNotifQueue() {
+  if (!notifQueue.length) { notifShowing = false; return; }
+  notifShowing = true;
+  const n = notifQueue.shift();
+  const display = State.displayNames[n.vendor] || n.vendor;
+  const color = State.colors[n.vendor] || '#f5f5f7';
+  const meme = pickMeme(VALUE_TIER_POOLS[valueTier(n.value)]);
+
+  DOM.burstVendor.textContent = display;
+  DOM.burstVendor.style.color = color;
+  DOM.burstValue.textContent = fmt(n.value);
+  DOM.burstEmoji.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor">' + (ICONS[meme.icon] || ICONS.fogo) + '</svg>';
+  DOM.burstTitle.textContent = meme.title;
+  DOM.burst.style.setProperty('--meme-color', meme.color);
+  DOM.burstFlash.style.setProperty('--meme-color', meme.color);
+
+  DOM.burst.classList.add('show');
+  DOM.burstFlash.classList.remove('show'); void DOM.burstFlash.offsetWidth; DOM.burstFlash.classList.add('show');
+
+  if (State.somOn) { const play = getSaleSound(); if (play) play(); }
+  setTimeout(() => { const play = getCelebrationSound(meme.sound); if (play) play(); }, 350);
+  notificarSistema(display + ' vendeu!', fmt(n.value) + ' — ' + meme.title);
+
+  setTimeout(() => {
+    DOM.burst.classList.remove('show');
+    setTimeout(processNotifQueue, 300);
+  }, 5000);
+}
 
 // ================================================================
 // RELÓGIO — mesmo truque do Fluxo Vivo: o relógio do APARELHO pode
@@ -482,6 +723,7 @@ function processAlertQueue() {
   DOM.alertBanner.style.setProperty('--banner-color', COR_ETAPA[a.etapa] || 'var(--accent)');
   DOM.alertBanner.classList.add('show');
   playAlertSound();
+  notificarSistema(a.nome, '→ ' + (NOME_ETAPA[a.etapa] || a.etapa));
   setTimeout(() => {
     DOM.alertBanner.classList.remove('show');
     setTimeout(processAlertQueue, 300);
@@ -499,23 +741,79 @@ async function buscarQuadro() {
   const j = await r.json();
   return j.leads || [];
 }
-async function buscarResumo() {
+// Linhas 4-18 da aba DASHBOARD (mesmo intervalo que o Fluxo Vivo usa pro
+// ranking) — só nome (coluna H) e vendas hoje (coluna I).
+async function buscarVendedoresHoje() {
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
-  const r = await fetch(`${base}/${encodeURIComponent('DASHBOARD!A19:L20')}?key=${SHEET_KEY}`);
-  if (!r.ok) return null;
+  const r = await fetch(`${base}/${encodeURIComponent('DASHBOARD!A4:L18')}?key=${SHEET_KEY}`);
+  if (!r.ok) return [];
   const j = await r.json();
   const rows = j.values || [];
-  const pVal = v => { if (!v) return 0; let c = String(v).trim().replace(/^R\$\s*/i,''); if (c.includes(',')) c = c.replace(/\./g,'').replace(',','.'); const n = parseFloat(c); return isNaN(n) ? 0 : n; };
-  return {
-    hoje: rows[0] ? pVal(rows[0][8]) : 0,
-    mes: rows[1] ? pVal(rows[1][8]) : 0,
-  };
+  return rows.map(row => {
+    const nome = normName(row[7]);
+    if (!nome) return null;
+    return { nome, vendasHoje: pVal(row[8]) };
+  }).filter(Boolean);
 }
 
-function renderResumo(resumo) {
-  if (!resumo) return;
-  DOM.resumoHoje.firstChild.textContent = fmt(resumo.hoje);
-  DOM.resumoMes.firstChild.textContent = fmt(resumo.mes);
+// Mostra nome + valor de quem vendeu hoje (pedido do usuário em
+// 2026-09-29 — troca o total do mês). Quem vender de novo dispara a
+// comemoração completa, igual ao Fluxo Vivo.
+function renderResumoVendedores(vendedores) {
+  const comVenda = vendedores.filter(v => v.vendasHoje > 0).sort((a,b) => b.vendasHoje - a.vendasHoje);
+  DOM.resumoVendedores.innerHTML = comVenda.length
+    ? comVenda.map(v => {
+        const display = State.displayNames[v.nome] || v.nome;
+        const cor = State.colors[v.nome] || 'var(--fg)';
+        return `<div class="resumo-vendedor"><span class="resumo-vendedor-nome" style="color:${cor}">${escapeHtml(display)}</span><span class="resumo-vendedor-valor">${fmt(v.vendasHoje)}</span></div>`;
+      }).join('')
+    : '<span class="resumo-vazio">ninguém vendeu ainda hoje</span>';
+
+  vendedores.forEach(v => {
+    const prev = State.prevTotals[v.nome] || 0;
+    if (State.vendedoresBaselinePronto && v.vendasHoje > prev) {
+      showSaleNotification(v.nome, v.vendasHoje - prev);
+    }
+    State.prevTotals[v.nome] = v.vendasHoje;
+  });
+  State.vendedoresBaselinePronto = true;
+}
+
+// ================================================================
+// NOTIFICAÇÃO DO SISTEMA — pedido do usuário em 2026-09-29: o aviso
+// precisa aparecer por cima de QUALQUER programa aberto, não só dentro
+// da aba do navegador. Isso só é possível com a Notification API do
+// navegador (um aviso de verdade do sistema operacional, tipo os que
+// WhatsApp Web ou Gmail mandam) — precisa que a pessoa clique "Permitir"
+// uma vez (botão de sino no topo). Sem essa permissão, o aviso só
+// aparece se a aba estiver visível na tela.
+// ================================================================
+function notificarSistema(titulo, corpo) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(titulo, { body: corpo, silent: false });
+    setTimeout(() => n.close(), 8000);
+  } catch (e) {}
+}
+function atualizarBotaoNotif() {
+  if (!('Notification' in window)) { DOM.notifBtn.hidden = true; return; }
+  const permitido = Notification.permission === 'granted';
+  DOM.notifBtn.classList.toggle('ativo', permitido);
+  DOM.notifBtn.title = permitido
+    ? 'Avisos do sistema ativados (aparecem por cima de outros programas)'
+    : 'Ativar avisos do sistema (aparecem por cima de outros programas)';
+}
+async function pedirPermissaoNotificacao() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'denied') {
+    showToast('Notificações bloqueadas — libere nas configurações do navegador/sistema');
+    return;
+  }
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+  atualizarBotaoNotif();
+  if (Notification.permission === 'granted') showToast('Avisos do sistema ativados');
 }
 
 function renderQuadro(leads) {
@@ -655,9 +953,9 @@ function ligarRolagemLateral() {
 async function atualizarTudo() {
   try {
     updateConnectionStatus('connecting');
-    const [leads, resumo] = await Promise.all([buscarQuadro(), buscarResumo()]);
+    const [leads, vendedores] = await Promise.all([buscarQuadro(), buscarVendedoresHoje()]);
     renderQuadro(leads);
-    renderResumo(resumo);
+    renderResumoVendedores(vendedores);
     updateConnectionStatus('live');
     DOM.offlineBanner.classList.remove('show');
     return true;
@@ -737,6 +1035,8 @@ window.addEventListener('load', async () => {
   DOM.soundIconOff.hidden = State.somOn;
   DOM.soundBtn.classList.toggle('muted', !State.somOn);
   DOM.soundBtn.addEventListener('click', toggleSom);
+  atualizarBotaoNotif();
+  DOM.notifBtn.addEventListener('click', pedirPermissaoNotificacao);
   DOM.fullscreenBtn.addEventListener('click', toggleFullscreen);
 
   if (!navigator.onLine) DOM.offlineBanner.classList.add('show');
