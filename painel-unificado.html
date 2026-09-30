@@ -298,21 +298,56 @@
 // propósito, pra testar se cabe tudo sem rolar mesmo no pior caso.
 // NADA busca dado real ainda (pedido do usuário: "primeiro o front").
 // ================================================================
+
+// ---------- SISTEMA DE CORES — 3 grupos que NUNCA se misturam ----------
+// Pedido do usuário em 2026-09-30, depois de reparar que a cor verde da
+// Mª Eduardha era IDÊNTICA à cor de "pago" — o card dela quando pagava
+// ficava com a borda igual à de um card sem vendedor nenhum, impossível
+// de diferenciar um do outro. O mesmo acontecia com produtos do funil
+// usando cor de vendedor/status por coincidência.
+//
+// 1) STATUS — significado fixo em qualquer lugar da tela. RESERVADAS:
+//    nenhuma pessoa nem produto pode usar essas 4 cores.
+// 2) PESSOAS — pool própria, já sem as 4 reservadas. Existe UM lugar só
+//    (corPessoa) que decide a cor de cada vendedor — todo o resto da
+//    tela (ranking, chip do resumo, borda do card pago, balão de
+//    reembolso) LÊ daqui, em vez de cada lugar guardar seu próprio
+//    valor solto — é exatamente esse "guardar duas vezes" que causou
+//    o bug original (o balão de reembolso tinha o hex da Mª Eduardha
+//    copiado à mão, dessincronizado do resto).
+// 3) PRODUTOS — outra pool própria, também sem tocar nas 4 reservadas
+//    nem nas cores de pessoa.
+const COR_STATUS = { carrinho:'#ffd60a', pix:'#64d2ff', cartao:'#ff453a', pago:'#30d158' };
+const COR_INDEFINIDO = '#636366'; // cinza neutro — "sem vendedor identificado", não é status nem pessoa
+
+const POOL_PESSOA = ['#0a84ff','#bf5af2','#ff375f','#5e5ce6','#ac8e68','#e34c9b','#7c93ff','#ff9f0a'];
+const POOL_PRODUTO = ['#5ac8fa','#63e6be','#d4a24c','#c97b63','#7a9cc6'];
+
+const mapaCorPessoa = {};
+function corPessoa(nome) {
+  if (!nome || nome === 'Funil direto') return COR_INDEFINIDO;
+  if (!mapaCorPessoa[nome]) {
+    const usadas = Object.keys(mapaCorPessoa).length;
+    mapaCorPessoa[nome] = POOL_PESSOA[usadas % POOL_PESSOA.length];
+  }
+  return mapaCorPessoa[nome];
+}
+
 const VENDEDORES = [
-  { nome:'Bia', valor:8448.04, qtd:7, produtos:'O Gestor ×5 · Gestor de Reputação Bancária ×2', cor:'#0a84ff', first:true },
-  { nome:'Mª Eduardha', valor:2340.00, qtd:3, produtos:'Destrave Rating ×2 · O Gestor ×1', cor:'#30d158' },
-  { nome:'Jardel', valor:1580.50, qtd:2, produtos:'Rating para CNPJ ×2', cor:'#ff9f0a' },
-  { nome:'Joao Victor', valor:992.00, qtd:1, produtos:'O Gestor ×1', cor:'#ff375f' },
-  { nome:'Funil direto', valor:5438.90, qtd:24, produtos:'sem vendedor identificado na planilha', cor:'#636366' },
-];
+  { nome:'Bia', valor:8448.04, qtd:7, produtos:'O Gestor ×5 · Gestor de Reputação Bancária ×2', first:true },
+  { nome:'Mª Eduardha', valor:2340.00, qtd:3, produtos:'Destrave Rating ×2 · O Gestor ×1' },
+  { nome:'Jardel', valor:1580.50, qtd:2, produtos:'Rating para CNPJ ×2' },
+  { nome:'Joao Victor', valor:992.00, qtd:1, produtos:'O Gestor ×1' },
+  { nome:'Funil direto', valor:5438.90, qtd:24, produtos:'sem vendedor identificado na planilha' },
+].map(v => ({...v, cor: corPessoa(v.nome)}));
 
 const PRODUTOS = [
-  { nome:'O Gestor', valor:5151.78, qtd:7, cor:'#0a84ff' },
-  { nome:'Gestor de Reputação Bancária', valor:4095.00, qtd:1, cor:'#30d158' },
-  { nome:'Destrave seu Rating Bancário - 3.0', valor:3662.62, qtd:13, cor:'#bf5af2' },
-  { nome:'Rating para CNPJ - 2.0', valor:753.88, qtd:2, cor:'#ff9f0a' },
-  { nome:'Como Financiar Casa Própria', valor:89.48, qtd:2, cor:'#ffd60a' },
-];
+  { nome:'O Gestor', valor:5151.78, qtd:7 },
+  { nome:'Gestor de Reputação Bancária', valor:4095.00, qtd:1 },
+  { nome:'Destrave seu Rating Bancário - 3.0', valor:3662.62, qtd:13 },
+  { nome:'Rating para CNPJ - 2.0', valor:753.88, qtd:2 },
+  { nome:'Como Financiar Casa Própria', valor:89.48, qtd:2 },
+].map((p, i) => ({...p, cor: POOL_PRODUTO[i % POOL_PRODUTO.length]}));
 
 const NOMES = ['Cristiano da Silva','Eduardo França','Josias Marcedo','Vanessa Winget','Isaías Pereira do Nascimento',
   'Wilian Melo','Claudia Maria de Souza','Tassio dos Santos','Jarson de Jesus Lima','Robson Junio dos Santos',
@@ -328,11 +363,13 @@ function gerarLeads(qtd, produto, valorBase) {
 }
 
 const LANES = [
-  { chave:'carrinho', nome:'Carrinho abandonado', cor:'#ffd60a', leads: gerarLeads(15, 'Destrave Rating - 3.0', 281.74) },
-  { chave:'pix', nome:'Pix pendente', cor:'#64d2ff', leads: gerarLeads(4, 'Destrave Rating - 3.0', 281.74) },
-  { chave:'cartao', nome:'Cartão recusado', cor:'#ff453a', leads: gerarLeads(3, 'O Gestor', 473.10) },
-  { chave:'pago', nome:'Pago', cor:'#30d158', leads: gerarLeads(14, 'O Gestor', 473.10).map((l, i) =>
-      i % 3 === 0 ? {...l, vendedor:'#0a84ff', vendedorNome:'Bia'} : i % 5 === 0 ? {...l, vendedor:'#ff375f', vendedorNome:'Joao Victor'} : l
+  { chave:'carrinho', nome:'Carrinho abandonado', cor:COR_STATUS.carrinho, leads: gerarLeads(15, 'Destrave Rating - 3.0', 281.74) },
+  { chave:'pix', nome:'Pix pendente', cor:COR_STATUS.pix, leads: gerarLeads(4, 'Destrave Rating - 3.0', 281.74) },
+  { chave:'cartao', nome:'Cartão recusado', cor:COR_STATUS.cartao, leads: gerarLeads(3, 'O Gestor', 473.10) },
+  { chave:'pago', nome:'Pago', cor:COR_STATUS.pago, leads: gerarLeads(14, 'O Gestor', 473.10).map((l, i) =>
+      i % 3 === 0 ? {...l, vendedor:corPessoa('Bia'), vendedorNome:'Bia'}
+      : i % 5 === 0 ? {...l, vendedor:corPessoa('Joao Victor'), vendedorNome:'Joao Victor'}
+      : l
     )},
 ];
 
@@ -340,12 +377,13 @@ const LANES = [
 // do usuário em 2026-09-30). "vendedorNome" só aparece quando o UTM da
 // venda original bate com um vendedor conhecido (mesmo classificador
 // já usado no Fluxo Vivo e no Recuperação de verdade) — quando não
-// bate, mostra "não identificado" em vez de inventar um nome.
+// bate, mostra "não identificado" em vez de inventar um nome. A cor
+// vem de corPessoa(), nunca de um hex copiado à mão.
 const REEMBOLSOS = [
-  { nome:'Francis David Barros Martins', tipo:'reembolso', valor:376.94, vendedorNome:null,        cor:null,      tempo:'há 2h 10min' },
-  { nome:'Anderson Rosa Getúlio',        tipo:'reembolso', valor:281.74, vendedorNome:'Bia',        cor:'#0a84ff', tempo:'há 5h 40min' },
-  { nome:'Patrik',                       tipo:'chargeback',valor:234.14, vendedorNome:'Mª Eduardha',cor:'#30d158', tempo:'há 9h 5min'  },
-];
+  { nome:'Francis David Barros Martins', tipo:'reembolso', valor:376.94, vendedorNome:null, tempo:'há 2h 10min' },
+  { nome:'Anderson Rosa Getúlio', tipo:'reembolso', valor:281.74, vendedorNome:'Bia', tempo:'há 5h 40min' },
+  { nome:'Patrik', tipo:'chargeback', valor:234.14, vendedorNome:'Mª Eduardha', tempo:'há 9h 5min' },
+].map(r => ({...r, cor: r.vendedorNome ? corPessoa(r.vendedorNome) : null}));
 
 function fmt(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
