@@ -227,9 +227,43 @@
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
     z-index:999; pointer-events:none;
   }
+
+  /* ---------- tela de senha — mesma senha dos outros 2 painéis ---------- */
+  .lock-screen { position:fixed; inset:0; z-index:3000; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+  .lock-screen.hidden { display:none; }
+  .lock-box {
+    width:min(90vw, 340px); padding:32px 28px; display:flex; flex-direction:column; align-items:center; gap:14px;
+    border-radius:var(--r-lg); background:var(--glass); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+  }
+  .lock-title { font-weight:800; font-size:1.2rem; }
+  .lock-sub { color:var(--fg-dim); font-size:0.82rem; text-align:center; }
+  .lock-input {
+    width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:var(--fg);
+    border:1px solid var(--line); border-radius:12px; padding:13px 16px; font-size:0.95rem;
+    text-align:center; letter-spacing:0.06em;
+  }
+  .lock-input:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .lock-btn {
+    width:100%; background:var(--blue); color:#fff; border:none; border-radius:12px;
+    padding:12px 16px; font-weight:700; font-size:0.9rem; cursor:pointer;
+  }
+  .lock-btn:active { transform:scale(0.98); }
+  .lock-error { color:var(--red); font-size:0.78rem; min-height:1em; }
 </style>
 </head>
 <body>
+
+<div id="lockScreen" class="lock-screen">
+  <div class="lock-box glass">
+    <span class="lock-title">Central de Vendas</span>
+    <span class="lock-sub">Digite a senha para ver o painel</span>
+    <input id="lockInput" class="lock-input" type="password" inputmode="text" autocomplete="off" placeholder="Senha" onkeydown="if(event.key==='Enter') tentarDesbloquear()" />
+    <button id="lockBtn" class="lock-btn" onclick="tentarDesbloquear()">Entrar</button>
+    <span id="lockError" class="lock-error"></span>
+  </div>
+</div>
+
 <div class="stage">
 
   <div class="topbar">
@@ -247,17 +281,17 @@
     <div class="hero-row">
       <div class="hero-card primary glass">
         <span class="hero-label">Vendas hoje</span>
-        <span class="hero-value">R$ 9.440,04</span>
-        <span class="hero-sub">117% da meta · 8 vendas</span>
+        <span class="hero-value" id="heroValue">R$ 0,00</span>
+        <span class="hero-sub" id="heroSub">carregando...</span>
       </div>
       <div class="hero-card glass">
         <span class="hero-label">Meta diária</span>
-        <span class="hero-value compact">R$ 8.064,55</span>
+        <span class="hero-value compact" id="metaValue">R$ 8.064,55</span>
       </div>
       <div class="hero-card glass">
         <span class="hero-label">Vendas no mês</span>
-        <span class="hero-value compact">R$ 172.953,07</span>
-        <span class="hero-sub dim">89 vendas</span>
+        <span class="hero-value compact" id="mesValue">R$ 0,00</span>
+        <span class="hero-sub dim" id="mesSub">carregando...</span>
       </div>
       <div class="hero-card refund glass" id="refundCard">
         <span class="hero-label" style="color:var(--red)">Reembolsos hoje</span>
@@ -289,40 +323,49 @@
 </div>
 
 <div class="detail-tip" id="detailTip"></div>
-<div class="aviso-mock">⚠ isso é só uma ideia de visual — dado de mentira, nada aqui é real ainda</div>
+<div class="aviso-mock">⚠ versão em teste — dado real, mas ainda em experiência (não substitui os painéis oficiais)</div>
 
 <script>
 // ================================================================
-// DADO DE MENTIRA — pra dar pra ver o design funcionando. Usei números
-// parecidos com um dia CHEIO de verdade (15 no carrinho, 14 pagos) de
-// propósito, pra testar se cabe tudo sem rolar mesmo no pior caso.
-// NADA busca dado real ainda (pedido do usuário: "primeiro o front").
+// DADO REAL — conecta na mesma planilha (Google Sheets) e no mesmo
+// servidor (Railway) que o Fluxo Vivo e o Recuperação já usam. Pedido
+// do usuário em 2026-09-30: "quero testar usar essa versão agora".
+//
+// Continua uma versão EM TESTE (ver aviso no rodapé) — não substitui
+// os painéis oficiais ainda.
 // ================================================================
+const SHEET_ID = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
+const SHEET_KEY = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
+const API_BASE = 'https://app-production-fec2.up.railway.app';
+
+// ---------- SENHA — mesma senha dos outros 2 painéis (mesmo localStorage) ----------
+const SENHAS_VALIDAS = new Set(['vendas2026', 'joao2026']);
+function tentarDesbloquear() {
+  const input = document.getElementById('lockInput');
+  const erro = document.getElementById('lockError');
+  if (SENHAS_VALIDAS.has(input.value)) {
+    try { localStorage.setItem('fluxoDesbloqueado', '1'); } catch (e) {}
+    document.getElementById('lockScreen').classList.add('hidden');
+    iniciar();
+  } else {
+    erro.textContent = 'Senha incorreta';
+    input.value = '';
+  }
+}
+(function verificarAcesso() {
+  let ok = false;
+  try { ok = localStorage.getItem('fluxoDesbloqueado') === '1'; } catch (e) {}
+  if (ok) document.getElementById('lockScreen').classList.add('hidden');
+})();
 
 // ---------- SISTEMA DE CORES — 3 grupos que NUNCA se misturam ----------
-// Pedido do usuário em 2026-09-30, depois de reparar que a cor verde da
-// Mª Eduardha era IDÊNTICA à cor de "pago" — o card dela quando pagava
-// ficava com a borda igual à de um card sem vendedor nenhum, impossível
-// de diferenciar um do outro. O mesmo acontecia com produtos do funil
-// usando cor de vendedor/status por coincidência.
-//
-// 1) STATUS — significado fixo em qualquer lugar da tela. RESERVADAS:
-//    nenhuma pessoa nem produto pode usar essas 4 cores.
-// 2) PESSOAS — pool própria, já sem as 4 reservadas. Existe UM lugar só
-//    (corPessoa) que decide a cor de cada vendedor — todo o resto da
-//    tela (ranking, chip do resumo, borda do card pago, balão de
-//    reembolso) LÊ daqui, em vez de cada lugar guardar seu próprio
-//    valor solto — é exatamente esse "guardar duas vezes" que causou
-//    o bug original (o balão de reembolso tinha o hex da Mª Eduardha
-//    copiado à mão, dessincronizado do resto).
-// 3) PRODUTOS — outra pool própria, também sem tocar nas 4 reservadas
-//    nem nas cores de pessoa.
+// (ver explicação completa no commit de 2026-09-30: a cor de pessoa
+// nunca pode repetir cor de status, e cada pessoa tem UMA cor só, lida
+// de um lugar central em vez de copiada em cada trecho da tela.)
 const COR_STATUS = { carrinho:'#ffd60a', pix:'#64d2ff', cartao:'#ff453a', pago:'#30d158' };
-const COR_INDEFINIDO = '#636366'; // cinza neutro — "sem vendedor identificado", não é status nem pessoa
-
-const POOL_PESSOA = ['#0a84ff','#bf5af2','#ff375f','#5e5ce6','#ac8e68','#e34c9b','#7c93ff','#ff9f0a'];
-const POOL_PRODUTO = ['#5ac8fa','#63e6be','#d4a24c','#c97b63','#7a9cc6'];
-
+const COR_INDEFINIDO = '#636366';
+const POOL_PESSOA = ['#0a84ff','#bf5af2','#ff375f','#5e5ce6','#ac8e68','#e34c9b','#7c93ff','#5ac8fa','#63e6be','#d4a24c','#c97b63','#9b8afb','#ff6482'];
+const POOL_PRODUTO = ['#5ac8fa','#63e6be','#d4a24c','#c97b63','#7a9cc6','#b794f6'];
 const mapaCorPessoa = {};
 function corPessoa(nome) {
   if (!nome || nome === 'Funil direto') return COR_INDEFINIDO;
@@ -333,98 +376,77 @@ function corPessoa(nome) {
   return mapaCorPessoa[nome];
 }
 
-const VENDEDORES = [
-  { nome:'Bia', valor:8448.04, qtd:7, produtos:'O Gestor ×5 · Gestor de Reputação Bancária ×2', first:true },
-  { nome:'Mª Eduardha', valor:2340.00, qtd:3, produtos:'Destrave Rating ×2 · O Gestor ×1' },
-  { nome:'Jardel', valor:1580.50, qtd:2, produtos:'Rating para CNPJ ×2' },
-  { nome:'Joao Victor', valor:992.00, qtd:1, produtos:'O Gestor ×1' },
-  { nome:'Funil direto', valor:5438.90, qtd:24, produtos:'sem vendedor identificado na planilha' },
-].map(v => ({...v, cor: corPessoa(v.nome)}));
-
-const PRODUTOS = [
-  { nome:'O Gestor', valor:5151.78, qtd:7 },
-  { nome:'Gestor de Reputação Bancária', valor:4095.00, qtd:1 },
-  { nome:'Destrave seu Rating Bancário - 3.0', valor:3662.62, qtd:13 },
-  { nome:'Rating para CNPJ - 2.0', valor:753.88, qtd:2 },
-  { nome:'Como Financiar Casa Própria', valor:89.48, qtd:2 },
-].map((p, i) => ({...p, cor: POOL_PRODUTO[i % POOL_PRODUTO.length]}));
-
-const NOMES = ['Cristiano da Silva','Eduardo França','Josias Marcedo','Vanessa Winget','Isaías Pereira do Nascimento',
-  'Wilian Melo','Claudia Maria de Souza','Tassio dos Santos','Jarson de Jesus Lima','Robson Junio dos Santos',
-  'Janiceli Oliveira Lira','Derlison Soli','Bruna Emily Pacheco','Carlos Eduardo dos Santos','Denison Alves'];
-
-function gerarLeads(qtd, produto, valorBase) {
-  return Array.from({length: qtd}, (_, i) => ({
-    nome: NOMES[i % NOMES.length],
-    produto,
-    tempo: `há ${1 + (i % 13)}h ${(i * 7) % 60}min`,
-    valor: valorBase,
-  }));
+// ---------- vendedores conhecidos (mesma lista do Fluxo Vivo) ----------
+const VENDORS_CONHECIDOS = ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL'];
+const NAME_MAP = { 'BIA':'BIA','JOAO':'JOAO','JOAOV':'JOAOV','MATHEUS':'MATHEUS','LAIS':'LAIS','ELTON':'ELTON','MARCELO':'MARCELO','WAL MACEDO':'WAL MACEDO','BELLMORAISS':'BELLMORAISS','ANGARA':'ANGARA','DUDA':'DUDA','MILLENA':'MILLENA','JARDEL':'JARDEL' };
+const DISPLAY_NAMES = { 'BIA':'Bia','JOAO':'Joao','JOAOV':'Joao Victor','MATHEUS':'Matheus','LAIS':'Lais','ELTON':'Elton','MARCELO':'Marcelo','WAL MACEDO':'Wal Macedo','BELLMORAISS':'Bellmoraiss','ANGARA':'Angara','DUDA':'Mª Eduardha','MILLENA':'Millena','JARDEL':'Jardel' };
+function normName(raw) {
+  if (!raw) return '';
+  const upper = raw.toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return NAME_MAP[upper] || upper;
 }
-
-const LANES = [
-  { chave:'carrinho', nome:'Carrinho abandonado', cor:COR_STATUS.carrinho, leads: gerarLeads(15, 'Destrave Rating - 3.0', 281.74) },
-  { chave:'pix', nome:'Pix pendente', cor:COR_STATUS.pix, leads: gerarLeads(4, 'Destrave Rating - 3.0', 281.74) },
-  { chave:'cartao', nome:'Cartão recusado', cor:COR_STATUS.cartao, leads: gerarLeads(3, 'O Gestor', 473.10) },
-  { chave:'pago', nome:'Pago', cor:COR_STATUS.pago, leads: gerarLeads(14, 'O Gestor', 473.10).map((l, i) =>
-      i % 3 === 0 ? {...l, vendedor:corPessoa('Bia'), vendedorNome:'Bia'}
-      : i % 5 === 0 ? {...l, vendedor:corPessoa('Joao Victor'), vendedorNome:'Joao Victor'}
-      : l
-    )},
-];
-
-// Reembolsos/chargebacks de hoje — quadrinho vermelho no topo (pedido
-// do usuário em 2026-09-30). "vendedorNome" só aparece quando o UTM da
-// venda original bate com um vendedor conhecido (mesmo classificador
-// já usado no Fluxo Vivo e no Recuperação de verdade) — quando não
-// bate, mostra "não identificado" em vez de inventar um nome. A cor
-// vem de corPessoa(), nunca de um hex copiado à mão.
-const REEMBOLSOS = [
-  { nome:'Francis David Barros Martins', tipo:'reembolso', valor:376.94, vendedorNome:null, tempo:'há 2h 10min' },
-  { nome:'Anderson Rosa Getúlio', tipo:'reembolso', valor:281.74, vendedorNome:'Bia', tempo:'há 5h 40min' },
-  { nome:'Patrik', tipo:'chargeback', valor:234.14, vendedorNome:'Mª Eduardha', tempo:'há 9h 5min' },
-].map(r => ({...r, cor: r.vendedorNome ? corPessoa(r.vendedorNome) : null}));
 
 function fmt(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function iniciais(nome) { return nome.trim().split(/\s+/).slice(0,2).map(p => p[0]).join('').toUpperCase(); }
-
-function montarRanking() {
-  document.getElementById('rankingRows').innerHTML = VENDEDORES.map((v, i) => `
-    <div class="rank-row">
-      <span class="pos">${String(i+1).padStart(2,'0')}</span>
-      <div class="avatar" style="background:${v.cor}">${v.nome === 'Funil direto' ? '—' : iniciais(v.nome)}</div>
-      <span class="nome" style="color:${v.cor}">${escapeHtml(v.nome)}</span>
-      <span class="valor">${fmt(v.valor)}</span>
-      <span class="produtos">${v.qtd} ${v.qtd===1?'venda':'vendas'} · ${escapeHtml(v.produtos)}</span>
-    </div>`).join('');
+function pVal(v) {
+  if (!v) return 0;
+  let c = String(v).trim().replace(/^R\$\s*/i, '');
+  if (c.includes(',')) c = c.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(c);
+  return isNaN(n) ? 0 : n;
 }
 
-function montarFunil() {
-  const maxValor = Math.max(...PRODUTOS.map(p => p.valor));
-  document.getElementById('funnelList').innerHTML = PRODUTOS.map(p => `
-    <div class="funnel-item">
-      <div class="funnel-item-top">
-        <span class="funnel-item-nome" style="color:${p.cor}">${escapeHtml(p.nome)}</span>
-        <span class="funnel-item-valor">${p.qtd} ${p.qtd===1?'venda':'vendas'} · ${fmt(p.valor)}</span>
-      </div>
-      <div class="funnel-item-bar"><div class="funnel-item-bar-fill" style="width:${Math.max(10, p.valor/maxValor*100)}%; background:${p.cor}"></div></div>
-    </div>`).join('');
+// ---------- relógio corrigido pelo servidor (mesmo truque dos outros painéis) ----------
+let relogioDriftMs = 0;
+function agoraCorrigido() { return new Date(Date.now() + relogioDriftMs); }
+function corrigirRelogio(headerDate) {
+  if (!headerDate) return;
+  const servidor = new Date(headerDate).getTime();
+  if (isNaN(servidor)) return;
+  relogioDriftMs = servidor - Date.now();
+}
+// São Paulo não tem horário de verão desde 2019 — fuso fixo -3h.
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+function camposSP(d) { return new Date(d.getTime() - SP_OFFSET_MS); }
+function pDate(s) {
+  if (!s) return null;
+  const p = s.replace(',', '').trim().split(/\s+/);
+  const d = p[0].split('/');
+  if (d.length < 3) return null;
+  const day = +d[0], month = +d[1], year = +d[2];
+  let h = 0, m = 0, c = 0;
+  if (p[1]) { const t = p[1].split(':'); h = +t[0]||0; m = +t[1]||0; c = +t[2]||0; }
+  const date = new Date(Date.UTC(year, month-1, day, h, m, c) + SP_OFFSET_MS);
+  if (isNaN(date.getTime())) return null;
+  return date;
+}
+function isToday(d) {
+  if (!d) return false;
+  const a = camposSP(d), b = camposSP(agoraCorrigido());
+  return a.getUTCDate()===b.getUTCDate() && a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
+}
+function isMonth(d) {
+  if (!d) return false;
+  const a = camposSP(d), b = camposSP(agoraCorrigido());
+  return a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
+}
+const META_DIARIA = 8064.55; // mesmo valor padrão usado no Fluxo Vivo
+function fmtMin(ms) {
+  if (ms < 0) ms = 0;
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
 
-function montarResumoChips() {
-  document.getElementById('summaryChips').innerHTML = VENDEDORES.filter(v => v.nome !== 'Funil direto').map(v => `
-    <div class="summary-chip">
-      <span class="nome" style="color:${v.cor}">${escapeHtml(v.nome)}</span>
-      <span class="valor">${fmt(v.valor)}</span>
-    </div>`).join('');
-}
-
+// ================================================================
+// BALÃO DE DETALHE (hover) — 1 elemento só, reaproveitado por tudo
+// ================================================================
 const tip = document.getElementById('detailTip');
 function mostrarTip(e, l) {
   tip.innerHTML = `
     <div class="detail-tip-nome">${escapeHtml(l.nome)}</div>
-    <div class="detail-tip-row"><span>Produto</span><span class="v">${escapeHtml(l.produto)}</span></div>
+    <div class="detail-tip-row"><span>Produto</span><span class="v">${escapeHtml(l.produto || 'não identificado')}</span></div>
     <div class="detail-tip-row"><span>Valor</span><span class="v">${fmt(l.valor)}</span></div>
     <div class="detail-tip-row"><span>Quando</span><span class="v">${l.tempo}</span></div>
     ${l.vendedorNome ? `<div class="detail-tip-row"><span>Vendedor</span><span class="v" style="color:${l.vendedor}">${escapeHtml(l.vendedorNome)}</span></div>` : ''}
@@ -441,76 +463,293 @@ function posicionarTip(e) {
 }
 function esconderTip() { tip.classList.remove('show'); }
 
-// Quadrinho de reembolso: mostra a contagem + o último, e ao passar o
-// mouse abre a lista completa de hoje — nome de quem pediu e o
-// vendedor da venda original (só quando o UTM bate com alguém
-// conhecido; senão mostra "não identificado" em vez de chutar).
-function montarReembolsos() {
-  document.getElementById('refundCount').textContent = REEMBOLSOS.length;
-  const ultimo = REEMBOLSOS[REEMBOLSOS.length - 1];
-  document.getElementById('refundUltimo').textContent = ultimo
-    ? `último: ${ultimo.nome.split(' ')[0]}${ultimo.vendedorNome ? ' · ' + ultimo.vendedorNome : ''}`
-    : 'nenhum hoje';
+// ================================================================
+// FLUXO VIVO (hero, ranking, funil por produto) — Google Sheets
+// ================================================================
+let rawData = [];
 
-  const card = document.getElementById('refundCard');
-  card.addEventListener('mouseenter', e => {
-    if (!REEMBOLSOS.length) return;
-    tip.innerHTML = `
-      <div class="detail-tip-nome" style="color:var(--red)">Reembolsos / chargebacks hoje</div>
-      ${REEMBOLSOS.map(r => `
-        <div class="detail-tip-row" style="margin-top:8px; flex-direction:column; align-items:flex-start; gap:2px;">
-          <span style="color:var(--fg); font-weight:700;">${escapeHtml(r.nome)} <span style="color:var(--fg-faint); font-weight:500;">· ${r.tipo === 'chargeback' ? 'chargeback' : 'reembolso'}</span></span>
-          <span>−${fmt(r.valor)} · ${r.tempo}</span>
-          <span>Vendedor: <span class="v" style="color:${r.cor || 'var(--fg-faint)'}">${r.vendedorNome ? escapeHtml(r.vendedorNome) : 'não identificado'}</span></span>
-        </div>`).join('')}
-    `;
-    posicionarTip(e);
-    tip.classList.add('show');
-  });
-  card.addEventListener('mousemove', posicionarTip);
-  card.addEventListener('mouseleave', esconderTip);
+async function buscarDadosPlanilha() {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+  const r = await fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${SHEET_KEY}`);
+  if (!r.ok) throw new Error('planilha: ' + r.status);
+  corrigirRelogio(r.headers.get('date'));
+  const j = await r.json();
+  const rows = j.values || [];
+  const novo = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row) continue;
+    const status = (row[7] || '').trim().toLowerCase();
+    if (status !== 'paid') continue;
+    novo.push({
+      data: pDate(row[0]),
+      vendedor: normName(row[1]),
+      produto: (row[2] || '').trim(),
+      valor: pVal(row[3]),
+    });
+  }
+  rawData = novo;
 }
 
-function montarLanes() {
-  document.getElementById('lanesGrid').innerHTML = LANES.map(lane => `
+function renderHero(today, mes) {
+  const conhecidos = new Set(VENDORS_CONHECIDOS);
+  let totalHoje = 0, qtdHoje = 0, totalMes = 0, qtdMes = 0;
+  today.forEach(s => { if (conhecidos.has(s.vendedor)) { totalHoje += s.valor; qtdHoje++; } });
+  mes.forEach(s => { if (conhecidos.has(s.vendedor)) { totalMes += s.valor; qtdMes++; } });
+
+  const pct = META_DIARIA > 0 ? (totalHoje / META_DIARIA * 100) : 0;
+  document.getElementById('heroValue').textContent = fmt(totalHoje);
+  document.getElementById('heroSub').textContent = `${pct.toFixed(0)}% da meta · ${qtdHoje} ${qtdHoje===1?'venda':'vendas'}`;
+  document.getElementById('metaValue').textContent = fmt(META_DIARIA);
+  document.getElementById('mesValue').textContent = fmt(totalMes);
+  document.getElementById('mesSub').textContent = `${qtdMes} ${qtdMes===1?'venda':'vendas'}`;
+}
+
+function renderRanking(today) {
+  const porVendedor = new Map(); // nome -> {valor, qtd, produtos: Map}
+  const desconhecidoProdutos = new Map();
+  let desconhecidoValor = 0, desconhecidoQtd = 0;
+  const conhecidos = new Set(VENDORS_CONHECIDOS);
+
+  today.forEach(s => {
+    const alvo = conhecidos.has(s.vendedor) ? s.vendedor : null;
+    if (alvo) {
+      if (!porVendedor.has(alvo)) porVendedor.set(alvo, {valor:0, qtd:0, produtos:new Map()});
+      const e = porVendedor.get(alvo);
+      e.valor += s.valor; e.qtd += 1;
+      const nomeProd = s.produto || 'Sem produto';
+      e.produtos.set(nomeProd, (e.produtos.get(nomeProd) || 0) + 1);
+    } else {
+      desconhecidoValor += s.valor; desconhecidoQtd += 1;
+      const nomeProd = s.produto || 'Sem produto';
+      desconhecidoProdutos.set(nomeProd, (desconhecidoProdutos.get(nomeProd) || 0) + 1);
+    }
+  });
+
+  function listaProdutos(mapa, max) {
+    if (!mapa || !mapa.size) return '';
+    max = max || 2;
+    const linhas = [...mapa.entries()].sort((a,b) => b[1]-a[1]);
+    const principais = linhas.slice(0, max).map(([n,q]) => `${n} ×${q}`);
+    const resto = linhas.slice(max);
+    if (resto.length) {
+      const soma = resto.reduce((s,[,q]) => s+q, 0);
+      principais.push(`+${resto.length} outro${resto.length>1?'s':''} (${soma})`);
+    }
+    return principais.join(' · ');
+  }
+
+  let linhas = [...porVendedor.entries()]
+    .map(([nome, v]) => ({ nome: DISPLAY_NAMES[nome] || nome, valor:v.valor, qtd:v.qtd, produtosTxt: listaProdutos(v.produtos), raw:nome }))
+    .sort((a,b) => b.valor - a.valor);
+
+  if (desconhecidoValor > 0) {
+    linhas.push({ nome:'Funil direto', valor:desconhecidoValor, qtd:desconhecidoQtd, produtosTxt: listaProdutos(desconhecidoProdutos) || 'sem vendedor identificado na planilha', indefinido:true });
+  }
+
+  document.getElementById('rankingRows').innerHTML = linhas.map((v, i) => {
+    const cor = v.indefinido ? COR_INDEFINIDO : corPessoa(v.nome);
+    return `
+    <div class="rank-row">
+      <span class="pos">${String(i+1).padStart(2,'0')}</span>
+      <div class="avatar" style="background:${cor}">${v.indefinido ? '—' : iniciais(v.nome)}</div>
+      <span class="nome" style="color:${cor}">${escapeHtml(v.nome)}</span>
+      <span class="valor">${fmt(v.valor)}</span>
+      <span class="produtos">${v.qtd} ${v.qtd===1?'venda':'vendas'} · ${escapeHtml(v.produtosTxt)}</span>
+    </div>`;
+  }).join('') || '<span class="hero-sub dim">nenhuma venda hoje ainda</span>';
+
+  // resumo (chips) — mesmos vendedores conhecidos, sem o "Funil direto"
+  document.getElementById('summaryChips').innerHTML = linhas.filter(v => !v.indefinido).map(v => `
+    <div class="summary-chip">
+      <span class="nome" style="color:${corPessoa(v.nome)}">${escapeHtml(v.nome)}</span>
+      <span class="valor">${fmt(v.valor)}</span>
+    </div>`).join('') || '<span class="hero-sub dim">ninguém vendeu ainda hoje</span>';
+
+  return linhas;
+}
+
+function renderFunil(today) {
+  const porProduto = new Map();
+  today.forEach(s => {
+    const nome = s.produto || 'Sem produto';
+    const atual = porProduto.get(nome) || {valor:0, qtd:0};
+    atual.valor += s.valor; atual.qtd += 1;
+    porProduto.set(nome, atual);
+  });
+  const linhas = [...porProduto.entries()].sort((a,b) => b[1].valor - a[1].valor).slice(0, 6);
+  if (!linhas.length) {
+    document.getElementById('funnelList').innerHTML = '<span class="hero-sub dim">aguardando vendas de hoje...</span>';
+    return;
+  }
+  const maxValor = linhas[0][1].valor;
+  document.getElementById('funnelList').innerHTML = linhas.map(([nome, d], i) => {
+    const cor = POOL_PRODUTO[i % POOL_PRODUTO.length];
+    return `
+    <div class="funnel-item">
+      <div class="funnel-item-top">
+        <span class="funnel-item-nome" style="color:${cor}">${escapeHtml(nome)}</span>
+        <span class="funnel-item-valor">${d.qtd} ${d.qtd===1?'venda':'vendas'} · ${fmt(d.valor)}</span>
+      </div>
+      <div class="funnel-item-bar"><div class="funnel-item-bar-fill" style="width:${Math.max(10, d.valor/maxValor*100)}%; background:${cor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+async function atualizarVendas() {
+  await buscarDadosPlanilha();
+  const today = rawData.filter(s => isToday(s.data));
+  const mes = rawData.filter(s => isMonth(s.data));
+  renderHero(today, mes);
+  renderRanking(today);
+  renderFunil(today);
+}
+
+// ================================================================
+// RECUPERAÇÃO (4 faixas) — backend
+// ================================================================
+const ETAPA_CHAVE = { carrinho_abandonado:'carrinho', pix_pendente:'pix', cartao_recusado:'cartao', pago:'pago' };
+const ETAPA_NOME = { carrinho:'Carrinho abandonado', pix:'Pix pendente', cartao:'Cartão recusado', pago:'Pago' };
+
+async function buscarRecuperacao() {
+  const r = await fetch(API_BASE + '/recuperacao/hoje?dias_atras=0');
+  if (!r.ok) throw new Error('recuperacao: ' + r.status);
+  corrigirRelogio(r.headers.get('date'));
+  const j = await r.json();
+  return j.leads || [];
+}
+
+function renderLanes(leads) {
+  const agora = agoraCorrigido();
+  const porEtapa = { carrinho:[], pix:[], cartao:[], pago:[] };
+  leads.forEach(l => {
+    const chave = ETAPA_CHAVE[l.etapa_atual];
+    if (chave) porEtapa[chave].push(l);
+  });
+  Object.keys(porEtapa).forEach(k => porEtapa[k].sort((a,b) => new Date(b.quando) - new Date(a.quando)));
+
+  document.getElementById('lanesGrid').innerHTML = Object.entries(porEtapa).map(([chave, lista]) => `
     <div class="lane">
       <div class="lane-head">
-        <span class="dot" style="background:${lane.cor}"></span>
-        <span class="nome">${escapeHtml(lane.nome)}</span>
-        <span class="n">${lane.leads.length}</span>
+        <span class="dot" style="background:${COR_STATUS[chave]}"></span>
+        <span class="nome">${ETAPA_NOME[chave]}</span>
+        <span class="n">${lista.length}</span>
       </div>
       <div class="lane-rows">
-        ${lane.leads.map((l, i) => `
-          <div class="lead-row${lane.chave==='pago' ? ' pago' : ''}" data-lane="${lane.chave}" data-i="${i}" ${l.vendedor ? `style="border-left-color:${l.vendedor}"` : ''}>
+        ${lista.length ? lista.map((l, i) => {
+          const corVend = (chave === 'pago' && l.vendedor) ? corPessoa(l.vendedor) : null;
+          return `
+          <div class="lead-row${chave==='pago' ? ' pago' : ''}" data-chave="${chave}" data-i="${i}" ${corVend ? `style="border-left-color:${corVend}"` : ''}>
             <span class="nome">${escapeHtml(l.nome)}</span>
-            <span class="tempo">${l.tempo}</span>
-          </div>`).join('')}
+            <span class="tempo">há ${fmtMin(agora - new Date(l.quando))}</span>
+          </div>`;
+        }).join('') : '<span class="hero-sub dim" style="font-size:0.68rem;">ninguém aqui agora</span>'}
       </div>
     </div>`).join('');
 
   document.querySelectorAll('.lead-row').forEach(el => {
-    const lane = LANES.find(x => x.chave === el.dataset.lane);
-    const l = lane.leads[+el.dataset.i];
-    el.addEventListener('mouseenter', e => mostrarTip(e, l));
+    const lista = porEtapa[el.dataset.chave];
+    const l = lista[+el.dataset.i];
+    const tip_l = {
+      nome: l.nome, produto: l.produto, valor: l.valor,
+      tempo: 'há ' + fmtMin(agora - new Date(l.quando)),
+      vendedorNome: l.vendedor || null,
+      vendedor: l.vendedor ? corPessoa(l.vendedor) : null,
+    };
+    el.addEventListener('mouseenter', e => mostrarTip(e, tip_l));
     el.addEventListener('mousemove', posicionarTip);
     el.addEventListener('mouseleave', esconderTip);
   });
 }
 
+async function atualizarRecuperacao() {
+  const leads = await buscarRecuperacao();
+  renderLanes(leads);
+}
+
+// ================================================================
+// REEMBOLSOS — quadrinho vermelho no topo
+// ================================================================
+async function buscarReembolsos() {
+  const r = await fetch(API_BASE + '/fluxo-vivo/reembolsos-hoje');
+  if (!r.ok) throw new Error('reembolsos: ' + r.status);
+  const j = await r.json();
+  return j.reembolsos || [];
+}
+
+let reembolsosHoverLigado = false;
+function renderReembolsos(lista) {
+  const agora = agoraCorrigido();
+  document.getElementById('refundCount').textContent = lista.length;
+  const ultimo = lista[lista.length - 1];
+  document.getElementById('refundUltimo').textContent = ultimo
+    ? `último: ${ultimo.nome.split(' ')[0]}${ultimo.vendedor ? ' · ' + (DISPLAY_NAMES[ultimo.vendedor] || ultimo.vendedor) : ''}`
+    : 'nenhum hoje';
+
+  const card = document.getElementById('refundCard');
+  if (!reembolsosHoverLigado) {
+    card.addEventListener('mouseenter', e => {
+      if (!lista.length) return;
+      tip.innerHTML = `
+        <div class="detail-tip-nome" style="color:var(--red)">Reembolsos / chargebacks hoje</div>
+        ${lista.map(r => {
+          const vNome = r.vendedor ? (DISPLAY_NAMES[r.vendedor] || r.vendedor) : null;
+          const cor = vNome ? corPessoa(vNome) : null;
+          return `
+          <div class="detail-tip-row" style="margin-top:8px; flex-direction:column; align-items:flex-start; gap:2px;">
+            <span style="color:var(--fg); font-weight:700;">${escapeHtml(r.nome)} <span style="color:var(--fg-faint); font-weight:500;">· ${r.tipo === 'chargeback' ? 'chargeback' : 'reembolso'}</span></span>
+            <span>−${fmt(r.valor)} · há ${fmtMin(agora - new Date(r.quando))}</span>
+            <span>Vendedor: <span class="v" style="color:${cor || 'var(--fg-faint)'}">${vNome ? escapeHtml(vNome) : 'não identificado'}</span></span>
+          </div>`;
+        }).join('')}
+      `;
+      posicionarTip(e);
+      tip.classList.add('show');
+    });
+    card.addEventListener('mousemove', posicionarTip);
+    card.addEventListener('mouseleave', esconderTip);
+    reembolsosHoverLigado = true;
+  }
+}
+
+async function atualizarReembolsos() {
+  const lista = await buscarReembolsos();
+  renderReembolsos(lista);
+}
+
+// ================================================================
+// RELÓGIO NO TOPO
+// ================================================================
 function tickClock() {
-  const d = new Date();
+  const d = agoraCorrigido();
   const dia = String(d.getDate()).padStart(2,'0'), mes = String(d.getMonth()+1).padStart(2,'0');
   const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0');
   document.getElementById('clock').textContent = `${dia}/${mes}/${d.getFullYear()} · ${h}:${m}`;
 }
-tickClock();
-setInterval(tickClock, 1000);
 
-montarRanking();
-montarFunil();
-montarResumoChips();
-montarLanes();
-montarReembolsos();
+// ================================================================
+// INIT — só busca dado depois de desbloquear a senha
+// ================================================================
+let refreshTimer = null;
+let jaIniciou = false;
+async function atualizarTudo() {
+  try {
+    await Promise.all([atualizarVendas(), atualizarRecuperacao(), atualizarReembolsos()]);
+  } catch (e) {
+    console.error('Erro ao atualizar painel unificado:', e);
+  }
+}
+function iniciar() {
+  if (jaIniciou) return;
+  jaIniciou = true;
+  tickClock();
+  setInterval(tickClock, 1000);
+  atualizarTudo();
+  refreshTimer = setInterval(atualizarTudo, 30000);
+}
+
+// já desbloqueado de sessão anterior (mesma senha dos outros painéis)?
+if (document.getElementById('lockScreen').classList.contains('hidden')) iniciar();
 </script>
 </body>
 </html>
