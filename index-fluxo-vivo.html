@@ -189,7 +189,7 @@
   /* #lanes precisa ser flex de verdade — senão .lane{flex:1} não tem efeito
      nenhum, as pistas ficam pequenas no topo e sobra um vazio enorme embaixo. */
   #lanes { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(10px, 1.6vh, 18px); }
-  .lane { display:flex; align-items:center; gap:clamp(10px, 1.6vw, 18px); flex:1; min-height:0; }
+  .lane { display:flex; align-items:center; gap:clamp(10px, 1.6vw, 18px); flex:1; min-height:20px; }
   .lane-rank {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.85rem, 1.2vw, 1.05rem);
     font-weight:700; color:var(--fg-faint); width:26px; flex-shrink:0;
@@ -210,8 +210,11 @@
   /* Nome, valor e contagem são a informação que precisa ser lida de longe
      numa TV — por isso maiores e com teto de clamp mais alto que o resto
      da interface (rótulos/metadados continuam pequenos, só o dado central
-     de cada linha cresce). */
-  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); }
+     de cada linha cresce). Nunca podem quebrar linha: numa TV sem rolagem,
+     texto longo (nome grande, "sem vendedor na planilha") quebrando pra
+     2 linhas empurra tudo e vaza por cima da linha vizinha — corta com
+     "..." em vez disso (bug real visto em 2026-09-29). */
+  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* 1º lugar do dia ganha peso visual extra — reforça a competição entre
      o time em vez de deixar o ranking parecer uma lista neutra. */
   .lane-first .lane-rank { color:var(--gold); text-shadow:0 0 12px var(--gold); }
@@ -227,9 +230,12 @@
   .lane-unid .lane-name { color:var(--fg-dim); font-style:italic; font-weight:600; }
   .lane-value {
     font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:clamp(1rem, 1.7vw, 1.35rem);
-    color:var(--fg-dim); font-variant-numeric:tabular-nums;
+    color:var(--fg-dim); font-variant-numeric:tabular-nums; flex:0 0 auto; white-space:nowrap;
   }
-  .lane-qtd { font-family:'IBM Plex Mono',monospace; font-size:clamp(0.8rem, 1.3vw, 1rem); color:var(--fg-faint); }
+  .lane-qtd {
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.8rem, 1.3vw, 1rem); color:var(--fg-faint);
+    flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
 
   /* ---------- funil fluido: forma que afunila, não barras em caixa ---------- */
   .funnel-zone {
@@ -251,9 +257,12 @@
   /* A forma que afunila (clip-path) fica numa camada separada, atrás do
      texto — texto nunca pode ficar ilegível só porque a faixa estreitou. */
   .funnel-band {
-    position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:space-between;
+    position:relative; flex:1; min-height:20px; display:flex; align-items:center; justify-content:space-between;
     padding:0 clamp(20px, 3vw, 40px);
   }
+  /* faixa-resumo "+N outros produtos": mesmo tratamento visual do "Funil
+     direto" no ranking — deixa claro que não é um produto específico. */
+  .funnel-band-outros .funnel-band-label { font-style:italic; font-weight:600; }
   .funnel-band-shape {
     position:absolute; inset:0; pointer-events:none;
     transition:clip-path 0.9s cubic-bezier(0.25,0.46,0.45,0.94);
@@ -1188,11 +1197,26 @@ function renderFunnel(sales) {
     atual.valor += s.valor; atual.qtd += 1;
     porProduto.set(nome, atual);
   });
-  const linhas = [...porProduto.entries()].sort((a,b) => b[1].valor - a[1].valor);
+  let linhas = [...porProduto.entries()].sort((a,b) => b[1].valor - a[1].valor);
   if (!linhas.length) {
     DOM.funnelBands.innerHTML = '<div class="funnel-empty">aguardando vendas de hoje...</div>';
     return;
   }
+  // A TV não tem rolagem: se vender muito produto diferente no mesmo dia
+  // (caso real em 2026-09-29 — 8 produtos), a altura divide igual entre
+  // todas as faixas e cada uma fica menor que uma linha de texto, aí o
+  // texto vaza pra cima da faixa vizinha e tudo fica ilegível/embolado.
+  // Por isso mostra só os produtos mais vendidos e resume o resto numa
+  // única faixa — mesma solução já usada nos atrasados da central de contato.
+  const MAX_FAIXAS = 5;
+  if (linhas.length > MAX_FAIXAS) {
+    const principais = linhas.slice(0, MAX_FAIXAS - 1);
+    const resto = linhas.slice(MAX_FAIXAS - 1);
+    const somaValor = resto.reduce((acc, [,d]) => acc + d.valor, 0);
+    const somaQtd = resto.reduce((acc, [,d]) => acc + d.qtd, 0);
+    linhas = principais.concat([[`+${resto.length} outros produtos`, {valor: somaValor, qtd: somaQtd, outros:true}]]);
+  }
+  const OUTROS_COLOR = '#4d4d57';
   const maxV = linhas[0][1].valor;
   let prevPct = 100;
   DOM.funnelBands.innerHTML = linhas.map(([produto, d], i) => {
@@ -1200,10 +1224,10 @@ function renderFunnel(sales) {
     const topLeft = (100 - prevPct) / 2, topRight = 100 - topLeft;
     const botLeft = (100 - pct) / 2, botRight = 100 - botLeft;
     const clip = `polygon(${topLeft}% 0, ${topRight}% 0, ${botRight}% 100%, ${botLeft}% 100%)`;
-    const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+    const color = d.outros ? OUTROS_COLOR : FUNNEL_COLORS[i % FUNNEL_COLORS.length];
     prevPct = pct;
     return `
-      <div class="funnel-band">
+      <div class="funnel-band${d.outros ? ' funnel-band-outros' : ''}">
         <div class="funnel-band-shape" style="clip-path:${clip}; background:${hexToRgba(color,0.14)}"></div>
         <span class="funnel-band-label" style="color:${color}">${escapeHtml(produto)}</span>
         <span class="funnel-band-value">${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'} &middot; ${fmt(d.valor)}</span>
