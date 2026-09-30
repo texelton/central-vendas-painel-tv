@@ -177,9 +177,12 @@
     font-variant-numeric:tabular-nums;
   }
 
-  /* ---------- pista de corrida: ranking sem cards, sem bordas grossas ---------- */
+  /* ---------- pista de corrida: ranking sem cards, sem bordas grossas ----------
+     flex:1.3 (contra 1 do funil) porque cada vendedor agora ocupa 2 linhas
+     (nome/valor + produtos vendidos) — precisa de mais espaço vertical que
+     o funil, que continua em 1 linha por faixa. */
   .track-zone {
-    flex:1 1 0; min-height:0; padding:clamp(22px, 3vh, 32px) clamp(28px, 5vw, 56px);
+    flex:1.7 1 0; min-height:0; padding:clamp(22px, 3vh, 32px) clamp(28px, 5vw, 56px);
     display:flex; flex-direction:column;
     background:var(--surface); border:1px solid var(--panel-border); border-radius:22px;
     box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
@@ -196,8 +199,22 @@
   }
   /* #lanes precisa ser flex de verdade — senão .lane{flex:1} não tem efeito
      nenhum, as pistas ficam pequenas no topo e sobra um vazio enorme embaixo. */
-  #lanes { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(10px, 1.6vh, 18px); }
-  .lane { display:flex; align-items:center; gap:clamp(10px, 1.6vw, 18px); flex:1; min-height:20px; }
+  #lanes { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(5px, 0.9vh, 12px); }
+  /* Cada vendedor agora ocupa 2 linhas: a de sempre (rank/pista/nome/valor/
+     qtd) embaixo dela, uma segunda linha mais discreta com o que ele
+     vendeu produto a produto (pedido do usuário em 2026-09-30). */
+  .lane { display:flex; flex-direction:column; justify-content:center; gap:1px; flex:1; min-height:37px; }
+  .lane-top { display:flex; align-items:center; gap:clamp(10px, 1.6vw, 18px); width:100%; flex-shrink:0; }
+  /* mesma trava dura da linha principal: nunca quebra, corta com "..." se
+     não couber, e mostra só os produtos mais vendidos + "+N outros" (bug
+     real de faixa vazando por cima da vizinha, visto em 2026-09-29). Fonte
+     pequena de propósito — é informação de apoio, a linha de cima (nome/
+     valor/qtd) é que precisa ser lida de longe. */
+  .lane-produtos {
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem); line-height:1.3;
+    color:var(--fg-faint); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    flex-shrink:0;
+  }
   .lane-rank {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.85rem, 1.2vw, 1.05rem);
     font-weight:700; color:var(--fg-faint); width:26px; flex-shrink:0;
@@ -247,9 +264,6 @@
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.8rem, 1.3vw, 1rem); color:var(--fg-faint);
     flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  /* dentro da contagem, o nome do produto vendido — mais apagado ainda,
-     pra não competir com o número de vendas que é o dado principal. */
-  .lane-qtd .lane-produto { color:var(--fg-faint); opacity:0.72; font-style:italic; }
 
   /* ---------- funil fluido: forma que afunila, não barras em caixa ---------- */
   .funnel-zone {
@@ -1017,16 +1031,24 @@ function produtosByVendor(sales) {
   });
   return map;
 }
-// Resume os produtos de um vendedor numa string curta: o mais vendido
-// por ele + quantos outros produtos diferentes também vendeu — cabe na
-// mesma linha do ranking sem estourar espaço (a faixa "N vendas" já é
-// pequena, então isso não pode virar uma lista longa).
-function resumoProdutosVendedor(porProduto) {
+// Lista os produtos de um vendedor com a quantidade de cada um
+// ("O GESTOR ×5 · Rating CNPJ ×2"), pedido do usuário em 2026-09-30.
+// Numa TV sem rolagem, se o vendedor vender produto demais no dia isso
+// pode virar uma linha gigante — mostra só os MAX mais vendidos e
+// resume o resto num "+N outros", mesma receita já usada no funil por
+// produto e no ranking pra evitar texto vazando pra linha vizinha.
+function listaProdutosVendedor(porProduto, max) {
   if (!porProduto || !porProduto.size) return '';
+  max = max || 3;
   const linhas = [...porProduto.entries()].sort((a,b) => b[1]-a[1]);
-  const [principal] = linhas[0];
-  const outros = linhas.length - 1;
-  return principal + (outros > 0 ? ` +${outros}` : '');
+  const principais = linhas.slice(0, max);
+  const resto = linhas.slice(max);
+  const partes = principais.map(([nome, qtd]) => `${nome} ×${qtd}`);
+  if (resto.length) {
+    const somaResto = resto.reduce((s,[,q]) => s + q, 0);
+    partes.push(`+${resto.length} outro${resto.length > 1 ? 's' : ''} (${somaResto})`);
+  }
+  return partes.join('  ·  ');
 }
 
 // ================================================================
@@ -1192,18 +1214,21 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified, todayProdu
     const display = State.displayNames[v.nome] || v.nome;
     const rank = rankOf.get(v.nome) || (idx+1);
     const isFirst = rank === 1 && (byValor.get(v.nome) || 0) > 0;
-    const produtoTxt = todayProdutos ? resumoProdutosVendedor(todayProdutos.get(v.nome)) : '';
+    const produtosTxt = todayProdutos ? listaProdutosVendedor(todayProdutos.get(v.nome)) : '';
     return `
       <div class="lane${isFirst ? ' lane-first' : ''}" data-vslot="${vid(idx)}" style="order:${rank}">
-        <span class="lane-rank">${String(rank).padStart(2,'0')}</span>
-        <div class="lane-line">
-          <div class="lane-marker" style="left:${pct}%; background:${color}; box-shadow:0 0 14px ${color};"></div>
+        <div class="lane-top">
+          <span class="lane-rank">${String(rank).padStart(2,'0')}</span>
+          <div class="lane-line">
+            <div class="lane-marker" style="left:${pct}%; background:${color}; box-shadow:0 0 14px ${color};"></div>
+          </div>
+          <div class="lane-info">
+            <span class="lane-name" style="color:${color}">${isFirst ? CROWN_SVG : ''}${escapeHtml(display)}</span>
+            <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
+            <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}</span>
+          </div>
         </div>
-        <div class="lane-info">
-          <span class="lane-name" style="color:${color}">${isFirst ? CROWN_SVG : ''}${escapeHtml(display)}</span>
-          <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
-          <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}${produtoTxt ? ` · <span class="lane-produto">${escapeHtml(produtoTxt)}</span>` : ''}</span>
-        </div>
+        ${produtosTxt ? `<div class="lane-produtos">${escapeHtml(produtosTxt)}</div>` : ''}
       </div>`;
   }).join('');
 
@@ -1213,15 +1238,30 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified, todayProdu
   // mostrar "R$ 0,00" pra todo mundo enquanto o total do topo é maior que zero.
   let unidHtml = '';
   if (unidentified && unidentified.valor > 0) {
+    // produtos de quem não bateu com nenhum vendedor cadastrado, somados —
+    // mesmo tratamento de lista que os vendedores reais ganham acima.
+    let produtosUnidTxt = '';
+    if (todayProdutos) {
+      const known = new Set(vendors.map(v => v.nome));
+      const somaUnid = new Map();
+      todayProdutos.forEach((porProduto, nome) => {
+        if (known.has(nome)) return;
+        porProduto.forEach((qtd, produto) => somaUnid.set(produto, (somaUnid.get(produto) || 0) + qtd));
+      });
+      produtosUnidTxt = listaProdutosVendedor(somaUnid);
+    }
     unidHtml = `
       <div class="lane lane-unid" style="order:${vendors.length + 1}">
-        <span class="lane-rank">—</span>
-        <div class="lane-line dashed"></div>
-        <div class="lane-info">
-          <span class="lane-name">Funil direto</span>
-          <span class="lane-value">${fmt(unidentified.valor)}</span>
-          <span class="lane-qtd">${unidentified.qtd} ${unidentified.qtd === 1 ? 'venda' : 'vendas'} sem vendedor na planilha</span>
+        <div class="lane-top">
+          <span class="lane-rank">—</span>
+          <div class="lane-line dashed"></div>
+          <div class="lane-info">
+            <span class="lane-name">Funil direto</span>
+            <span class="lane-value">${fmt(unidentified.valor)}</span>
+            <span class="lane-qtd">${unidentified.qtd} ${unidentified.qtd === 1 ? 'venda' : 'vendas'} sem vendedor na planilha</span>
+          </div>
         </div>
+        ${produtosUnidTxt ? `<div class="lane-produtos">${escapeHtml(produtosUnidTxt)}</div>` : ''}
       </div>`;
   }
 
@@ -1247,7 +1287,7 @@ function renderFunnel(sales) {
   // texto vaza pra cima da faixa vizinha e tudo fica ilegível/embolado.
   // Por isso mostra só os produtos mais vendidos e resume o resto numa
   // única faixa — mesma solução já usada nos atrasados da central de contato.
-  const MAX_FAIXAS = 5;
+  const MAX_FAIXAS = 3;
   if (linhas.length > MAX_FAIXAS) {
     const principais = linhas.slice(0, MAX_FAIXAS - 1);
     const resto = linhas.slice(MAX_FAIXAS - 1);
