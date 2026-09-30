@@ -273,6 +273,49 @@
     .burst, .burst-emoji, .burst-flash { animation:none !important; transition:none !important; }
   }
 
+  /* ---------- gaveta de configuração — trazida do Fluxo Vivo (pedido
+     do usuário em 2026-09-30), com o visual "vidro" desse painel novo ---------- */
+  .drawer-overlay { display:none; position:fixed; inset:0; z-index:700; background:rgba(0,0,0,0.55); }
+  .drawer-overlay.open { display:block; }
+  .drawer {
+    position:fixed; top:0; right:0; bottom:0; width:min(420px, 92vw); z-index:701;
+    background:rgba(14,14,17,0.92); border-left:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+    padding:28px 26px 36px; overflow-y:auto;
+    transform:translateX(100%); transition:transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  .drawer.open { transform:translateX(0); }
+  .drawer-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .drawer-title { font-weight:800; font-size:1.1rem; }
+  .drawer-section { margin-bottom:26px; }
+  .drawer-section-title {
+    font-family:'IBM Plex Mono',monospace; font-size:0.64rem; font-weight:700;
+    letter-spacing:1.3px; text-transform:uppercase; color:var(--fg-dim); margin-bottom:13px;
+  }
+  .drawer-field { margin-bottom:13px; }
+  .drawer-field label { display:block; font-size:0.7rem; color:var(--fg-dim); margin-bottom:6px; font-weight:600; }
+  .drawer-field input, .drawer-field select {
+    width:100%; padding:10px 12px; background:rgba(255,255,255,0.05); border:1px solid var(--line);
+    border-radius:10px; color:var(--fg); font-size:0.84rem; outline:none; box-sizing:border-box;
+  }
+  .drawer-field input:focus, .drawer-field select:focus { border-color:var(--blue); }
+  .drawer-row { display:flex; gap:10px; }
+  .drawer-row .drawer-field { flex:1; }
+  .drawer-btn {
+    width:100%; padding:11px; border-radius:10px; border:1px solid var(--line);
+    background:none; color:var(--fg); font-weight:700; font-size:0.8rem; cursor:pointer;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .drawer-btn:hover { border-color:var(--blue); background:rgba(10,132,255,0.08); }
+  .drawer-btn.solid { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .event-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  .event-row:first-of-type { border-top:none; }
+  .event-name { display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:600; }
+  .event-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .event-pending { font-size:0.68rem; color:var(--fg-faint); font-style:italic; max-width:140px; text-align:right; }
+  .event-selects { display:flex; gap:6px; }
+  .event-selects select { padding:6px 8px; font-size:0.7rem; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:7px; color:var(--fg); }
+
   .aviso-mock {
     position:fixed; bottom:8px; left:50%; transform:translateX(-50%);
     font-family:'IBM Plex Mono',monospace; font-size:0.62rem; color:var(--fg-faint);
@@ -325,8 +368,8 @@
     <div class="topbar-right">
       <div class="live-pill"><span class="dot"></span>ao vivo</div>
       <div class="icon-btn" title="Dia anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg></div>
-      <div class="icon-btn" title="Notificações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
-      <div class="icon-btn" title="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg></div>
+      <div class="icon-btn" id="drawerBtn" title="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+      <div class="icon-btn" id="fullscreenBtn" title="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg></div>
     </div>
   </div>
 
@@ -375,6 +418,54 @@
 
 </div>
 
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer" aria-label="Configurações">
+  <div class="drawer-header">
+    <span class="drawer-title">Configurações</span>
+    <button class="icon-btn" id="drawerCloseBtn" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+
+  <div class="drawer-section">
+    <div class="drawer-section-title">Conexão com a planilha</div>
+    <div class="drawer-field"><label>Spreadsheet ID</label><input id="sheetIdInput" value=""></div>
+    <div class="drawer-field"><label>API Key Google</label><input id="apiKeyInput" type="password" value=""></div>
+    <button class="drawer-btn solid" onclick="saveAPI(this)">Salvar e reconectar</button>
+  </div>
+
+  <div class="drawer-section">
+    <div class="drawer-section-title">Meta e atualização</div>
+    <div class="drawer-row">
+      <div class="drawer-field"><label>Meta diária (R$)</label><input type="number" id="metaDiariaInput" value="8064.55" step="0.01"></div>
+      <div class="drawer-field"><label>Intervalo (s)</label><input type="number" id="refreshIntervalInput" value="30" min="10" max="600"></div>
+    </div>
+    <button class="drawer-btn" onclick="saveMeta(); saveRefresh();">Aplicar</button>
+  </div>
+
+  <div class="drawer-section">
+    <div class="drawer-section-title">Notificações por evento</div>
+    <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--green)"></span>Venda</div>
+      <div class="event-selects">
+        <select id="soundEnabled"><option value="1" selected>Som on</option><option value="0">Som off</option></select>
+        <select id="popupEnabled"><option value="1" selected>Pop-up on</option><option value="0">Pop-up off</option></select>
+      </div>
+    </div>
+    <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--fg-dim)"></span>Funil direto</div>
+      <span class="event-pending">som de assobio, aviso sem comemoração</span>
+    </div>
+    <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--red)"></span>Reembolso / chargeback</div>
+      <span class="event-pending">som de "trombone triste" + quadrinho vermelho sempre visível</span>
+    </div>
+    <div class="drawer-row" style="margin-top:14px">
+      <button class="drawer-btn" onclick="testNotification()">Testar venda</button>
+      <button class="drawer-btn" onclick="testDirectNotification()">Testar funil direto</button>
+      <button class="drawer-btn" onclick="testReembolsoNotification()">Testar reembolso</button>
+    </div>
+  </div>
+</aside>
+
 <div class="burst-flash" id="burstFlash"></div>
 <div class="burst" id="burst">
   <div class="burst-emoji" id="burstEmoji"></div>
@@ -399,8 +490,10 @@
 // Continua uma versão EM TESTE (ver aviso no rodapé) — não substitui
 // os painéis oficiais ainda.
 // ================================================================
-const SHEET_ID = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
-const SHEET_KEY = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
+// (SHEET_ID/SHEET_KEY são editáveis na gaveta de configurações — por
+// isso "let" em vez de "const" — pedido do usuário em 2026-09-30.)
+let SHEET_ID = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
+let SHEET_KEY = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
 const API_BASE = 'https://app-production-fec2.up.railway.app';
 
 // ---------- SENHA — mesma senha dos outros 2 painéis (mesmo localStorage) ----------
@@ -496,7 +589,7 @@ function isMonth(d) {
   const a = camposSP(d), b = camposSP(agoraCorrigido());
   return a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
 }
-const META_DIARIA = 8064.55; // mesmo valor padrão usado no Fluxo Vivo
+let META_DIARIA = 8064.55; // editável na gaveta de configurações
 function fmtMin(ms) {
   if (ms < 0) ms = 0;
   const totalMin = Math.floor(ms / 60000);
@@ -643,6 +736,7 @@ function pickMeme(pool) { const p = pool.length ? pool : [0]; return MEME_LIBRAR
 
 let notifQueue = [], notifShowing = false;
 function showSaleNotification(nomeDisplay, cor, value, qtdHoje) {
+  if (document.getElementById('popupEnabled').value === '0') return;
   notifQueue.push({nomeDisplay, cor, value, qtdHoje: qtdHoje || 1});
   if (!notifShowing) processNotifQueue();
 }
@@ -664,8 +758,10 @@ function processNotifQueue() {
   burst.classList.add('show');
   flash.classList.remove('show'); void flash.offsetWidth; flash.classList.add('show');
 
-  const playVenda = getSaleSound('classico'); if (playVenda) playVenda();
-  setTimeout(() => { const play = getCelebrationSound(meme.sound); if (play) play(); }, 350);
+  if (document.getElementById('soundEnabled').value === '1') {
+    const playVenda = getSaleSound('classico'); if (playVenda) playVenda();
+    setTimeout(() => { const play = getCelebrationSound(meme.sound); if (play) play(); }, 350);
+  }
 
   setTimeout(() => {
     burst.classList.remove('show');
@@ -677,6 +773,7 @@ function processNotifQueue() {
 // brilho, sem confete — fila própria. Só o time cadastrado ganha festa.
 let directNotifQueue = [], directNotifShowing = false;
 function showDirectSaleNotification(value) {
+  if (document.getElementById('popupEnabled').value === '0') return;
   directNotifQueue.push(value);
   if (!directNotifShowing) processDirectNotifQueue();
 }
@@ -686,7 +783,7 @@ function processDirectNotifQueue() {
   const value = directNotifQueue.shift();
   document.getElementById('directNotifValue').textContent = fmt(value);
   document.getElementById('directNotif').classList.add('show');
-  playWhistleSound();
+  if (document.getElementById('soundEnabled').value === '1') playWhistleSound();
   setTimeout(() => {
     document.getElementById('directNotif').classList.remove('show');
     setTimeout(processDirectNotifQueue, 300);
@@ -990,9 +1087,40 @@ function renderReembolsos(lista) {
   }
 }
 
+// Som de reembolso/chargeback (mesmo "trombone triste" do Fluxo Vivo) —
+// tocava a faltar aqui: o quadrinho vermelho atualizava sozinho mas
+// sem avisar ninguém. Detecta reembolso NOVO comparando com a leitura
+// anterior, mesma técnica das vendas.
+let reembolsoSoundCache = null;
+function playReembolsoSound() {
+  if (reembolsoSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      reembolsoSoundCache = () => {
+        const now = ctx.currentTime;
+        tone(ctx, {type:'triangle', freq:392.00, freqEnd:349.23, start:now,        dur:0.32, peak:0.15});
+        tone(ctx, {type:'triangle', freq:349.23, freqEnd:293.66, start:now + 0.30, dur:0.32, peak:0.14});
+        tone(ctx, {type:'triangle', freq:293.66, freqEnd:220.00, start:now + 0.60, dur:0.6,  peak:0.15});
+      };
+    } catch { reembolsoSoundCache = false; }
+  }
+  if (reembolsoSoundCache) reembolsoSoundCache();
+}
+function testReembolsoNotification() { playReembolsoSound(); }
+
+const ReembolsosState = { vistos: new Set(), baselinePronto: false };
 async function atualizarReembolsos() {
   const lista = await buscarReembolsos();
   renderReembolsos(lista);
+
+  let temNovo = false;
+  lista.forEach(r => {
+    if (ReembolsosState.vistos.has(r.evento_id)) return;
+    ReembolsosState.vistos.add(r.evento_id);
+    if (ReembolsosState.baselinePronto) temNovo = true;
+  });
+  if (temNovo && document.getElementById('soundEnabled').value === '1') playReembolsoSound();
+  ReembolsosState.baselinePronto = true;
 }
 
 // ================================================================
@@ -1006,6 +1134,31 @@ function tickClock() {
 }
 
 // ================================================================
+// GAVETA DE CONFIGURAÇÕES — trazida do Fluxo Vivo (pedido do usuário
+// em 2026-09-30).
+// ================================================================
+function openDrawer() { document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); }
+function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen().catch(() => {});
+}
+async function saveAPI(btn) {
+  SHEET_ID = document.getElementById('sheetIdInput').value.trim() || SHEET_ID;
+  SHEET_KEY = document.getElementById('apiKeyInput').value.trim() || SHEET_KEY;
+  if (btn) btn.disabled = true;
+  try { await atualizarTudo(); } finally { if (btn) btn.disabled = false; }
+}
+function saveMeta() {
+  const v = parseFloat(document.getElementById('metaDiariaInput').value);
+  if (Number.isFinite(v) && v > 0) META_DIARIA = v;
+  atualizarVendas();
+}
+function saveRefresh() { startAutoRefresh(); }
+function testNotification() { showSaleNotification('Bia', corPessoa('Bia'), 1500, 4); }
+function testDirectNotification() { showDirectSaleNotification(240); }
+
+// ================================================================
 // INIT — só busca dado depois de desbloquear a senha
 // ================================================================
 let refreshTimer = null;
@@ -1017,13 +1170,26 @@ async function atualizarTudo() {
     console.error('Erro ao atualizar painel unificado:', e);
   }
 }
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  const iv = Math.max(10, Math.min(600, parseInt(document.getElementById('refreshIntervalInput').value) || 30));
+  refreshTimer = setInterval(atualizarTudo, iv * 1000);
+}
 function iniciar() {
   if (jaIniciou) return;
   jaIniciou = true;
+  document.getElementById('sheetIdInput').value = SHEET_ID;
+  document.getElementById('apiKeyInput').value = SHEET_KEY;
+  document.getElementById('metaDiariaInput').value = META_DIARIA;
+  document.getElementById('drawerBtn').addEventListener('click', openDrawer);
+  document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+  document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
   tickClock();
   setInterval(tickClock, 1000);
   atualizarTudo();
-  refreshTimer = setInterval(atualizarTudo, 30000);
+  startAutoRefresh();
 }
 
 // já desbloqueado de sessão anterior (mesma senha dos outros painéis)?
