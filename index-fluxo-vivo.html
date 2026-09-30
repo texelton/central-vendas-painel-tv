@@ -410,6 +410,24 @@
   .direct-notif-label { font-size:0.72rem; letter-spacing:0.6px; text-transform:uppercase; font-style:italic; }
   .direct-notif-value { font-size:0.92rem; font-weight:800; }
 
+  /* Aviso de reembolso/chargeback — mesmo formato de pílula, mas em
+     vermelho: é a única notificação "ruim" do painel, precisa ser
+     óbvia que é diferente de uma venda (pedido do usuário em
+     2026-09-30). Fica um pouco abaixo do direct-notif pra nunca
+     sobrepor os dois se acontecerem juntos. */
+  .refund-notif {
+    position:fixed; top:130px; left:50%; transform:translate(-50%,-12px); z-index:481;
+    display:flex; align-items:baseline; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-weight:700;
+    color:#fff; background:var(--red); padding:9px 20px; border-radius:99px;
+    box-shadow:0 8px 28px -10px rgba(251,91,91,0.7);
+    opacity:0; transition:all 0.35s ease; pointer-events:none;
+  }
+  .refund-notif.show { opacity:1; transform:translate(-50%,0); }
+  .refund-notif-label { font-size:0.72rem; letter-spacing:0.6px; text-transform:uppercase; }
+  .refund-notif-nome { font-size:0.88rem; font-weight:800; }
+  .refund-notif-value { font-size:0.88rem; font-weight:800; }
+
   .loader {
     display:none; position:fixed; inset:0; z-index:900; background:var(--bg);
     flex-direction:column; align-items:center; justify-content:center; gap:18px;
@@ -600,6 +618,7 @@
     .funnel-band-value { font-size:clamp(0.72rem, 3vw, 0.85rem); }
 
     .direct-notif { top:64px; max-width:88vw; }
+    .refund-notif { top:118px; max-width:88vw; flex-wrap:wrap; justify-content:center; }
     .burst { max-width:92vw; }
   }
 
@@ -793,6 +812,7 @@
       <button class="drawer-btn" onclick="testDirectNotification()">Testar funil direto</button>
       <button class="drawer-btn" onclick="testContatoNotification()">Testar contato</button>
       <button class="drawer-btn" onclick="testComentarioNotification()">Testar comentário</button>
+      <button class="drawer-btn" onclick="testReembolsoNotification()">Testar reembolso</button>
     </div>
   </div>
 </aside>
@@ -810,6 +830,15 @@
 <div class="direct-notif" id="directNotif">
   <span class="direct-notif-label">Funil direto</span>
   <span class="direct-notif-value" id="directNotifValue">R$ 0,00</span>
+</div>
+
+<!-- Reembolso/chargeback: único aviso "ruim" do painel — vermelho, som
+     próprio, diferente de tudo que é venda (pedido do usuário em
+     2026-09-30). -->
+<div class="refund-notif" id="refundNotif">
+  <span class="refund-notif-label" id="refundNotifTipo">Reembolso</span>
+  <span class="refund-notif-nome" id="refundNotifNome"></span>
+  <span class="refund-notif-value" id="refundNotifValue">R$ 0,00</span>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -885,7 +914,12 @@ const State = {
   contatoBaselinePronto: false,
   // orderId de quem já foi marcado como "Atendido" — vem do servidor
   // (fetchAtendidos), compartilhado entre TV e o aparelho de quem liga.
-  atendidos: new Set()
+  atendidos: new Set(),
+  // Reembolsos/chargebacks já avisados hoje (pedido do usuário em
+  // 2026-09-30) — mesmo esquema de baseline do resto do painel: o que
+  // já existia quando a página abriu não dispara som, só o que chega DEPOIS.
+  reembolsosAlertados: new Set(),
+  reembolsosBaselinePronto: false
 };
 const PRODUTO_CONTATO_TERMO = 'rating banc'; // casa "Rating Bancário" em qualquer versão do produto
 const CONTATO_PRAZO_MS = 20 * 60 * 1000;
@@ -1022,6 +1056,7 @@ function cacheDOM() {
    'toast','loader','loaderMsg','offlineBanner',
    'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle',
    'directNotif','directNotifValue',
+   'refundNotif','refundNotifTipo','refundNotifNome','refundNotifValue',
    'contactZone','contactPendCount','contactPendNext','contactLateCount','contactTickerMask','contactTicker',
    'commentsZone','commentsTotal','commentsSales','commentsNegative','commentsPending','commentsTickerMask','commentsTicker'
   ].forEach(id => DOM[id] = document.getElementById(id));
@@ -1413,6 +1448,25 @@ function playContatoVencidoSound() {
   if (contatoVencidoSoundCache) contatoVencidoSoundCache();
 }
 function testContatoNotification() { playContatoNovoSound(); }
+// Som de reembolso/chargeback (pedido do usuário em 2026-09-30) — duas
+// notas DESCENDO, dissonantes entre si: o oposto de toda comemoração
+// do painel (que sobe e é consonante). Precisa soar "ruim" de propósito,
+// pra ninguém confundir com venda mesmo ouvindo de longe.
+let reembolsoSoundCache = null;
+function playReembolsoSound() {
+  if (reembolsoSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      reembolsoSoundCache = () => {
+        const now = ctx.currentTime;
+        tone(ctx, {type:'sawtooth', freq:311.13, freqEnd:207.65, start:now, dur:0.32, peak:0.13});
+        tone(ctx, {type:'sawtooth', freq:220, freqEnd:130.81, start:now + 0.22, dur:0.42, peak:0.12});
+      };
+    } catch { reembolsoSoundCache = false; }
+  }
+  if (reembolsoSoundCache) reembolsoSoundCache();
+}
+function testReembolsoNotification() { showReembolsoNotification('Cliente Teste', 297, 'reembolso'); }
 // Som de comentário com oportunidade de venda (pedido do usuário em
 // 2026-09-25) — três notas subindo, suaves (seno): timbre diferente da
 // comemoração, do assobio e dos dois bipes da central de contato.
@@ -1566,6 +1620,29 @@ function processDirectNotifQueue() {
   }, 3500);
 }
 function testDirectNotification() { showDirectSaleNotification(240); }
+
+// Reembolso/chargeback: fila própria (independente das outras), som
+// negativo, banner vermelho — pedido do usuário em 2026-09-30.
+let refundNotifQueue = [], refundNotifShowing = false;
+function showReembolsoNotification(nome, valor, tipo) {
+  if (DOM.popupEnabled.value === '0') return;
+  refundNotifQueue.push({nome, valor, tipo});
+  if (!refundNotifShowing) processRefundNotifQueue();
+}
+function processRefundNotifQueue() {
+  if (!refundNotifQueue.length) { refundNotifShowing = false; return; }
+  refundNotifShowing = true;
+  const r = refundNotifQueue.shift();
+  DOM.refundNotifTipo.textContent = r.tipo === 'chargeback' ? 'Chargeback' : 'Reembolso';
+  DOM.refundNotifNome.textContent = r.nome;
+  DOM.refundNotifValue.textContent = '−' + fmt(r.valor);
+  DOM.refundNotif.classList.add('show');
+  if (DOM.soundEnabled.value === '1') playReembolsoSound();
+  setTimeout(() => {
+    DOM.refundNotif.classList.remove('show');
+    setTimeout(processRefundNotifQueue, 300);
+  }, 4500);
+}
 
 // ================================================================
 // DADOS — Google Sheets API v4, mesmo contrato (abas DASHBOARD e
@@ -1735,6 +1812,28 @@ async function fetchAtendidos() {
   atendidosBuscaEmAndamento = false;
 }
 setInterval(fetchAtendidos, 8000);
+
+// Reembolso/chargeback de hoje (ver src/fluxo_vivo/rota.py) — pedido do
+// usuário em 2026-09-30. Some da planilha sem deixar rastro (a venda
+// reembolsada é excluída da conta pelo sincronizador), então o painel
+// precisa avisar sozinho, direto do banco. Mesmo relógio da central de
+// contato (8s). Na 1ª chamada bem-sucedida só marca tudo que já existe
+// como "já visto" (linha de base) — sem tocar som; só quem aparecer
+// DEPOIS disso dispara o aviso.
+async function fetchReembolsosHoje() {
+  try {
+    const r = await fetch(CONTATO_API_BASE + '/fluxo-vivo/reembolsos-hoje');
+    if (!r.ok) return;
+    const j = await r.json();
+    (j.reembolsos || []).forEach(x => {
+      if (State.reembolsosAlertados.has(x.evento_id)) return;
+      State.reembolsosAlertados.add(x.evento_id);
+      if (State.reembolsosBaselinePronto) showReembolsoNotification(x.nome, x.valor, x.tipo);
+    });
+    State.reembolsosBaselinePronto = true;
+  } catch (e) { /* servidor fora do ar — tenta de novo no próximo ciclo */ }
+}
+setInterval(fetchReembolsosHoje, 8000);
 // Clique no botão "Atendido" (gaveta) — some da tela na hora (otimista) e
 // confirma no servidor depois; se falhar, volta a aparecer e avisa.
 async function marcarAtendido(orderId) {
