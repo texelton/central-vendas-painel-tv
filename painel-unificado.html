@@ -268,6 +268,23 @@
   .direct-notif.show { opacity:1; transform:translate(-50%,0); }
   .direct-notif-label { font-size:0.72rem; letter-spacing:0.6px; text-transform:uppercase; font-style:italic; }
   .direct-notif-value { font-size:0.92rem; font-weight:800; }
+  /* aviso de reembolso/chargeback — a mesma pílula, mas vermelha e
+     um pouco mais abaixo (nunca sobrepõe o do "Funil direto" se os
+     dois acontecerem juntos). Fica 20s na tela — mais que as outras,
+     porque é o único aviso "ruim" do painel (pedido do usuário em
+     2026-09-30, mesma decisão já tomada no Fluxo Vivo). */
+  .refund-notif-banner {
+    position:fixed; top:130px; left:50%; transform:translate(-50%,-12px); z-index:481;
+    display:flex; align-items:baseline; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-weight:700;
+    color:#fff; background:var(--red); padding:9px 20px; border-radius:99px;
+    box-shadow:0 8px 28px -10px rgba(255,69,58,0.6);
+    opacity:0; transition:all 0.35s ease; pointer-events:none;
+  }
+  .refund-notif-banner.show { opacity:1; transform:translate(-50%,0); }
+  .refund-notif-banner-label { font-size:0.72rem; letter-spacing:0.6px; text-transform:uppercase; }
+  .refund-notif-banner-nome { font-size:0.88rem; font-weight:800; }
+  .refund-notif-banner-valor { font-size:0.88rem; font-weight:800; }
 
   @media (prefers-reduced-motion: reduce) {
     .burst, .burst-emoji, .burst-flash { animation:none !important; transition:none !important; }
@@ -456,7 +473,7 @@
     </div>
     <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--red)"></span>Reembolso / chargeback</div>
-      <span class="event-pending">som de "trombone triste" + quadrinho vermelho sempre visível</span>
+      <span class="event-pending">som + banner por 20s + quadrinho vermelho sempre visível</span>
     </div>
     <div class="drawer-row" style="margin-top:14px">
       <button class="drawer-btn" onclick="testNotification()">Testar venda</button>
@@ -476,6 +493,11 @@
 <div class="direct-notif" id="directNotif">
   <span class="direct-notif-label">Funil direto</span>
   <span class="direct-notif-value" id="directNotifValue">R$ 0,00</span>
+</div>
+<div class="refund-notif-banner" id="refundNotifBanner">
+  <span class="refund-notif-banner-label" id="refundNotifBannerTipo">Reembolso</span>
+  <span class="refund-notif-banner-nome" id="refundNotifBannerNome"></span>
+  <span class="refund-notif-banner-valor" id="refundNotifBannerValor">R$ 0,00</span>
 </div>
 
 <div class="detail-tip" id="detailTip"></div>
@@ -1106,20 +1128,42 @@ function playReembolsoSound() {
   }
   if (reembolsoSoundCache) reembolsoSoundCache();
 }
-function testReembolsoNotification() { playReembolsoSound(); }
+// Banner vermelho de reembolso — fila própria (pode vir mais de um de
+// uma vez), fica 20s na tela (bem mais que as outras notificações,
+// porque é o único aviso "ruim" do painel — mesma decisão já tomada
+// no Fluxo Vivo). Faltava esse aviso visual: só tinha o som.
+let refundNotifQueue = [], refundNotifShowing = false;
+function showReembolsoNotification(nome, valor, tipo) {
+  if (document.getElementById('popupEnabled').value === '0') return;
+  refundNotifQueue.push({nome, valor, tipo});
+  if (!refundNotifShowing) processReembolsoNotifQueue();
+}
+function processReembolsoNotifQueue() {
+  if (!refundNotifQueue.length) { refundNotifShowing = false; return; }
+  refundNotifShowing = true;
+  const r = refundNotifQueue.shift();
+  document.getElementById('refundNotifBannerTipo').textContent = r.tipo === 'chargeback' ? 'Chargeback' : 'Reembolso';
+  document.getElementById('refundNotifBannerNome').textContent = r.nome;
+  document.getElementById('refundNotifBannerValor').textContent = '−' + fmt(r.valor);
+  document.getElementById('refundNotifBanner').classList.add('show');
+  if (document.getElementById('soundEnabled').value === '1') playReembolsoSound();
+  setTimeout(() => {
+    document.getElementById('refundNotifBanner').classList.remove('show');
+    setTimeout(processReembolsoNotifQueue, 300);
+  }, 20000);
+}
+function testReembolsoNotification() { showReembolsoNotification('Cliente Teste', 297, 'reembolso'); }
 
 const ReembolsosState = { vistos: new Set(), baselinePronto: false };
 async function atualizarReembolsos() {
   const lista = await buscarReembolsos();
   renderReembolsos(lista);
 
-  let temNovo = false;
   lista.forEach(r => {
     if (ReembolsosState.vistos.has(r.evento_id)) return;
     ReembolsosState.vistos.add(r.evento_id);
-    if (ReembolsosState.baselinePronto) temNovo = true;
+    if (ReembolsosState.baselinePronto) showReembolsoNotification(r.nome, r.valor, r.tipo);
   });
-  if (temNovo && document.getElementById('soundEnabled').value === '1') playReembolsoSound();
   ReembolsosState.baselinePronto = true;
 }
 
