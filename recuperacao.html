@@ -119,12 +119,19 @@
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem);
     font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
   }
-  .resumo-vendedores { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 26px; }
-  .resumo-vendedor { display:flex; align-items:baseline; gap:8px; }
+  .resumo-vendedores { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px 26px; }
+  .resumo-vendedor { display:flex; flex-direction:column; gap:1px; }
+  .resumo-vendedor-linha { display:flex; align-items:baseline; gap:8px; }
   .resumo-vendedor-nome { font-weight:700; font-size:clamp(0.85rem, 1.2vw, 1.02rem); }
   .resumo-vendedor-valor {
     font-family:'IBM Plex Mono',monospace; font-weight:800; color:var(--fg);
     font-size:clamp(0.85rem, 1.2vw, 1.02rem); font-variant-numeric:tabular-nums;
+  }
+  /* produtos vendidos por cada um, discreto — pedido do usuário em
+     2026-09-30 (era pra ter sido aqui desde o início, não no Fluxo Vivo). */
+  .resumo-vendedor-produtos {
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.62rem, 0.85vw, 0.72rem);
+    color:var(--fg-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
   }
   .resumo-vazio { font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--fg-faint); }
 
@@ -706,6 +713,17 @@ function corrigirRelogio(headerDate) {
   if (isNaN(servidor)) return;
   relogioDriftMs = servidor - Date.now();
 }
+// São Paulo não tem horário de verão desde 2019 — fuso fixo -3h. Mesmo
+// truque do Fluxo Vivo: converte tudo pra UTC deslocado e sempre lê de
+// volta com getters de UTC, pra não depender do fuso do aparelho.
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+function camposSP(d) { return new Date(d.getTime() - SP_OFFSET_MS); }
+function hojeSPTextoData() {
+  const sp = camposSP(agoraCorrigido());
+  const dia = String(sp.getUTCDate()).padStart(2, '0');
+  const mes = String(sp.getUTCMonth() + 1).padStart(2, '0');
+  return `${dia}/${mes}/${sp.getUTCFullYear()}`;
+}
 function fmtMin(ms) {
   const totalMin = Math.max(0, Math.round(ms / 60000));
   if (totalMin < 60) return totalMin <= 1 ? '1 min' : totalMin + ' min';
@@ -811,17 +829,68 @@ async function buscarVendedoresHoje() {
     return { nome, vendasHoje: pVal(row[8]) };
   }).filter(Boolean);
 }
+// Quais produtos cada vendedor vendeu hoje, pra mostrar ao lado do nome
+// dele no resumo — pedido do usuário em 2026-09-30 (o pedido original
+// tinha ido pro Fluxo Vivo por engano; é aqui que devia ter sido).
+// Busca a aba DADOS BRUTOS (mesma fonte do Fluxo Vivo) e filtra pela
+// data de hoje em São Paulo — essa aba não tem endpoint no backend,
+// só existe na planilha mesmo.
+async function buscarProdutosPorVendedorHoje() {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+  const r = await fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${SHEET_KEY}`);
+  if (!r.ok) return new Map();
+  const j = await r.json();
+  const rows = j.values || [];
+  const hoje = hojeSPTextoData(); // "DD/MM/AAAA"
+  const map = new Map(); // vendedor -> Map(produto -> qtd)
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[0] || !row[0].startsWith(hoje)) continue;
+    const vendedor = normName(row[1]);
+    const produto = (row[2] || 'Sem produto').trim();
+    if (!vendedor) continue;
+    if (!map.has(vendedor)) map.set(vendedor, new Map());
+    const porProduto = map.get(vendedor);
+    porProduto.set(produto, (porProduto.get(produto) || 0) + 1);
+  }
+  return map;
+}
+// Lista os produtos de um vendedor com a quantidade de cada um
+// ("O GESTOR ×5 · Rating CNPJ ×2") — mostra só os 2 mais vendidos e
+// resume o resto num "+N outros", pra não estourar a linha do resumo.
+function listaProdutosVendedor(porProduto, max) {
+  if (!porProduto || !porProduto.size) return '';
+  max = max || 2;
+  const linhas = [...porProduto.entries()].sort((a, b) => b[1] - a[1]);
+  const principais = linhas.slice(0, max);
+  const resto = linhas.slice(max);
+  const partes = principais.map(([nome, qtd]) => `${nome} ×${qtd}`);
+  if (resto.length) {
+    const somaResto = resto.reduce((s, [, q]) => s + q, 0);
+    partes.push(`+${resto.length} outro${resto.length > 1 ? 's' : ''} (${somaResto})`);
+  }
+  return partes.join('  ·  ');
+}
 
 // Mostra nome + valor de quem vendeu hoje (pedido do usuário em
-// 2026-09-29 — troca o total do mês). Quem vender de novo dispara a
-// comemoração completa, igual ao Fluxo Vivo.
-function renderResumoVendedores(vendedores) {
+// 2026-09-29 — troca o total do mês), e agora também os produtos que
+// cada um vendeu, numa linha pequena embaixo do nome (pedido do
+// usuário em 2026-09-30). Quem vender de novo dispara a comemoração
+// completa, igual ao Fluxo Vivo.
+function renderResumoVendedores(vendedores, produtosPorVendedor) {
   const comVenda = vendedores.filter(v => v.vendasHoje > 0).sort((a,b) => b.vendasHoje - a.vendasHoje);
   DOM.resumoVendedores.innerHTML = comVenda.length
     ? comVenda.map(v => {
         const display = State.displayNames[v.nome] || v.nome;
         const cor = State.colors[v.nome] || 'var(--fg)';
-        return `<div class="resumo-vendedor"><span class="resumo-vendedor-nome" style="color:${cor}">${escapeHtml(display)}</span><span class="resumo-vendedor-valor">${fmt(v.vendasHoje)}</span></div>`;
+        const produtosTxt = produtosPorVendedor ? listaProdutosVendedor(produtosPorVendedor.get(v.nome)) : '';
+        return `<div class="resumo-vendedor">
+          <div class="resumo-vendedor-linha">
+            <span class="resumo-vendedor-nome" style="color:${cor}">${escapeHtml(display)}</span>
+            <span class="resumo-vendedor-valor">${fmt(v.vendasHoje)}</span>
+          </div>
+          ${produtosTxt ? `<span class="resumo-vendedor-produtos">${escapeHtml(produtosTxt)}</span>` : ''}
+        </div>`;
       }).join('')
     : '<span class="resumo-vazio">ninguém vendeu ainda hoje</span>';
 
@@ -1020,9 +1089,11 @@ async function atualizarTudo() {
   try {
     updateConnectionStatus('connecting');
     if (State.diasAtras === 0) {
-      const [leads, vendedores] = await Promise.all([buscarQuadro(), buscarVendedoresHoje()]);
+      const [leads, vendedores, produtosPorVendedor] = await Promise.all([
+        buscarQuadro(), buscarVendedoresHoje(), buscarProdutosPorVendedorHoje(),
+      ]);
       renderQuadro(leads);
-      renderResumoVendedores(vendedores);
+      renderResumoVendedores(vendedores, produtosPorVendedor);
     } else {
       // Não existe planilha de dias passados (o Fluxo Vivo só guarda o
       // dia de hoje) — o resumo por vendedor só faz sentido olhando hoje.
