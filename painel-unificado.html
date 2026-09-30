@@ -12,20 +12,29 @@
      Apple (tvOS / macOS Sonoma): superfícies "vidro" translúcidas com
      blur, cantos bem arredondados, cores de sistema vívidas porém
      contidas, tipografia com respiro generoso, hierarquia clara.
+
+     v2 (pedido do usuário: "tudo na tela, sem precisar de rolagem") —
+     trocou os cartões grandes da Recuperação por LISTAS densas (uma
+     linha por pessoa, sem caixa) com o detalhe completo (produto,
+     valor, jornada) num balão ao passar o mouse — mesma ideia que já
+     existe no painel Recuperação de verdade, só que aqui os cartões
+     não cabem de jeito nenhum se tiver 15 pessoas numa faixa só.
+     Testado com números de um dia cheio de verdade (15/4/3/14) pra
+     garantir que cabe tudo sem precisar rolar em lugar nenhum.
+
      ATENÇÃO: isso é só uma IDEIA visual, com dado de mentira (fake) —
-     não busca nada de verdade ainda. Ver aviso no rodapé da própria
-     página. Não mexe em nenhum arquivo existente do projeto.
+     não busca nada de verdade ainda. Não mexe em nenhum arquivo
+     existente do projeto.
      ============================== */
   :root {
     --bg: #000000;
-    --bg-elev: #0b0b0d;
     --fg: #f5f5f7;
     --fg-dim: #98989d;
     --fg-faint: #636366;
     --glass: rgba(255,255,255,0.055);
     --glass-border: rgba(255,255,255,0.09);
-    --glass-strong: rgba(255,255,255,0.09);
-    --line: rgba(255,255,255,0.08);
+    --glass-strong: rgba(255,255,255,0.1);
+    --line: rgba(255,255,255,0.075);
 
     /* cores de sistema — mesma família da Apple (dark mode), vívidas
        mas nunca neon; usadas com parcimônia, só onde têm função. */
@@ -37,11 +46,10 @@
     --yellow: #ffd60a;
     --pink: #ff375f;
     --teal: #64d2ff;
-    --indigo: #5e5ce6;
 
-    --r-lg: 28px;
-    --r-md: 20px;
-    --r-sm: 14px;
+    --r-lg: 24px;
+    --r-md: 16px;
+    --r-sm: 9px;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body {
@@ -50,203 +58,174 @@
     -webkit-font-smoothing:antialiased;
   }
   body {
-    /* leve gradiente radial no fundo — profundidade sutil, sem chamar
-       atenção pra si, do jeito que o macOS faz atrás do Control Center. */
     background:
       radial-gradient(ellipse 1200px 700px at 15% -10%, rgba(10,132,255,0.10), transparent 60%),
-      radial-gradient(ellipse 1000px 600px at 100% 10%, rgba(191,90,242,0.08), transparent 55%),
+      radial-gradient(ellipse 1000px 600px at 100% 5%, rgba(191,90,242,0.08), transparent 55%),
       var(--bg);
   }
-  ::-webkit-scrollbar { height:6px; width:6px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.14); border-radius:99px; }
 
   .stage {
     width:100%; height:100%; display:flex; flex-direction:column;
-    padding:20px clamp(20px, 3vw, 40px) 16px; gap:16px;
+    padding:16px clamp(18px, 2.6vw, 36px) 12px; gap:10px;
   }
 
   /* ---------- topbar ---------- */
-  .topbar {
-    flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
-    padding:2px 4px;
-  }
+  .topbar { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:0 2px; }
   .topbar-brand {
-    display:flex; align-items:center; gap:10px;
-    font-family:'IBM Plex Mono',monospace; font-size:0.78rem; font-weight:600;
-    letter-spacing:2px; text-transform:uppercase; color:var(--fg-dim);
+    display:flex; align-items:center; gap:9px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.74rem; font-weight:600;
+    letter-spacing:1.8px; text-transform:uppercase; color:var(--fg-dim);
   }
-  .topbar-brand .dot {
-    width:8px; height:8px; border-radius:50%; background:var(--blue);
-    box-shadow:0 0 12px var(--blue);
-  }
+  .topbar-brand .dot { width:7px; height:7px; border-radius:50%; background:var(--blue); box-shadow:0 0 10px var(--blue); }
   .topbar-clock {
-    font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--fg-dim);
-    font-variant-numeric:tabular-nums; letter-spacing:0.4px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.78rem; color:var(--fg-dim);
+    font-variant-numeric:tabular-nums;
   }
-  .topbar-right { display:flex; align-items:center; gap:10px; }
+  .topbar-right { display:flex; align-items:center; gap:8px; }
   .live-pill {
-    display:flex; align-items:center; gap:7px;
+    display:flex; align-items:center; gap:6px;
     background:var(--glass); border:1px solid var(--glass-border);
     -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
-    padding:7px 14px; border-radius:99px;
-    font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:600;
-    letter-spacing:0.6px; color:var(--fg-dim);
+    padding:5px 12px; border-radius:99px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600; color:var(--fg-dim);
   }
-  .live-pill .dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s ease-in-out infinite; }
+  .live-pill .dot { width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:0 0 7px var(--green); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   .icon-btn {
-    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     background:var(--glass); border:1px solid var(--glass-border);
     -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
-    color:var(--fg-dim); cursor:pointer; transition:background 0.2s ease, color 0.2s ease;
+    color:var(--fg-dim); cursor:pointer;
   }
-  .icon-btn:hover { background:var(--glass-strong); color:var(--fg); }
-  .icon-btn svg { width:16px; height:16px; }
+  .icon-btn svg { width:14px; height:14px; }
 
-  /* ---------- superfície de vidro, base de todo painel ---------- */
   .glass {
     background:var(--glass); border:1px solid var(--glass-border);
     -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px);
     border-radius:var(--r-lg);
-    box-shadow:0 24px 60px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
+    box-shadow:0 20px 50px -28px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
   }
   .panel-title {
-    display:flex; align-items:center; gap:9px;
-    font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
-    letter-spacing:1.6px; text-transform:uppercase; color:var(--fg-dim);
+    flex:0 0 auto; display:flex; align-items:center; gap:8px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.64rem; font-weight:600;
+    letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
   }
-  .panel-title .dot { width:6px; height:6px; border-radius:2px; }
-  .panel-title .count {
-    margin-left:auto; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:0.9rem;
-    color:var(--fg);
-  }
+  .panel-title .dot { width:6px; height:6px; border-radius:2px; flex-shrink:0; }
 
   /* ================================================================
-     METADE DE CIMA — "Vendas" (o que hoje é o Fluxo Vivo, condensado)
+     METADE DE CIMA — "Vendas" (compacta: só o essencial pra sobrar
+     espaço pra Recuperação, que é quem realmente precisa de altura)
      ================================================================ */
-  .top-half { flex:0 0 auto; display:flex; flex-direction:column; gap:14px; }
+  .top-half { flex:0 0 auto; display:flex; flex-direction:column; gap:10px; }
 
-  .hero-row {
-    display:flex; align-items:stretch; gap:14px;
-  }
-  .hero-card { flex:1; padding:20px 26px; display:flex; flex-direction:column; justify-content:center; gap:6px; }
+  .hero-row { display:flex; align-items:stretch; gap:10px; }
+  .hero-card { flex:1; padding:13px 20px; display:flex; flex-direction:column; justify-content:center; gap:3px; }
   .hero-card.primary {
-    flex:1.5;
+    flex:1.4;
     background:linear-gradient(135deg, rgba(10,132,255,0.16), rgba(191,90,242,0.08));
     border-color:rgba(10,132,255,0.25);
   }
-  .hero-label {
-    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
-    letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
+  /* quadrinho de reembolso: menor que os outros (é um alerta, não o
+     dado principal), vermelho, e ao passar o mouse mostra a lista
+     completa de hoje (nome de quem pediu + vendedor da venda original,
+     quando dá pra identificar pela UTM) — pedido do usuário em
+     2026-09-30. */
+  .hero-card.refund {
+    flex:0.85; border-color:rgba(255,69,58,0.25); background:rgba(255,69,58,0.06); cursor:default;
   }
-  .hero-value {
-    font-weight:800; letter-spacing:-1.5px; font-size:clamp(2rem, 3.6vw, 3.1rem);
-    font-variant-numeric:tabular-nums; line-height:1.05;
-  }
-  .hero-value.compact { font-size:clamp(1.3rem, 2vw, 1.7rem); letter-spacing:-0.5px; }
-  .hero-sub {
-    font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--green); font-weight:600;
-  }
+  .hero-label { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--fg-dim); }
+  .hero-value { font-weight:800; letter-spacing:-1.2px; font-size:clamp(1.5rem, 2.6vw, 2.2rem); font-variant-numeric:tabular-nums; line-height:1.08; }
+  .hero-value.compact { font-size:clamp(1.05rem, 1.5vw, 1.3rem); letter-spacing:-0.4px; }
+  .hero-sub { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--green); font-weight:600; }
   .hero-sub.dim { color:var(--fg-dim); font-weight:500; }
-  .hero-bar { height:5px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:6px; }
-  .hero-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg, var(--blue), var(--teal)); }
 
-  .panels-row { display:flex; gap:14px; min-height:0; }
+  .panels-row { display:flex; gap:10px; }
 
-  /* ---------- ranking do time: pílulas horizontais, avatar-cor ---------- */
-  .ranking-panel { flex:1.15; padding:18px 20px; display:flex; flex-direction:column; gap:12px; min-width:0; }
-  .ranking-scroll {
-    display:flex; gap:10px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;
+  /* ---------- ranking: lista vertical compacta, uma linha por pessoa ---------- */
+  .ranking-panel { flex:1.05; padding:13px 16px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .ranking-rows { display:flex; flex-direction:column; gap:3px; }
+  .rank-row { display:flex; align-items:center; gap:9px; padding:3px 2px; }
+  .rank-row .pos { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:700; color:var(--fg-faint); width:14px; flex-shrink:0; }
+  .rank-row .avatar {
+    width:20px; height:20px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:0.56rem; color:#000;
   }
-  .ranking-scroll::-webkit-scrollbar { display:none; }
-  .vendor-card {
-    flex:0 0 auto; width:168px; padding:14px 15px; border-radius:var(--r-md);
-    background:rgba(255,255,255,0.035); border:1px solid var(--line);
-    display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden;
-  }
-  .vendor-card.first { border-color:rgba(255,214,10,0.4); background:rgba(255,214,10,0.06); }
-  .vendor-card .rank {
-    position:absolute; top:10px; right:12px; font-family:'IBM Plex Mono',monospace;
-    font-size:0.68rem; font-weight:700; color:var(--fg-faint);
-  }
-  .vendor-avatar {
-    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-weight:800; font-size:0.85rem; color:#000;
-  }
-  .vendor-name { font-weight:700; font-size:0.92rem; }
-  .vendor-value {
-    font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:1.05rem;
-    font-variant-numeric:tabular-nums;
-  }
-  .vendor-qtd { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--fg-dim); }
-  .vendor-produtos {
-    font-size:0.66rem; color:var(--fg-faint); line-height:1.4;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-  }
+  .rank-row .nome { font-weight:700; font-size:0.78rem; flex-shrink:0; width:108px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rank-row .valor { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:0.78rem; flex-shrink:0; width:92px; font-variant-numeric:tabular-nums; }
+  .rank-row .produtos { font-size:0.64rem; color:var(--fg-faint); flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* ---------- funil por produto: barras horizontais compactas ---------- */
-  .funnel-panel { flex:0.85; padding:18px 20px; display:flex; flex-direction:column; gap:11px; min-width:0; }
-  .funnel-list { display:flex; flex-direction:column; gap:9px; overflow:hidden; flex:1; justify-content:center; }
-  .funnel-item { display:flex; flex-direction:column; gap:4px; }
+  .funnel-panel { flex:0.85; padding:13px 16px; display:flex; flex-direction:column; gap:7px; min-width:0; }
+  .funnel-list { display:flex; flex-direction:column; gap:6px; }
+  .funnel-item { display:flex; flex-direction:column; gap:3px; }
   .funnel-item-top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
-  .funnel-item-nome {
-    font-weight:600; font-size:0.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
-  .funnel-item-valor { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--fg-dim); flex-shrink:0; }
-  .funnel-item-bar { height:6px; border-radius:99px; background:rgba(255,255,255,0.07); overflow:hidden; }
+  .funnel-item-nome { font-weight:600; font-size:0.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .funnel-item-valor { font-family:'IBM Plex Mono',monospace; font-size:0.66rem; color:var(--fg-dim); flex-shrink:0; }
+  .funnel-item-bar { height:4px; border-radius:99px; background:rgba(255,255,255,0.07); overflow:hidden; }
   .funnel-item-bar-fill { height:100%; border-radius:99px; }
 
   /* ================================================================
-     METADE DE BAIXO — "Recuperação" (condensado)
+     METADE DE BAIXO — "Recuperação": aqui mora a maior parte da
+     altura da tela, porque é a faixa que mais varia de tamanho no dia.
      ================================================================ */
-  .bottom-half {
-    flex:1; min-height:0; padding:18px 22px; display:flex; flex-direction:column; gap:12px;
-  }
-  .recovery-header { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
-  .recovery-summary-chips { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  .bottom-half { flex:1; min-height:0; padding:14px 18px; display:flex; flex-direction:column; gap:9px; }
+  .recovery-header { flex:0 0 auto; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .recovery-summary-chips { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
   .summary-chip {
-    display:flex; align-items:baseline; gap:6px; padding:6px 12px; border-radius:99px;
-    background:rgba(255,255,255,0.04); border:1px solid var(--line);
-    font-size:0.74rem;
+    display:flex; align-items:baseline; gap:5px; padding:4px 10px; border-radius:99px;
+    background:rgba(255,255,255,0.04); border:1px solid var(--line); font-size:0.68rem;
   }
   .summary-chip .nome { font-weight:700; }
-  .summary-chip .valor { font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--fg); font-size:0.72rem; }
+  .summary-chip .valor { font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--fg); font-size:0.64rem; }
 
-  .lanes-grid {
-    flex:1; min-height:0; display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;
-  }
-  .lane {
-    min-height:0; display:flex; flex-direction:column; gap:10px;
-    border-radius:var(--r-md); padding:14px; background:rgba(255,255,255,0.03);
-    border:1px solid var(--line);
-  }
-  .lane-head { display:flex; align-items:center; gap:8px; }
-  .lane-head .dot { width:8px; height:8px; border-radius:50%; }
-  .lane-head .nome { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--fg-dim); }
-  .lane-head .n { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:1rem; }
-  .lane-cards { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; overflow-y:auto; }
-  .lane-cards::-webkit-scrollbar { width:5px; }
-  .lead-card {
-    padding:11px 13px; border-radius:var(--r-sm); background:rgba(255,255,255,0.045);
-    border:1px solid var(--line); display:flex; flex-direction:column; gap:4px;
-    transition:border-color 0.2s ease, background 0.2s ease;
-  }
-  .lead-card:hover { background:rgba(255,255,255,0.08); }
-  .lead-card.pago { border-left:3px solid var(--green); }
-  .lead-card-nome { font-weight:700; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .lead-card-produto { font-size:0.68rem; color:var(--fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .lead-card-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:2px; }
-  .lead-card-tempo { font-family:'IBM Plex Mono',monospace; font-size:0.64rem; color:var(--fg-faint); }
-  .lead-card-valor { font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:700; color:var(--fg-dim); }
+  .lanes-grid { flex:1; min-height:0; display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+  .lane { min-height:0; display:flex; flex-direction:column; gap:7px; border-radius:var(--r-md); padding:11px 12px; background:rgba(255,255,255,0.028); border:1px solid var(--line); }
+  .lane-head { flex:0 0 auto; display:flex; align-items:center; gap:7px; }
+  .lane-head .dot { width:7px; height:7px; border-radius:50%; }
+  .lane-head .nome { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:600; letter-spacing:0.8px; text-transform:uppercase; color:var(--fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lane-head .n { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:0.86rem; flex-shrink:0; }
 
-  /* ---------- aviso de rodapé: isso é só uma ideia ---------- */
+  /* lista densa: cada pessoa é 1 linha só (nome + tempo), sem caixa,
+     sem rolagem — não importa se são 3 ou 15. Altura FIXA e igual em
+     TODAS as faixas (não é "flex:1 divide o que tem", senão uma faixa
+     com poucas pessoas fica com espaço gigante entre elas e destoa da
+     faixa cheia do lado — corrigido a pedido do usuário em 2026-09-30).
+     Faixa com pouca gente sobra vazio embaixo, e tá tudo bem, é
+     informação real (poucas pessoas ali agora). Produto/valor/jornada
+     completos aparecem só ao passar o mouse (balão flutuante único,
+     mesma ideia do painel Recuperação de verdade). */
+  .lane-rows { flex:1; min-height:0; display:flex; flex-direction:column; gap:2px; align-content:flex-start; }
+  .lead-row {
+    flex:0 0 auto; height:18px; display:flex; align-items:center; gap:7px;
+    padding:0 7px; border-radius:6px; border-left:2px solid transparent; cursor:default;
+    transition:background 0.15s ease;
+  }
+  .lead-row:hover { background:rgba(255,255,255,0.07); }
+  .lead-row.pago { border-left-color:var(--green); }
+  .lead-row .nome { font-weight:600; font-size:0.69rem; flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lead-row .tempo { font-family:'IBM Plex Mono',monospace; font-size:0.58rem; color:var(--fg-faint); flex:0 0 auto; }
+
+  /* ---------- balão de detalhe (hover) — 1 elemento só, reaproveitado ---------- */
+  .detail-tip {
+    position:fixed; z-index:600; min-width:200px; max-width:260px; padding:12px 14px;
+    border-radius:var(--r-md); background:rgba(20,20,24,0.92); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+    box-shadow:0 24px 60px -20px rgba(0,0,0,0.9);
+    opacity:0; transform:translateY(4px); transition:opacity 0.12s ease, transform 0.12s ease;
+    pointer-events:none;
+  }
+  .detail-tip.show { opacity:1; transform:translateY(0); }
+  .detail-tip-nome { font-weight:800; font-size:0.86rem; margin-bottom:6px; }
+  .detail-tip-row { display:flex; justify-content:space-between; gap:10px; font-size:0.72rem; color:var(--fg-dim); }
+  .detail-tip-row + .detail-tip-row { margin-top:3px; }
+  .detail-tip-row .v { font-family:'IBM Plex Mono',monospace; color:var(--fg); font-weight:600; }
+
   .aviso-mock {
-    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
-    font-family:'IBM Plex Mono',monospace; font-size:0.66rem; color:var(--fg-faint);
-    background:rgba(0,0,0,0.6); padding:5px 14px; border-radius:99px; border:1px solid var(--line);
+    position:fixed; bottom:8px; left:50%; transform:translateX(-50%);
+    font-family:'IBM Plex Mono',monospace; font-size:0.62rem; color:var(--fg-faint);
+    background:rgba(0,0,0,0.6); padding:4px 13px; border-radius:99px; border:1px solid var(--line);
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
-    letter-spacing:0.4px; z-index:999; pointer-events:none;
+    z-index:999; pointer-events:none;
   }
 </style>
 </head>
@@ -258,43 +237,39 @@
     <div class="topbar-clock" id="clock">30/09/2026 · 14:32</div>
     <div class="topbar-right">
       <div class="live-pill"><span class="dot"></span>ao vivo</div>
-      <div class="icon-btn" title="Dia anterior">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg>
-      </div>
-      <div class="icon-btn" title="Notificações">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      </div>
-      <div class="icon-btn" title="Tela cheia">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
-      </div>
+      <div class="icon-btn" title="Dia anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg></div>
+      <div class="icon-btn" title="Notificações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+      <div class="icon-btn" title="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg></div>
     </div>
   </div>
 
-  <!-- ============ METADE DE CIMA — VENDAS ============ -->
   <div class="top-half">
     <div class="hero-row">
       <div class="hero-card primary glass">
         <span class="hero-label">Vendas hoje</span>
-        <span class="hero-value" id="heroValue">R$ 9.440,04</span>
+        <span class="hero-value">R$ 9.440,04</span>
         <span class="hero-sub">117% da meta · 8 vendas</span>
-        <div class="hero-bar"><div class="hero-bar-fill" style="width:100%"></div></div>
       </div>
       <div class="hero-card glass">
         <span class="hero-label">Meta diária</span>
         <span class="hero-value compact">R$ 8.064,55</span>
-        <span class="hero-sub dim">faltam R$ 0,00</span>
       </div>
       <div class="hero-card glass">
         <span class="hero-label">Vendas no mês</span>
         <span class="hero-value compact">R$ 172.953,07</span>
         <span class="hero-sub dim">89 vendas</span>
       </div>
+      <div class="hero-card refund glass" id="refundCard">
+        <span class="hero-label" style="color:var(--red)">Reembolsos hoje</span>
+        <span class="hero-value compact" id="refundCount" style="color:var(--red)">0</span>
+        <span class="hero-sub" id="refundUltimo" style="color:var(--red)"></span>
+      </div>
     </div>
 
     <div class="panels-row">
       <div class="ranking-panel glass">
         <div class="panel-title"><span class="dot" style="background:var(--blue)"></span>Ranking do time</div>
-        <div class="ranking-scroll" id="rankingScroll"></div>
+        <div class="ranking-rows" id="rankingRows"></div>
       </div>
       <div class="funnel-panel glass">
         <div class="panel-title"><span class="dot" style="background:var(--purple)"></span>Funil por produto</div>
@@ -303,7 +278,6 @@
     </div>
   </div>
 
-  <!-- ============ METADE DE BAIXO — RECUPERAÇÃO ============ -->
   <div class="bottom-half glass">
     <div class="recovery-header">
       <div class="panel-title"><span class="dot" style="background:var(--teal)"></span>Recuperação</div>
@@ -314,17 +288,16 @@
 
 </div>
 
+<div class="detail-tip" id="detailTip"></div>
 <div class="aviso-mock">⚠ isso é só uma ideia de visual — dado de mentira, nada aqui é real ainda</div>
 
 <script>
 // ================================================================
-// DADO DE MENTIRA — só pra dar pra ver o design funcionando com
-// números parecidos com o que aparece nos painéis reais. NADA busca
-// dado real nesta página ainda (pedido do usuário: "primeiro o front
-// pra eu ver").
+// DADO DE MENTIRA — pra dar pra ver o design funcionando. Usei números
+// parecidos com um dia CHEIO de verdade (15 no carrinho, 14 pagos) de
+// propósito, pra testar se cabe tudo sem rolar mesmo no pior caso.
+// NADA busca dado real ainda (pedido do usuário: "primeiro o front").
 // ================================================================
-const CORES = ['#0a84ff','#ff375f','#30d158','#ff9f0a','#bf5af2','#ffd60a','#64d2ff'];
-
 const VENDEDORES = [
   { nome:'Bia', valor:8448.04, qtd:7, produtos:'O Gestor ×5 · Gestor de Reputação Bancária ×2', cor:'#0a84ff', first:true },
   { nome:'Mª Eduardha', valor:2340.00, qtd:3, produtos:'Destrave Rating ×2 · O Gestor ×1', cor:'#30d158' },
@@ -341,32 +314,37 @@ const PRODUTOS = [
   { nome:'Como Financiar Casa Própria', valor:89.48, qtd:2, cor:'#ffd60a' },
 ];
 
+const NOMES = ['Cristiano da Silva','Eduardo França','Josias Marcedo','Vanessa Winget','Isaías Pereira do Nascimento',
+  'Wilian Melo','Claudia Maria de Souza','Tassio dos Santos','Jarson de Jesus Lima','Robson Junio dos Santos',
+  'Janiceli Oliveira Lira','Derlison Soli','Bruna Emily Pacheco','Carlos Eduardo dos Santos','Denison Alves'];
+
+function gerarLeads(qtd, produto, valorBase) {
+  return Array.from({length: qtd}, (_, i) => ({
+    nome: NOMES[i % NOMES.length],
+    produto,
+    tempo: `há ${1 + (i % 13)}h ${(i * 7) % 60}min`,
+    valor: valorBase,
+  }));
+}
+
 const LANES = [
-  { chave:'carrinho', nome:'Carrinho abandonado', cor:'#ffd60a', leads:[
-    {nome:'Cristiano da Silva', produto:'Destrave Rating - 3.0', tempo:'há 1h 25min', valor:281.74},
-    {nome:'Eduardo França', produto:'Destrave Rating - 3.0', tempo:'há 2h 3min', valor:281.74},
-    {nome:'Josias Marcedo', produto:'Destrave Rating - 3.0', tempo:'há 2h 28min', valor:281.74},
-    {nome:'Vanessa Winget', produto:'Destrave Rating - 3.0', tempo:'há 2h 51min', valor:281.74},
-    {nome:'Isaías Pereira', produto:'Destrave Rating - 3.0', tempo:'há 4h', valor:281.74},
-  ]},
-  { chave:'pix', nome:'Pix pendente', cor:'#64d2ff', leads:[
-    {nome:'Jarson de Jesus', produto:'Destrave Rating - 3.0', tempo:'há 5h 10min', valor:281.74},
-    {nome:'Robson Junio', produto:'Destrave Rating - 3.0', tempo:'há 7h 57min', valor:281.74},
-    {nome:'Janiceli Oliveira', produto:'Destrave Rating - 3.0', tempo:'há 12h 55min', valor:281.74},
-    {nome:'Derlison Soli', produto:'Destrave Rating - 3.0', tempo:'há 13h 53min', valor:281.74},
-  ]},
-  { chave:'cartao', nome:'Cartão recusado', cor:'#ff453a', leads:[
-    {nome:'Diogo Herculano', produto:'Acesso Vitalício Rating', tempo:'há 5h 23min', valor:87.58},
-    {nome:'Leonardo Carvalho', produto:'Destrave Rating - 3.0', tempo:'há 9h 2min', valor:281.74},
-    {nome:'Dayse Barros', produto:'O Gestor', tempo:'há 11h 44min', valor:662.54},
-  ]},
-  { chave:'pago', nome:'Pago', cor:'#30d158', leads:[
-    {nome:'Fabio da Silva', produto:'O Gestor', tempo:'há 3h 44min', valor:473.10, vendedor:'#ff375f'},
-    {nome:'Augusto Victor', produto:'O Gestor', tempo:'há 3h 32min', valor:692.00, vendedor:'#0a84ff'},
-    {nome:'Daisy de Lima', produto:'Destrave Rating - 3.0', tempo:'há 6h 57min', valor:281.74},
-    {nome:'Thiago Constantino', produto:'O Gestor', tempo:'há 7h 31min', valor:692.00, vendedor:'#0a84ff'},
-    {nome:'Francisco Johnatan', produto:'Gestor de Reputação', tempo:'há 8h 6min', valor:4095.00, vendedor:'#0a84ff'},
-  ]},
+  { chave:'carrinho', nome:'Carrinho abandonado', cor:'#ffd60a', leads: gerarLeads(15, 'Destrave Rating - 3.0', 281.74) },
+  { chave:'pix', nome:'Pix pendente', cor:'#64d2ff', leads: gerarLeads(4, 'Destrave Rating - 3.0', 281.74) },
+  { chave:'cartao', nome:'Cartão recusado', cor:'#ff453a', leads: gerarLeads(3, 'O Gestor', 473.10) },
+  { chave:'pago', nome:'Pago', cor:'#30d158', leads: gerarLeads(14, 'O Gestor', 473.10).map((l, i) =>
+      i % 3 === 0 ? {...l, vendedor:'#0a84ff', vendedorNome:'Bia'} : i % 5 === 0 ? {...l, vendedor:'#ff375f', vendedorNome:'Joao Victor'} : l
+    )},
+];
+
+// Reembolsos/chargebacks de hoje — quadrinho vermelho no topo (pedido
+// do usuário em 2026-09-30). "vendedorNome" só aparece quando o UTM da
+// venda original bate com um vendedor conhecido (mesmo classificador
+// já usado no Fluxo Vivo e no Recuperação de verdade) — quando não
+// bate, mostra "não identificado" em vez de inventar um nome.
+const REEMBOLSOS = [
+  { nome:'Francis David Barros Martins', tipo:'reembolso', valor:376.94, vendedorNome:null,        cor:null,      tempo:'há 2h 10min' },
+  { nome:'Anderson Rosa Getúlio',        tipo:'reembolso', valor:281.74, vendedorNome:'Bia',        cor:'#0a84ff', tempo:'há 5h 40min' },
+  { nome:'Patrik',                       tipo:'chargeback',valor:234.14, vendedorNome:'Mª Eduardha',cor:'#30d158', tempo:'há 9h 5min'  },
 ];
 
 function fmt(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -374,15 +352,13 @@ function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({
 function iniciais(nome) { return nome.trim().split(/\s+/).slice(0,2).map(p => p[0]).join('').toUpperCase(); }
 
 function montarRanking() {
-  const maxValor = Math.max(...VENDEDORES.map(v => v.valor));
-  document.getElementById('rankingScroll').innerHTML = VENDEDORES.map((v, i) => `
-    <div class="vendor-card${v.first ? ' first' : ''}">
-      <span class="rank">${String(i+1).padStart(2,'0')}</span>
-      <div class="vendor-avatar" style="background:${v.cor}">${v.nome === 'Funil direto' ? '—' : iniciais(v.nome)}</div>
-      <span class="vendor-name" style="color:${v.cor}">${escapeHtml(v.nome)}</span>
-      <span class="vendor-value">${fmt(v.valor)}</span>
-      <span class="vendor-qtd">${v.qtd} ${v.qtd===1?'venda':'vendas'}</span>
-      <span class="vendor-produtos">${escapeHtml(v.produtos)}</span>
+  document.getElementById('rankingRows').innerHTML = VENDEDORES.map((v, i) => `
+    <div class="rank-row">
+      <span class="pos">${String(i+1).padStart(2,'0')}</span>
+      <div class="avatar" style="background:${v.cor}">${v.nome === 'Funil direto' ? '—' : iniciais(v.nome)}</div>
+      <span class="nome" style="color:${v.cor}">${escapeHtml(v.nome)}</span>
+      <span class="valor">${fmt(v.valor)}</span>
+      <span class="produtos">${v.qtd} ${v.qtd===1?'venda':'vendas'} · ${escapeHtml(v.produtos)}</span>
     </div>`).join('');
 }
 
@@ -406,6 +382,57 @@ function montarResumoChips() {
     </div>`).join('');
 }
 
+const tip = document.getElementById('detailTip');
+function mostrarTip(e, l) {
+  tip.innerHTML = `
+    <div class="detail-tip-nome">${escapeHtml(l.nome)}</div>
+    <div class="detail-tip-row"><span>Produto</span><span class="v">${escapeHtml(l.produto)}</span></div>
+    <div class="detail-tip-row"><span>Valor</span><span class="v">${fmt(l.valor)}</span></div>
+    <div class="detail-tip-row"><span>Quando</span><span class="v">${l.tempo}</span></div>
+    ${l.vendedorNome ? `<div class="detail-tip-row"><span>Vendedor</span><span class="v" style="color:${l.vendedor}">${escapeHtml(l.vendedorNome)}</span></div>` : ''}
+  `;
+  posicionarTip(e);
+  tip.classList.add('show');
+}
+function posicionarTip(e) {
+  const r = tip.getBoundingClientRect();
+  let x = e.clientX + 16, y = e.clientY + 16;
+  if (x + r.width > window.innerWidth - 12) x = e.clientX - r.width - 16;
+  if (y + r.height > window.innerHeight - 12) y = e.clientY - r.height - 16;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function esconderTip() { tip.classList.remove('show'); }
+
+// Quadrinho de reembolso: mostra a contagem + o último, e ao passar o
+// mouse abre a lista completa de hoje — nome de quem pediu e o
+// vendedor da venda original (só quando o UTM bate com alguém
+// conhecido; senão mostra "não identificado" em vez de chutar).
+function montarReembolsos() {
+  document.getElementById('refundCount').textContent = REEMBOLSOS.length;
+  const ultimo = REEMBOLSOS[REEMBOLSOS.length - 1];
+  document.getElementById('refundUltimo').textContent = ultimo
+    ? `último: ${ultimo.nome.split(' ')[0]}${ultimo.vendedorNome ? ' · ' + ultimo.vendedorNome : ''}`
+    : 'nenhum hoje';
+
+  const card = document.getElementById('refundCard');
+  card.addEventListener('mouseenter', e => {
+    if (!REEMBOLSOS.length) return;
+    tip.innerHTML = `
+      <div class="detail-tip-nome" style="color:var(--red)">Reembolsos / chargebacks hoje</div>
+      ${REEMBOLSOS.map(r => `
+        <div class="detail-tip-row" style="margin-top:8px; flex-direction:column; align-items:flex-start; gap:2px;">
+          <span style="color:var(--fg); font-weight:700;">${escapeHtml(r.nome)} <span style="color:var(--fg-faint); font-weight:500;">· ${r.tipo === 'chargeback' ? 'chargeback' : 'reembolso'}</span></span>
+          <span>−${fmt(r.valor)} · ${r.tempo}</span>
+          <span>Vendedor: <span class="v" style="color:${r.cor || 'var(--fg-faint)'}">${r.vendedorNome ? escapeHtml(r.vendedorNome) : 'não identificado'}</span></span>
+        </div>`).join('')}
+    `;
+    posicionarTip(e);
+    tip.classList.add('show');
+  });
+  card.addEventListener('mousemove', posicionarTip);
+  card.addEventListener('mouseleave', esconderTip);
+}
+
 function montarLanes() {
   document.getElementById('lanesGrid').innerHTML = LANES.map(lane => `
     <div class="lane">
@@ -414,18 +441,22 @@ function montarLanes() {
         <span class="nome">${escapeHtml(lane.nome)}</span>
         <span class="n">${lane.leads.length}</span>
       </div>
-      <div class="lane-cards">
-        ${lane.leads.map(l => `
-          <div class="lead-card${lane.chave==='pago' ? ' pago' : ''}" ${l.vendedor ? `style="border-color:${l.vendedor}"` : ''}>
-            <div class="lead-card-nome">${escapeHtml(l.nome)}</div>
-            <div class="lead-card-produto">${escapeHtml(l.produto)}</div>
-            <div class="lead-card-bottom">
-              <span class="lead-card-tempo">${l.tempo}</span>
-              <span class="lead-card-valor">${fmt(l.valor)}</span>
-            </div>
+      <div class="lane-rows">
+        ${lane.leads.map((l, i) => `
+          <div class="lead-row${lane.chave==='pago' ? ' pago' : ''}" data-lane="${lane.chave}" data-i="${i}" ${l.vendedor ? `style="border-left-color:${l.vendedor}"` : ''}>
+            <span class="nome">${escapeHtml(l.nome)}</span>
+            <span class="tempo">${l.tempo}</span>
           </div>`).join('')}
       </div>
     </div>`).join('');
+
+  document.querySelectorAll('.lead-row').forEach(el => {
+    const lane = LANES.find(x => x.chave === el.dataset.lane);
+    const l = lane.leads[+el.dataset.i];
+    el.addEventListener('mouseenter', e => mostrarTip(e, l));
+    el.addEventListener('mousemove', posicionarTip);
+    el.addEventListener('mouseleave', esconderTip);
+  });
 }
 
 function tickClock() {
@@ -441,6 +472,7 @@ montarRanking();
 montarFunil();
 montarResumoChips();
 montarLanes();
+montarReembolsos();
 </script>
 </body>
 </html>
