@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Vendas — Ideia de design unificado</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+  /* ==============================
+     IDEIA DE DESIGN — painel único, inspirado na linguagem visual da
+     Apple (tvOS / macOS Sonoma): superfícies "vidro" translúcidas com
+     blur, cantos bem arredondados, cores de sistema vívidas porém
+     contidas, tipografia com respiro generoso, hierarquia clara.
+     ATENÇÃO: isso é só uma IDEIA visual, com dado de mentira (fake) —
+     não busca nada de verdade ainda. Ver aviso no rodapé da própria
+     página. Não mexe em nenhum arquivo existente do projeto.
+     ============================== */
+  :root {
+    --bg: #000000;
+    --bg-elev: #0b0b0d;
+    --fg: #f5f5f7;
+    --fg-dim: #98989d;
+    --fg-faint: #636366;
+    --glass: rgba(255,255,255,0.055);
+    --glass-border: rgba(255,255,255,0.09);
+    --glass-strong: rgba(255,255,255,0.09);
+    --line: rgba(255,255,255,0.08);
+
+    /* cores de sistema — mesma família da Apple (dark mode), vívidas
+       mas nunca neon; usadas com parcimônia, só onde têm função. */
+    --blue: #0a84ff;
+    --green: #30d158;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --purple: #bf5af2;
+    --yellow: #ffd60a;
+    --pink: #ff375f;
+    --teal: #64d2ff;
+    --indigo: #5e5ce6;
+
+    --r-lg: 28px;
+    --r-md: 20px;
+    --r-sm: 14px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body {
+    width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
+    font-family:'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body {
+    /* leve gradiente radial no fundo — profundidade sutil, sem chamar
+       atenção pra si, do jeito que o macOS faz atrás do Control Center. */
+    background:
+      radial-gradient(ellipse 1200px 700px at 15% -10%, rgba(10,132,255,0.10), transparent 60%),
+      radial-gradient(ellipse 1000px 600px at 100% 10%, rgba(191,90,242,0.08), transparent 55%),
+      var(--bg);
+  }
+  ::-webkit-scrollbar { height:6px; width:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.14); border-radius:99px; }
+
+  .stage {
+    width:100%; height:100%; display:flex; flex-direction:column;
+    padding:20px clamp(20px, 3vw, 40px) 16px; gap:16px;
+  }
+
+  /* ---------- topbar ---------- */
+  .topbar {
+    flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+    padding:2px 4px;
+  }
+  .topbar-brand {
+    display:flex; align-items:center; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.78rem; font-weight:600;
+    letter-spacing:2px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .topbar-brand .dot {
+    width:8px; height:8px; border-radius:50%; background:var(--blue);
+    box-shadow:0 0 12px var(--blue);
+  }
+  .topbar-clock {
+    font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--fg-dim);
+    font-variant-numeric:tabular-nums; letter-spacing:0.4px;
+  }
+  .topbar-right { display:flex; align-items:center; gap:10px; }
+  .live-pill {
+    display:flex; align-items:center; gap:7px;
+    background:var(--glass); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    padding:7px 14px; border-radius:99px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:600;
+    letter-spacing:0.6px; color:var(--fg-dim);
+  }
+  .live-pill .dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .icon-btn {
+    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:var(--glass); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    color:var(--fg-dim); cursor:pointer; transition:background 0.2s ease, color 0.2s ease;
+  }
+  .icon-btn:hover { background:var(--glass-strong); color:var(--fg); }
+  .icon-btn svg { width:16px; height:16px; }
+
+  /* ---------- superfície de vidro, base de todo painel ---------- */
+  .glass {
+    background:var(--glass); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px);
+    border-radius:var(--r-lg);
+    box-shadow:0 24px 60px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .panel-title {
+    display:flex; align-items:center; gap:9px;
+    font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+    letter-spacing:1.6px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .panel-title .dot { width:6px; height:6px; border-radius:2px; }
+  .panel-title .count {
+    margin-left:auto; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:0.9rem;
+    color:var(--fg);
+  }
+
+  /* ================================================================
+     METADE DE CIMA — "Vendas" (o que hoje é o Fluxo Vivo, condensado)
+     ================================================================ */
+  .top-half { flex:0 0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  .hero-row {
+    display:flex; align-items:stretch; gap:14px;
+  }
+  .hero-card { flex:1; padding:20px 26px; display:flex; flex-direction:column; justify-content:center; gap:6px; }
+  .hero-card.primary {
+    flex:1.5;
+    background:linear-gradient(135deg, rgba(10,132,255,0.16), rgba(191,90,242,0.08));
+    border-color:rgba(10,132,255,0.25);
+  }
+  .hero-label {
+    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600;
+    letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .hero-value {
+    font-weight:800; letter-spacing:-1.5px; font-size:clamp(2rem, 3.6vw, 3.1rem);
+    font-variant-numeric:tabular-nums; line-height:1.05;
+  }
+  .hero-value.compact { font-size:clamp(1.3rem, 2vw, 1.7rem); letter-spacing:-0.5px; }
+  .hero-sub {
+    font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--green); font-weight:600;
+  }
+  .hero-sub.dim { color:var(--fg-dim); font-weight:500; }
+  .hero-bar { height:5px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:6px; }
+  .hero-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg, var(--blue), var(--teal)); }
+
+  .panels-row { display:flex; gap:14px; min-height:0; }
+
+  /* ---------- ranking do time: pílulas horizontais, avatar-cor ---------- */
+  .ranking-panel { flex:1.15; padding:18px 20px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .ranking-scroll {
+    display:flex; gap:10px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;
+  }
+  .ranking-scroll::-webkit-scrollbar { display:none; }
+  .vendor-card {
+    flex:0 0 auto; width:168px; padding:14px 15px; border-radius:var(--r-md);
+    background:rgba(255,255,255,0.035); border:1px solid var(--line);
+    display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden;
+  }
+  .vendor-card.first { border-color:rgba(255,214,10,0.4); background:rgba(255,214,10,0.06); }
+  .vendor-card .rank {
+    position:absolute; top:10px; right:12px; font-family:'IBM Plex Mono',monospace;
+    font-size:0.68rem; font-weight:700; color:var(--fg-faint);
+  }
+  .vendor-avatar {
+    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:0.85rem; color:#000;
+  }
+  .vendor-name { font-weight:700; font-size:0.92rem; }
+  .vendor-value {
+    font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:1.05rem;
+    font-variant-numeric:tabular-nums;
+  }
+  .vendor-qtd { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--fg-dim); }
+  .vendor-produtos {
+    font-size:0.66rem; color:var(--fg-faint); line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+
+  /* ---------- funil por produto: barras horizontais compactas ---------- */
+  .funnel-panel { flex:0.85; padding:18px 20px; display:flex; flex-direction:column; gap:11px; min-width:0; }
+  .funnel-list { display:flex; flex-direction:column; gap:9px; overflow:hidden; flex:1; justify-content:center; }
+  .funnel-item { display:flex; flex-direction:column; gap:4px; }
+  .funnel-item-top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .funnel-item-nome {
+    font-weight:600; font-size:0.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .funnel-item-valor { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--fg-dim); flex-shrink:0; }
+  .funnel-item-bar { height:6px; border-radius:99px; background:rgba(255,255,255,0.07); overflow:hidden; }
+  .funnel-item-bar-fill { height:100%; border-radius:99px; }
+
+  /* ================================================================
+     METADE DE BAIXO — "Recuperação" (condensado)
+     ================================================================ */
+  .bottom-half {
+    flex:1; min-height:0; padding:18px 22px; display:flex; flex-direction:column; gap:12px;
+  }
+  .recovery-header { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .recovery-summary-chips { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  .summary-chip {
+    display:flex; align-items:baseline; gap:6px; padding:6px 12px; border-radius:99px;
+    background:rgba(255,255,255,0.04); border:1px solid var(--line);
+    font-size:0.74rem;
+  }
+  .summary-chip .nome { font-weight:700; }
+  .summary-chip .valor { font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--fg); font-size:0.72rem; }
+
+  .lanes-grid {
+    flex:1; min-height:0; display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;
+  }
+  .lane {
+    min-height:0; display:flex; flex-direction:column; gap:10px;
+    border-radius:var(--r-md); padding:14px; background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+  }
+  .lane-head { display:flex; align-items:center; gap:8px; }
+  .lane-head .dot { width:8px; height:8px; border-radius:50%; }
+  .lane-head .nome { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--fg-dim); }
+  .lane-head .n { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:1rem; }
+  .lane-cards { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; overflow-y:auto; }
+  .lane-cards::-webkit-scrollbar { width:5px; }
+  .lead-card {
+    padding:11px 13px; border-radius:var(--r-sm); background:rgba(255,255,255,0.045);
+    border:1px solid var(--line); display:flex; flex-direction:column; gap:4px;
+    transition:border-color 0.2s ease, background 0.2s ease;
+  }
+  .lead-card:hover { background:rgba(255,255,255,0.08); }
+  .lead-card.pago { border-left:3px solid var(--green); }
+  .lead-card-nome { font-weight:700; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lead-card-produto { font-size:0.68rem; color:var(--fg-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lead-card-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:2px; }
+  .lead-card-tempo { font-family:'IBM Plex Mono',monospace; font-size:0.64rem; color:var(--fg-faint); }
+  .lead-card-valor { font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:700; color:var(--fg-dim); }
+
+  /* ---------- aviso de rodapé: isso é só uma ideia ---------- */
+  .aviso-mock {
+    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    font-family:'IBM Plex Mono',monospace; font-size:0.66rem; color:var(--fg-faint);
+    background:rgba(0,0,0,0.6); padding:5px 14px; border-radius:99px; border:1px solid var(--line);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    letter-spacing:0.4px; z-index:999; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="topbar">
+    <div class="topbar-brand"><span class="dot"></span>Central de Vendas</div>
+    <div class="topbar-clock" id="clock">30/09/2026 · 14:32</div>
+    <div class="topbar-right">
+      <div class="live-pill"><span class="dot"></span>ao vivo</div>
+      <div class="icon-btn" title="Dia anterior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg>
+      </div>
+      <div class="icon-btn" title="Notificações">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </div>
+      <div class="icon-btn" title="Tela cheia">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ METADE DE CIMA — VENDAS ============ -->
+  <div class="top-half">
+    <div class="hero-row">
+      <div class="hero-card primary glass">
+        <span class="hero-label">Vendas hoje</span>
+        <span class="hero-value" id="heroValue">R$ 9.440,04</span>
+        <span class="hero-sub">117% da meta · 8 vendas</span>
+        <div class="hero-bar"><div class="hero-bar-fill" style="width:100%"></div></div>
+      </div>
+      <div class="hero-card glass">
+        <span class="hero-label">Meta diária</span>
+        <span class="hero-value compact">R$ 8.064,55</span>
+        <span class="hero-sub dim">faltam R$ 0,00</span>
+      </div>
+      <div class="hero-card glass">
+        <span class="hero-label">Vendas no mês</span>
+        <span class="hero-value compact">R$ 172.953,07</span>
+        <span class="hero-sub dim">89 vendas</span>
+      </div>
+    </div>
+
+    <div class="panels-row">
+      <div class="ranking-panel glass">
+        <div class="panel-title"><span class="dot" style="background:var(--blue)"></span>Ranking do time</div>
+        <div class="ranking-scroll" id="rankingScroll"></div>
+      </div>
+      <div class="funnel-panel glass">
+        <div class="panel-title"><span class="dot" style="background:var(--purple)"></span>Funil por produto</div>
+        <div class="funnel-list" id="funnelList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ METADE DE BAIXO — RECUPERAÇÃO ============ -->
+  <div class="bottom-half glass">
+    <div class="recovery-header">
+      <div class="panel-title"><span class="dot" style="background:var(--teal)"></span>Recuperação</div>
+      <div class="recovery-summary-chips" id="summaryChips"></div>
+    </div>
+    <div class="lanes-grid" id="lanesGrid"></div>
+  </div>
+
+</div>
+
+<div class="aviso-mock">⚠ isso é só uma ideia de visual — dado de mentira, nada aqui é real ainda</div>
+
+<script>
+// ================================================================
+// DADO DE MENTIRA — só pra dar pra ver o design funcionando com
+// números parecidos com o que aparece nos painéis reais. NADA busca
+// dado real nesta página ainda (pedido do usuário: "primeiro o front
+// pra eu ver").
+// ================================================================
+const CORES = ['#0a84ff','#ff375f','#30d158','#ff9f0a','#bf5af2','#ffd60a','#64d2ff'];
+
+const VENDEDORES = [
+  { nome:'Bia', valor:8448.04, qtd:7, produtos:'O Gestor ×5 · Gestor de Reputação Bancária ×2', cor:'#0a84ff', first:true },
+  { nome:'Mª Eduardha', valor:2340.00, qtd:3, produtos:'Destrave Rating ×2 · O Gestor ×1', cor:'#30d158' },
+  { nome:'Jardel', valor:1580.50, qtd:2, produtos:'Rating para CNPJ ×2', cor:'#ff9f0a' },
+  { nome:'Joao Victor', valor:992.00, qtd:1, produtos:'O Gestor ×1', cor:'#ff375f' },
+  { nome:'Funil direto', valor:5438.90, qtd:24, produtos:'sem vendedor identificado na planilha', cor:'#636366' },
+];
+
+const PRODUTOS = [
+  { nome:'O Gestor', valor:5151.78, qtd:7, cor:'#0a84ff' },
+  { nome:'Gestor de Reputação Bancária', valor:4095.00, qtd:1, cor:'#30d158' },
+  { nome:'Destrave seu Rating Bancário - 3.0', valor:3662.62, qtd:13, cor:'#bf5af2' },
+  { nome:'Rating para CNPJ - 2.0', valor:753.88, qtd:2, cor:'#ff9f0a' },
+  { nome:'Como Financiar Casa Própria', valor:89.48, qtd:2, cor:'#ffd60a' },
+];
+
+const LANES = [
+  { chave:'carrinho', nome:'Carrinho abandonado', cor:'#ffd60a', leads:[
+    {nome:'Cristiano da Silva', produto:'Destrave Rating - 3.0', tempo:'há 1h 25min', valor:281.74},
+    {nome:'Eduardo França', produto:'Destrave Rating - 3.0', tempo:'há 2h 3min', valor:281.74},
+    {nome:'Josias Marcedo', produto:'Destrave Rating - 3.0', tempo:'há 2h 28min', valor:281.74},
+    {nome:'Vanessa Winget', produto:'Destrave Rating - 3.0', tempo:'há 2h 51min', valor:281.74},
+    {nome:'Isaías Pereira', produto:'Destrave Rating - 3.0', tempo:'há 4h', valor:281.74},
+  ]},
+  { chave:'pix', nome:'Pix pendente', cor:'#64d2ff', leads:[
+    {nome:'Jarson de Jesus', produto:'Destrave Rating - 3.0', tempo:'há 5h 10min', valor:281.74},
+    {nome:'Robson Junio', produto:'Destrave Rating - 3.0', tempo:'há 7h 57min', valor:281.74},
+    {nome:'Janiceli Oliveira', produto:'Destrave Rating - 3.0', tempo:'há 12h 55min', valor:281.74},
+    {nome:'Derlison Soli', produto:'Destrave Rating - 3.0', tempo:'há 13h 53min', valor:281.74},
+  ]},
+  { chave:'cartao', nome:'Cartão recusado', cor:'#ff453a', leads:[
+    {nome:'Diogo Herculano', produto:'Acesso Vitalício Rating', tempo:'há 5h 23min', valor:87.58},
+    {nome:'Leonardo Carvalho', produto:'Destrave Rating - 3.0', tempo:'há 9h 2min', valor:281.74},
+    {nome:'Dayse Barros', produto:'O Gestor', tempo:'há 11h 44min', valor:662.54},
+  ]},
+  { chave:'pago', nome:'Pago', cor:'#30d158', leads:[
+    {nome:'Fabio da Silva', produto:'O Gestor', tempo:'há 3h 44min', valor:473.10, vendedor:'#ff375f'},
+    {nome:'Augusto Victor', produto:'O Gestor', tempo:'há 3h 32min', valor:692.00, vendedor:'#0a84ff'},
+    {nome:'Daisy de Lima', produto:'Destrave Rating - 3.0', tempo:'há 6h 57min', valor:281.74},
+    {nome:'Thiago Constantino', produto:'O Gestor', tempo:'há 7h 31min', valor:692.00, vendedor:'#0a84ff'},
+    {nome:'Francisco Johnatan', produto:'Gestor de Reputação', tempo:'há 8h 6min', valor:4095.00, vendedor:'#0a84ff'},
+  ]},
+];
+
+function fmt(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function iniciais(nome) { return nome.trim().split(/\s+/).slice(0,2).map(p => p[0]).join('').toUpperCase(); }
+
+function montarRanking() {
+  const maxValor = Math.max(...VENDEDORES.map(v => v.valor));
+  document.getElementById('rankingScroll').innerHTML = VENDEDORES.map((v, i) => `
+    <div class="vendor-card${v.first ? ' first' : ''}">
+      <span class="rank">${String(i+1).padStart(2,'0')}</span>
+      <div class="vendor-avatar" style="background:${v.cor}">${v.nome === 'Funil direto' ? '—' : iniciais(v.nome)}</div>
+      <span class="vendor-name" style="color:${v.cor}">${escapeHtml(v.nome)}</span>
+      <span class="vendor-value">${fmt(v.valor)}</span>
+      <span class="vendor-qtd">${v.qtd} ${v.qtd===1?'venda':'vendas'}</span>
+      <span class="vendor-produtos">${escapeHtml(v.produtos)}</span>
+    </div>`).join('');
+}
+
+function montarFunil() {
+  const maxValor = Math.max(...PRODUTOS.map(p => p.valor));
+  document.getElementById('funnelList').innerHTML = PRODUTOS.map(p => `
+    <div class="funnel-item">
+      <div class="funnel-item-top">
+        <span class="funnel-item-nome" style="color:${p.cor}">${escapeHtml(p.nome)}</span>
+        <span class="funnel-item-valor">${p.qtd} ${p.qtd===1?'venda':'vendas'} · ${fmt(p.valor)}</span>
+      </div>
+      <div class="funnel-item-bar"><div class="funnel-item-bar-fill" style="width:${Math.max(10, p.valor/maxValor*100)}%; background:${p.cor}"></div></div>
+    </div>`).join('');
+}
+
+function montarResumoChips() {
+  document.getElementById('summaryChips').innerHTML = VENDEDORES.filter(v => v.nome !== 'Funil direto').map(v => `
+    <div class="summary-chip">
+      <span class="nome" style="color:${v.cor}">${escapeHtml(v.nome)}</span>
+      <span class="valor">${fmt(v.valor)}</span>
+    </div>`).join('');
+}
+
+function montarLanes() {
+  document.getElementById('lanesGrid').innerHTML = LANES.map(lane => `
+    <div class="lane">
+      <div class="lane-head">
+        <span class="dot" style="background:${lane.cor}"></span>
+        <span class="nome">${escapeHtml(lane.nome)}</span>
+        <span class="n">${lane.leads.length}</span>
+      </div>
+      <div class="lane-cards">
+        ${lane.leads.map(l => `
+          <div class="lead-card${lane.chave==='pago' ? ' pago' : ''}" ${l.vendedor ? `style="border-color:${l.vendedor}"` : ''}>
+            <div class="lead-card-nome">${escapeHtml(l.nome)}</div>
+            <div class="lead-card-produto">${escapeHtml(l.produto)}</div>
+            <div class="lead-card-bottom">
+              <span class="lead-card-tempo">${l.tempo}</span>
+              <span class="lead-card-valor">${fmt(l.valor)}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function tickClock() {
+  const d = new Date();
+  const dia = String(d.getDate()).padStart(2,'0'), mes = String(d.getMonth()+1).padStart(2,'0');
+  const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${dia}/${mes}/${d.getFullYear()} · ${h}:${m}`;
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+montarRanking();
+montarFunil();
+montarResumoChips();
+montarLanes();
+</script>
+</body>
+</html>
