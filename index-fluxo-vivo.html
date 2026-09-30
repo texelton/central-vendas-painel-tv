@@ -177,12 +177,9 @@
     font-variant-numeric:tabular-nums;
   }
 
-  /* ---------- pista de corrida: ranking sem cards, sem bordas grossas ----------
-     flex:1.3 (contra 1 do funil) porque cada vendedor agora ocupa 2 linhas
-     (nome/valor + produtos vendidos) — precisa de mais espaço vertical que
-     o funil, que continua em 1 linha por faixa. */
+  /* ---------- pista de corrida: ranking sem cards, sem bordas grossas ---------- */
   .track-zone {
-    flex:1.7 1 0; min-height:0; padding:clamp(22px, 3vh, 32px) clamp(28px, 5vw, 56px);
+    flex:1 1 0; min-height:0; padding:clamp(22px, 3vh, 32px) clamp(28px, 5vw, 56px);
     display:flex; flex-direction:column;
     background:var(--surface); border:1px solid var(--panel-border); border-radius:22px;
     box-shadow:0 24px 60px -34px rgba(0,0,0,0.6);
@@ -199,22 +196,8 @@
   }
   /* #lanes precisa ser flex de verdade — senão .lane{flex:1} não tem efeito
      nenhum, as pistas ficam pequenas no topo e sobra um vazio enorme embaixo. */
-  #lanes { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(5px, 0.9vh, 12px); }
-  /* Cada vendedor agora ocupa 2 linhas: a de sempre (rank/pista/nome/valor/
-     qtd) embaixo dela, uma segunda linha mais discreta com o que ele
-     vendeu produto a produto (pedido do usuário em 2026-09-30). */
-  .lane { display:flex; flex-direction:column; justify-content:center; gap:1px; flex:1; min-height:37px; }
-  .lane-top { display:flex; align-items:center; gap:clamp(10px, 1.6vw, 18px); width:100%; flex-shrink:0; }
-  /* mesma trava dura da linha principal: nunca quebra, corta com "..." se
-     não couber, e mostra só os produtos mais vendidos + "+N outros" (bug
-     real de faixa vazando por cima da vizinha, visto em 2026-09-29). Fonte
-     pequena de propósito — é informação de apoio, a linha de cima (nome/
-     valor/qtd) é que precisa ser lida de longe. */
-  .lane-produtos {
-    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem); line-height:1.3;
-    color:var(--fg-faint); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    flex-shrink:0;
-  }
+  #lanes { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(10px, 1.6vh, 18px); }
+  .lane { display:flex; align-items:center; gap:clamp(10px, 1.6vw, 18px); flex:1; min-height:20px; }
   .lane-rank {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.85rem, 1.2vw, 1.05rem);
     font-weight:700; color:var(--fg-faint); width:26px; flex-shrink:0;
@@ -230,19 +213,16 @@
   .lane-marker.flash { animation:laneFlash 0.8s ease; }
   @keyframes laneFlash { 0%,100%{ filter:brightness(1) } 40%{ filter:brightness(2.2) } }
   .lane-info {
-    display:flex; align-items:baseline; gap:12px; flex-shrink:0; width:clamp(260px, 38vw, 520px);
-    overflow:hidden; /* trava dura: nada dentro pode vazar pra linha vizinha, aconteça o que acontecer */
+    display:flex; align-items:baseline; gap:12px; flex-shrink:0; width:clamp(240px, 30vw, 400px);
   }
   /* Nome, valor e contagem são a informação que precisa ser lida de longe
      numa TV — por isso maiores e com teto de clamp mais alto que o resto
      da interface (rótulos/metadados continuam pequenos, só o dado central
      de cada linha cresce). Nunca podem quebrar linha: numa TV sem rolagem,
-     texto longo (nome grande, "sem vendedor na planilha", produto vendido)
-     quebrando pra 2 linhas empurra tudo e vaza por cima da linha vizinha —
-     corta com "..." em vez disso (bug real visto em 2026-09-29). O nome
-     não encolhe (é a informação mais importante); quem cede espaço
-     primeiro é a contagem/produto, que fica em segundo plano. */
-  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 0 auto; max-width:50%; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+     texto longo (nome grande, "sem vendedor na planilha") quebrando pra
+     2 linhas empurra tudo e vaza por cima da linha vizinha — corta com
+     "..." em vez disso (bug real visto em 2026-09-29). */
+  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* 1º lugar do dia ganha peso visual extra — reforça a competição entre
      o time em vez de deixar o ranking parecer uma lista neutra. */
   .lane-first .lane-rank { color:var(--gold); text-shadow:0 0 12px var(--gold); }
@@ -262,7 +242,7 @@
   }
   .lane-qtd {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.8rem, 1.3vw, 1rem); color:var(--fg-faint);
-    flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
 
   /* ---------- funil fluido: forma que afunila, não barras em caixa ---------- */
@@ -281,16 +261,26 @@
   /* Gap real entre estágios em vez de encostar um no outro — cada estágio
      continua mais estreito que o anterior (a leitura de "funil" se mantém
      pela largura decrescente), só que agora com respiro visível entre eles. */
-  .funnel-bands { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(3px, 0.6vh, 10px); }
+  .funnel-bands { flex:1; display:flex; flex-direction:column; min-height:0; gap:clamp(3px, 0.6vh, 10px); overflow:hidden; position:relative; }
   /* A forma que afunila (clip-path) fica numa camada separada, atrás do
      texto — texto nunca pode ficar ilegível só porque a faixa estreitou. */
   .funnel-band {
     position:relative; flex:1; min-height:20px; display:flex; align-items:center; justify-content:space-between;
     padding:0 clamp(20px, 3vw, 40px);
   }
-  /* faixa-resumo "+N outros produtos": mesmo tratamento visual do "Funil
-     direto" no ranking — deixa claro que não é um produto específico. */
-  .funnel-band-outros .funnel-band-label { font-style:italic; font-weight:600; }
+  /* Quando vende produto demais no dia pra caber tudo de pé quieto, em vez
+     de esconder produto ("+N outros") ou dividir a lista, rola devagar e
+     sem parar — pedido explícito do usuário em 2026-09-30: quer ver o
+     nome de TODOS os produtos vendidos, nenhum escondido. Mesma receita
+     do letreiro da central de contato, só que na vertical: a lista vem
+     duplicada (.funnel-bands-track) e desliza -50% pra dar a volta certa
+     sem "pulo" perceptível no loop. */
+  .funnel-bands-track {
+    display:flex; flex-direction:column; gap:clamp(3px, 0.6vh, 10px);
+    animation:funnelScroll var(--funnel-scroll-duration, 20s) linear infinite;
+  }
+  .funnel-bands.is-scrolling .funnel-band { flex:0 0 auto; height:26px; min-height:26px; }
+  @keyframes funnelScroll { from { transform:translateY(0); } to { transform:translateY(-50%); } }
   .funnel-band-shape {
     position:absolute; inset:0; pointer-events:none;
     transition:clip-path 0.9s cubic-bezier(0.25,0.46,0.45,0.94);
@@ -557,7 +547,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .lane-marker, .funnel-band, .burst, .burst-emoji, .burst-flash, .loader-ring, .contact-zone, .contact-ticker, .comments-zone { animation:none !important; transition:none !important; }
+    .lane-marker, .funnel-band, .funnel-bands-track, .burst, .burst-emoji, .burst-flash, .loader-ring, .contact-zone, .contact-ticker, .comments-zone { animation:none !important; transition:none !important; }
   }
 
   /* ==============================
@@ -1018,38 +1008,6 @@ function countByVendor(sales) {
   sales.forEach(s => counts.set(s.vendedor, (counts.get(s.vendedor) || 0) + 1));
   return counts;
 }
-// Map(vendedor -> Map(produto -> quantas vezes esse vendedor vendeu esse
-// produto hoje)) — usado pra mostrar no ranking não só quanto cada um
-// vendeu, mas o quê.
-function produtosByVendor(sales) {
-  const map = new Map();
-  sales.forEach(s => {
-    const nome = s.produto || 'Sem produto';
-    if (!map.has(s.vendedor)) map.set(s.vendedor, new Map());
-    const porProduto = map.get(s.vendedor);
-    porProduto.set(nome, (porProduto.get(nome) || 0) + 1);
-  });
-  return map;
-}
-// Lista os produtos de um vendedor com a quantidade de cada um
-// ("O GESTOR ×5 · Rating CNPJ ×2"), pedido do usuário em 2026-09-30.
-// Numa TV sem rolagem, se o vendedor vender produto demais no dia isso
-// pode virar uma linha gigante — mostra só os MAX mais vendidos e
-// resume o resto num "+N outros", mesma receita já usada no funil por
-// produto e no ranking pra evitar texto vazando pra linha vizinha.
-function listaProdutosVendedor(porProduto, max) {
-  if (!porProduto || !porProduto.size) return '';
-  max = max || 3;
-  const linhas = [...porProduto.entries()].sort((a,b) => b[1]-a[1]);
-  const principais = linhas.slice(0, max);
-  const resto = linhas.slice(max);
-  const partes = principais.map(([nome, qtd]) => `${nome} ×${qtd}`);
-  if (resto.length) {
-    const somaResto = resto.reduce((s,[,q]) => s + q, 0);
-    partes.push(`+${resto.length} outro${resto.length > 1 ? 's' : ''} (${somaResto})`);
-  }
-  return partes.join('  ·  ');
-}
 
 // ================================================================
 // DOM CACHE
@@ -1195,7 +1153,7 @@ function animTo(el, target, isCurrency) {
   animFrames[el] = requestAnimationFrame(step);
 }
 
-function renderLanes(vendors, todayCounts, todayTotals, unidentified, todayProdutos) {
+function renderLanes(vendors, todayCounts, todayTotals, unidentified) {
   // Ranking e valor exibido vêm sempre do mesmo lugar (log bruto de vendas
   // de hoje) — nunca da aba-resumo, pra nunca contradizer "X vendas" com
   // "R$ 0,00" na mesma tela.
@@ -1214,21 +1172,17 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified, todayProdu
     const display = State.displayNames[v.nome] || v.nome;
     const rank = rankOf.get(v.nome) || (idx+1);
     const isFirst = rank === 1 && (byValor.get(v.nome) || 0) > 0;
-    const produtosTxt = todayProdutos ? listaProdutosVendedor(todayProdutos.get(v.nome)) : '';
     return `
       <div class="lane${isFirst ? ' lane-first' : ''}" data-vslot="${vid(idx)}" style="order:${rank}">
-        <div class="lane-top">
-          <span class="lane-rank">${String(rank).padStart(2,'0')}</span>
-          <div class="lane-line">
-            <div class="lane-marker" style="left:${pct}%; background:${color}; box-shadow:0 0 14px ${color};"></div>
-          </div>
-          <div class="lane-info">
-            <span class="lane-name" style="color:${color}">${isFirst ? CROWN_SVG : ''}${escapeHtml(display)}</span>
-            <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
-            <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}</span>
-          </div>
+        <span class="lane-rank">${String(rank).padStart(2,'0')}</span>
+        <div class="lane-line">
+          <div class="lane-marker" style="left:${pct}%; background:${color}; box-shadow:0 0 14px ${color};"></div>
         </div>
-        ${produtosTxt ? `<div class="lane-produtos">${escapeHtml(produtosTxt)}</div>` : ''}
+        <div class="lane-info">
+          <span class="lane-name" style="color:${color}">${isFirst ? CROWN_SVG : ''}${escapeHtml(display)}</span>
+          <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
+          <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}</span>
+        </div>
       </div>`;
   }).join('');
 
@@ -1238,30 +1192,15 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified, todayProdu
   // mostrar "R$ 0,00" pra todo mundo enquanto o total do topo é maior que zero.
   let unidHtml = '';
   if (unidentified && unidentified.valor > 0) {
-    // produtos de quem não bateu com nenhum vendedor cadastrado, somados —
-    // mesmo tratamento de lista que os vendedores reais ganham acima.
-    let produtosUnidTxt = '';
-    if (todayProdutos) {
-      const known = new Set(vendors.map(v => v.nome));
-      const somaUnid = new Map();
-      todayProdutos.forEach((porProduto, nome) => {
-        if (known.has(nome)) return;
-        porProduto.forEach((qtd, produto) => somaUnid.set(produto, (somaUnid.get(produto) || 0) + qtd));
-      });
-      produtosUnidTxt = listaProdutosVendedor(somaUnid);
-    }
     unidHtml = `
       <div class="lane lane-unid" style="order:${vendors.length + 1}">
-        <div class="lane-top">
-          <span class="lane-rank">—</span>
-          <div class="lane-line dashed"></div>
-          <div class="lane-info">
-            <span class="lane-name">Funil direto</span>
-            <span class="lane-value">${fmt(unidentified.valor)}</span>
-            <span class="lane-qtd">${unidentified.qtd} ${unidentified.qtd === 1 ? 'venda' : 'vendas'} sem vendedor na planilha</span>
-          </div>
+        <span class="lane-rank">—</span>
+        <div class="lane-line dashed"></div>
+        <div class="lane-info">
+          <span class="lane-name">Funil direto</span>
+          <span class="lane-value">${fmt(unidentified.valor)}</span>
+          <span class="lane-qtd">${unidentified.qtd} ${unidentified.qtd === 1 ? 'venda' : 'vendas'} sem vendedor na planilha</span>
         </div>
-        ${produtosUnidTxt ? `<div class="lane-produtos">${escapeHtml(produtosUnidTxt)}</div>` : ''}
       </div>`;
   }
 
@@ -1276,42 +1215,54 @@ function renderFunnel(sales) {
     atual.valor += s.valor; atual.qtd += 1;
     porProduto.set(nome, atual);
   });
-  let linhas = [...porProduto.entries()].sort((a,b) => b[1].valor - a[1].valor);
+  const linhas = [...porProduto.entries()].sort((a,b) => b[1].valor - a[1].valor);
   if (!linhas.length) {
+    DOM.funnelBands.classList.remove('is-scrolling');
     DOM.funnelBands.innerHTML = '<div class="funnel-empty">aguardando vendas de hoje...</div>';
     return;
   }
-  // A TV não tem rolagem: se vender muito produto diferente no mesmo dia
-  // (caso real em 2026-09-29 — 8 produtos), a altura divide igual entre
-  // todas as faixas e cada uma fica menor que uma linha de texto, aí o
-  // texto vaza pra cima da faixa vizinha e tudo fica ilegível/embolado.
-  // Por isso mostra só os produtos mais vendidos e resume o resto numa
-  // única faixa — mesma solução já usada nos atrasados da central de contato.
-  const MAX_FAIXAS = 3;
-  if (linhas.length > MAX_FAIXAS) {
-    const principais = linhas.slice(0, MAX_FAIXAS - 1);
-    const resto = linhas.slice(MAX_FAIXAS - 1);
-    const somaValor = resto.reduce((acc, [,d]) => acc + d.valor, 0);
-    const somaQtd = resto.reduce((acc, [,d]) => acc + d.qtd, 0);
-    linhas = principais.concat([[`+${resto.length} outros produtos`, {valor: somaValor, qtd: somaQtd, outros:true}]]);
-  }
-  const OUTROS_COLOR = '#4d4d57';
+
   const maxV = linhas[0][1].valor;
-  let prevPct = 100;
-  DOM.funnelBands.innerHTML = linhas.map(([produto, d], i) => {
-    const pct = Math.max(16, maxV > 0 ? (d.valor / maxV * 100) : 0);
-    const topLeft = (100 - prevPct) / 2, topRight = 100 - topLeft;
-    const botLeft = (100 - pct) / 2, botRight = 100 - botLeft;
-    const clip = `polygon(${topLeft}% 0, ${topRight}% 0, ${botRight}% 100%, ${botLeft}% 100%)`;
-    const color = d.outros ? OUTROS_COLOR : FUNNEL_COLORS[i % FUNNEL_COLORS.length];
-    prevPct = pct;
-    return `
-      <div class="funnel-band${d.outros ? ' funnel-band-outros' : ''}">
-        <div class="funnel-band-shape" style="clip-path:${clip}; background:${hexToRgba(color,0.14)}"></div>
-        <span class="funnel-band-label" style="color:${color}">${escapeHtml(produto)}</span>
-        <span class="funnel-band-value">${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'} &middot; ${fmt(d.valor)}</span>
-      </div>`;
-  }).join('');
+  function montarFaixas() {
+    let prevPct = 100;
+    return linhas.map(([produto, d], i) => {
+      const pct = Math.max(16, maxV > 0 ? (d.valor / maxV * 100) : 0);
+      const topLeft = (100 - prevPct) / 2, topRight = 100 - topLeft;
+      const botLeft = (100 - pct) / 2, botRight = 100 - botLeft;
+      const clip = `polygon(${topLeft}% 0, ${topRight}% 0, ${botRight}% 100%, ${botLeft}% 100%)`;
+      const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+      prevPct = pct;
+      return `
+        <div class="funnel-band">
+          <div class="funnel-band-shape" style="clip-path:${clip}; background:${hexToRgba(color,0.14)}"></div>
+          <span class="funnel-band-label" style="color:${color}">${escapeHtml(produto)}</span>
+          <span class="funnel-band-value">${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'} &middot; ${fmt(d.valor)}</span>
+        </div>`;
+    }).join('');
+  }
+
+  // A TV não tem rolagem manual, mas também não pode esconder produto
+  // nenhum — pedido explícito do usuário em 2026-09-30: quer ver o nome
+  // de TODOS os produtos vendidos no dia, sem resumir em "+N outros" e
+  // sem dividir a lista. Se não couber tudo de pé quieto (caso real em
+  // 2026-09-29, 8 produtos no mesmo dia), liga uma rolagem vertical
+  // automática e contínua — mesma receita do letreiro da central de
+  // contato — em vez de esconder ou cortar a lista.
+  const ALTURA_MIN_LEGIVEL = 26; // px por faixa — abaixo disso o texto fica ilegível
+  const disponivel = DOM.funnelBands.clientHeight || 0;
+  const precisaRolar = linhas.length > 1 && linhas.length * ALTURA_MIN_LEGIVEL > disponivel;
+
+  DOM.funnelBands.classList.toggle('is-scrolling', precisaRolar);
+  if (precisaRolar) {
+    const duracao = Math.max(14, linhas.length * 2.6);
+    DOM.funnelBands.style.setProperty('--funnel-scroll-duration', duracao.toFixed(1) + 's');
+    const faixasHtml = montarFaixas();
+    // duplica a lista — o loop dá a volta em -50% sem "pulo" perceptível
+    DOM.funnelBands.innerHTML = `<div class="funnel-bands-track">${faixasHtml}${faixasHtml}</div>`;
+  } else {
+    DOM.funnelBands.style.removeProperty('--funnel-scroll-duration');
+    DOM.funnelBands.innerHTML = montarFaixas();
+  }
 }
 
 function refresh() {
@@ -1325,9 +1276,6 @@ function refresh() {
   const todayTotals = new Map();
   today.forEach(s => todayTotals.set(s.vendedor, (todayTotals.get(s.vendedor) || 0) + s.valor));
   State.todayCounts = todayCounts;
-  // Quais produtos cada vendedor vendeu hoje — pra mostrar junto do nome
-  // no ranking, não só o valor total (pedido do usuário em 2026-09-30).
-  const todayProdutos = produtosByVendor(today);
 
   // "Vendas hoje" é o que os colaboradores CADASTRADOS venderam — não
   // inclui vendas de nomes fora da lista oficial (essas aparecem à parte,
@@ -1358,7 +1306,7 @@ function refresh() {
   DOM.statMeta.textContent = fmt(meta);
   DOM.statMonth.textContent = fmt(tM) + ' · ' + monthKnown.length + ' vendas';
 
-  if (State.dashData) renderLanes(State.dashData.vendors, todayCounts, todayTotals, {valor: unidValor, qtd: unidQtd}, todayProdutos);
+  if (State.dashData) renderLanes(State.dashData.vendors, todayCounts, todayTotals, {valor: unidValor, qtd: unidQtd});
   renderFunnel(today);
 }
 
