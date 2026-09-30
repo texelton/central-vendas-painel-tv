@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluxo Vivo — Time Comercial</title>
+<link rel="manifest" href="manifest-fluxo-vivo.json">
+<link rel="icon" href="icones/icon-fluxo-vivo-192.png">
+<link rel="apple-touch-icon" href="icones/apple-touch-icon-fluxo-vivo.png">
+<meta name="theme-color" content="#060608">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fluxo Vivo">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
@@ -205,16 +213,19 @@
   .lane-marker.flash { animation:laneFlash 0.8s ease; }
   @keyframes laneFlash { 0%,100%{ filter:brightness(1) } 40%{ filter:brightness(2.2) } }
   .lane-info {
-    display:flex; align-items:baseline; gap:12px; flex-shrink:0; width:clamp(240px, 30vw, 400px);
+    display:flex; align-items:baseline; gap:12px; flex-shrink:0; width:clamp(260px, 38vw, 520px);
+    overflow:hidden; /* trava dura: nada dentro pode vazar pra linha vizinha, aconteça o que acontecer */
   }
   /* Nome, valor e contagem são a informação que precisa ser lida de longe
      numa TV — por isso maiores e com teto de clamp mais alto que o resto
      da interface (rótulos/metadados continuam pequenos, só o dado central
      de cada linha cresce). Nunca podem quebrar linha: numa TV sem rolagem,
-     texto longo (nome grande, "sem vendedor na planilha") quebrando pra
-     2 linhas empurra tudo e vaza por cima da linha vizinha — corta com
-     "..." em vez disso (bug real visto em 2026-09-29). */
-  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+     texto longo (nome grande, "sem vendedor na planilha", produto vendido)
+     quebrando pra 2 linhas empurra tudo e vaza por cima da linha vizinha —
+     corta com "..." em vez disso (bug real visto em 2026-09-29). O nome
+     não encolhe (é a informação mais importante); quem cede espaço
+     primeiro é a contagem/produto, que fica em segundo plano. */
+  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 0 auto; max-width:50%; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* 1º lugar do dia ganha peso visual extra — reforça a competição entre
      o time em vez de deixar o ranking parecer uma lista neutra. */
   .lane-first .lane-rank { color:var(--gold); text-shadow:0 0 12px var(--gold); }
@@ -234,8 +245,11 @@
   }
   .lane-qtd {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.8rem, 1.3vw, 1rem); color:var(--fg-faint);
-    flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
+  /* dentro da contagem, o nome do produto vendido — mais apagado ainda,
+     pra não competir com o número de vendas que é o dado principal. */
+  .lane-qtd .lane-produto { color:var(--fg-faint); opacity:0.72; font-style:italic; }
 
   /* ---------- funil fluido: forma que afunila, não barras em caixa ---------- */
   .funnel-zone {
@@ -990,6 +1004,30 @@ function countByVendor(sales) {
   sales.forEach(s => counts.set(s.vendedor, (counts.get(s.vendedor) || 0) + 1));
   return counts;
 }
+// Map(vendedor -> Map(produto -> quantas vezes esse vendedor vendeu esse
+// produto hoje)) — usado pra mostrar no ranking não só quanto cada um
+// vendeu, mas o quê.
+function produtosByVendor(sales) {
+  const map = new Map();
+  sales.forEach(s => {
+    const nome = s.produto || 'Sem produto';
+    if (!map.has(s.vendedor)) map.set(s.vendedor, new Map());
+    const porProduto = map.get(s.vendedor);
+    porProduto.set(nome, (porProduto.get(nome) || 0) + 1);
+  });
+  return map;
+}
+// Resume os produtos de um vendedor numa string curta: o mais vendido
+// por ele + quantos outros produtos diferentes também vendeu — cabe na
+// mesma linha do ranking sem estourar espaço (a faixa "N vendas" já é
+// pequena, então isso não pode virar uma lista longa).
+function resumoProdutosVendedor(porProduto) {
+  if (!porProduto || !porProduto.size) return '';
+  const linhas = [...porProduto.entries()].sort((a,b) => b[1]-a[1]);
+  const [principal] = linhas[0];
+  const outros = linhas.length - 1;
+  return principal + (outros > 0 ? ` +${outros}` : '');
+}
 
 // ================================================================
 // DOM CACHE
@@ -1135,7 +1173,7 @@ function animTo(el, target, isCurrency) {
   animFrames[el] = requestAnimationFrame(step);
 }
 
-function renderLanes(vendors, todayCounts, todayTotals, unidentified) {
+function renderLanes(vendors, todayCounts, todayTotals, unidentified, todayProdutos) {
   // Ranking e valor exibido vêm sempre do mesmo lugar (log bruto de vendas
   // de hoje) — nunca da aba-resumo, pra nunca contradizer "X vendas" com
   // "R$ 0,00" na mesma tela.
@@ -1154,6 +1192,7 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified) {
     const display = State.displayNames[v.nome] || v.nome;
     const rank = rankOf.get(v.nome) || (idx+1);
     const isFirst = rank === 1 && (byValor.get(v.nome) || 0) > 0;
+    const produtoTxt = todayProdutos ? resumoProdutosVendedor(todayProdutos.get(v.nome)) : '';
     return `
       <div class="lane${isFirst ? ' lane-first' : ''}" data-vslot="${vid(idx)}" style="order:${rank}">
         <span class="lane-rank">${String(rank).padStart(2,'0')}</span>
@@ -1163,7 +1202,7 @@ function renderLanes(vendors, todayCounts, todayTotals, unidentified) {
         <div class="lane-info">
           <span class="lane-name" style="color:${color}">${isFirst ? CROWN_SVG : ''}${escapeHtml(display)}</span>
           <span class="lane-value">${fmt(byValor.get(v.nome) || 0)}</span>
-          <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}</span>
+          <span class="lane-qtd">${s.qtd} ${s.qtd === 1 ? 'venda' : 'vendas'}${produtoTxt ? ` · <span class="lane-produto">${escapeHtml(produtoTxt)}</span>` : ''}</span>
         </div>
       </div>`;
   }).join('');
@@ -1246,6 +1285,9 @@ function refresh() {
   const todayTotals = new Map();
   today.forEach(s => todayTotals.set(s.vendedor, (todayTotals.get(s.vendedor) || 0) + s.valor));
   State.todayCounts = todayCounts;
+  // Quais produtos cada vendedor vendeu hoje — pra mostrar junto do nome
+  // no ranking, não só o valor total (pedido do usuário em 2026-09-30).
+  const todayProdutos = produtosByVendor(today);
 
   // "Vendas hoje" é o que os colaboradores CADASTRADOS venderam — não
   // inclui vendas de nomes fora da lista oficial (essas aparecem à parte,
@@ -1276,7 +1318,7 @@ function refresh() {
   DOM.statMeta.textContent = fmt(meta);
   DOM.statMonth.textContent = fmt(tM) + ' · ' + monthKnown.length + ' vendas';
 
-  if (State.dashData) renderLanes(State.dashData.vendors, todayCounts, todayTotals, {valor: unidValor, qtd: unidQtd});
+  if (State.dashData) renderLanes(State.dashData.vendors, todayCounts, todayTotals, {valor: unidValor, qtd: unidQtd}, todayProdutos);
   renderFunnel(today);
 }
 
@@ -2011,6 +2053,12 @@ window.addEventListener('load', () => {
     updateConnectionStatus('error');
     showLoad(false);
     showToast('Preencha Spreadsheet ID e API Key em Configurações');
+  }
+
+  // Registra o service worker só pra permitir instalar como app (ver
+  // service-worker-fluxo-vivo.js) — não guarda nada em cache.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker-fluxo-vivo.js').catch(() => {});
   }
 });
 </script>
