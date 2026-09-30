@@ -219,10 +219,12 @@
      numa TV — por isso maiores e com teto de clamp mais alto que o resto
      da interface (rótulos/metadados continuam pequenos, só o dado central
      de cada linha cresce). Nunca podem quebrar linha: numa TV sem rolagem,
-     texto longo (nome grande, "sem vendedor na planilha") quebrando pra
-     2 linhas empurra tudo e vaza por cima da linha vizinha — corta com
-     "..." em vez disso (bug real visto em 2026-09-29). */
-  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+     texto longo quebrando pra 2 linhas empurra tudo e vaza por cima da
+     linha vizinha (bug real visto em 2026-09-29). O nome NUNCA encolhe/
+     abrevia (pedido do usuário em 2026-09-30 — nem "Funil direto" pode
+     virar "Fu..."); quem cede espaço é a contagem/descrição ao lado, que
+     é secundária e já corta com "..." se precisar. */
+  .lane-name { font-weight:700; font-size:clamp(1.05rem, 1.9vw, 1.5rem); color:var(--fg); flex:0 0 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* 1º lugar do dia ganha peso visual extra — reforça a competição entre
      o time em vez de deixar o ranking parecer uma lista neutra. */
   .lane-first .lane-rank { color:var(--gold); text-shadow:0 0 12px var(--gold); }

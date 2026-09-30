@@ -898,8 +898,17 @@ function renderQuadro(leads) {
       const trilha = (l.etapas_anteriores || []).map(e =>
         `<span class="trilha-dot" style="background:${COR_ETAPA[e.etapa] || 'var(--fg-faint)'}" title="${escapeHtml(NOME_ETAPA[e.etapa] || e.etapa)}"></span>`
       ).join('');
+      // Card de quem pagou, quando a venda tem vendedor identificado: a
+      // borda ganha a MESMA cor do nome dele no ranking — dá pra ver de
+      // longe quem fechou aquela venda sem precisar passar o mouse
+      // (pedido do usuário em 2026-09-30).
+      let corVendedorEstilo = '';
+      if (etapa === 'pago' && l.vendedor) {
+        const corVendedor = State.colors[normName(l.vendedor)];
+        if (corVendedor) corVendedorEstilo = ` style="border-color:${corVendedor}; border-width:2px;"`;
+      }
       return `
-        <div class="lead-card${ehNovo ? ' novo' : ''}" data-evento-id="${l.evento_id}">
+        <div class="lead-card${ehNovo ? ' novo' : ''}" data-evento-id="${l.evento_id}"${corVendedorEstilo}>
           <div>
             <div class="lead-card-nome">${escapeHtml(l.nome)}</div>
             <div class="lead-card-produto">${escapeHtml(l.produto || 'produto não identificado')}</div>
