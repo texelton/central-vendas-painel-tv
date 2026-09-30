@@ -796,6 +796,12 @@
       <span class="event-pending">toca quando a IA marca um comentário novo como venda</span>
     </div>
     <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--red)"></span>Reembolso / chargeback</div>
+      <div class="event-selects">
+        <select id="reembolsoSoundPack"><option value="descendente">Descendente</option><option value="alarme">Alarme</option></select>
+      </div>
+    </div>
+    <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--fg-faint)"></span>Carrinho abandonado</div>
       <span class="event-pending">planilha não recebe esse dado</span>
     </div>
@@ -1052,7 +1058,7 @@ const DOM = {};
 function cacheDOM() {
   ['clock','livePill','liveLabel','fullscreenBtn','drawerBtn','drawerCloseBtn','drawer','drawerOverlay',
    'heroValue','heroPct','heroCount','goalFill','statMeta','statMonth','lanes','funnelBands',
-   'sheetId','apiKey','metaDiaria','refreshInterval','soundEnabled','soundPack','popupEnabled',
+   'sheetId','apiKey','metaDiaria','refreshInterval','soundEnabled','soundPack','popupEnabled','reembolsoSoundPack',
    'toast','loader','loaderMsg','offlineBanner',
    'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle',
    'directNotif','directNotifValue',
@@ -1448,23 +1454,39 @@ function playContatoVencidoSound() {
   if (contatoVencidoSoundCache) contatoVencidoSoundCache();
 }
 function testContatoNotification() { playContatoNovoSound(); }
-// Som de reembolso/chargeback (pedido do usuário em 2026-09-30) — duas
-// notas DESCENDO, dissonantes entre si: o oposto de toda comemoração
-// do painel (que sobe e é consonante). Precisa soar "ruim" de propósito,
-// pra ninguém confundir com venda mesmo ouvindo de longe.
-let reembolsoSoundCache = null;
-function playReembolsoSound() {
-  if (reembolsoSoundCache === null) {
+// Sons de reembolso/chargeback (pedido do usuário em 2026-09-30) — 2
+// opções pra escolher na gaveta (mesmo esquema do SOUND_PACKS de venda),
+// as duas propositalmente "ruins", o oposto de toda comemoração do
+// painel (que sobe e é consonante), pra ninguém confundir com venda
+// mesmo ouvindo de longe.
+const REEMBOLSO_SOUND_PACKS = {
+  // duas notas DESCENDO, dissonantes entre si.
+  descendente: ctx => {
+    const now = ctx.currentTime;
+    tone(ctx, {type:'sawtooth', freq:311.13, freqEnd:207.65, start:now, dur:0.32, peak:0.13});
+    tone(ctx, {type:'sawtooth', freq:220, freqEnd:130.81, start:now + 0.22, dur:0.42, peak:0.12});
+  },
+  // 3 bipes graves e secos, tipo alarme/besouro — mais urgente que o
+  // descendente, sem melodia nenhuma.
+  alarme: ctx => {
+    const now = ctx.currentTime;
+    [0, 1, 2].forEach(i => tone(ctx, {type:'square', freq:196, start: now + i * 0.26, dur:0.16, peak:0.15}));
+  }
+};
+const reembolsoSoundCache = {};
+function getReembolsoSound(pack) {
+  if (!reembolsoSoundCache[pack]) {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      reembolsoSoundCache = () => {
-        const now = ctx.currentTime;
-        tone(ctx, {type:'sawtooth', freq:311.13, freqEnd:207.65, start:now, dur:0.32, peak:0.13});
-        tone(ctx, {type:'sawtooth', freq:220, freqEnd:130.81, start:now + 0.22, dur:0.42, peak:0.12});
-      };
-    } catch { reembolsoSoundCache = false; }
+      const play = REEMBOLSO_SOUND_PACKS[pack] || REEMBOLSO_SOUND_PACKS.descendente;
+      reembolsoSoundCache[pack] = () => play(ctx);
+    } catch { reembolsoSoundCache[pack] = null; }
   }
-  if (reembolsoSoundCache) reembolsoSoundCache();
+  return reembolsoSoundCache[pack];
+}
+function playReembolsoSound() {
+  const play = getReembolsoSound(DOM.reembolsoSoundPack ? DOM.reembolsoSoundPack.value : 'descendente');
+  if (play) play();
 }
 function testReembolsoNotification() { showReembolsoNotification('Cliente Teste', 297, 'reembolso'); }
 // Som de comentário com oportunidade de venda (pedido do usuário em
@@ -1638,10 +1660,14 @@ function processRefundNotifQueue() {
   DOM.refundNotifValue.textContent = '−' + fmt(r.valor);
   DOM.refundNotif.classList.add('show');
   if (DOM.soundEnabled.value === '1') playReembolsoSound();
+  // 20s na tela (pedido do usuário em 2026-09-30) — bem mais que as
+  // outras notificações (~3.5-5s), porque reembolso é o único aviso
+  // "ruim" do painel e precisa dar tempo de todo mundo ver, não só
+  // quem já estava olhando pra tela naquele segundo.
   setTimeout(() => {
     DOM.refundNotif.classList.remove('show');
     setTimeout(processRefundNotifQueue, 300);
-  }, 4500);
+  }, 20000);
 }
 
 // ================================================================
