@@ -119,8 +119,8 @@
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.6rem, 0.85vw, 0.72rem);
     font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim);
   }
-  .resumo-vendedores { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px 26px; }
-  .resumo-vendedor { display:flex; flex-direction:column; gap:1px; }
+  .resumo-vendedores { display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px 26px; }
+  .resumo-vendedor { display:flex; flex-direction:column; gap:1px; max-width:min(440px, 90vw); }
   .resumo-vendedor-linha { display:flex; align-items:baseline; gap:8px; }
   .resumo-vendedor-nome { font-weight:700; font-size:clamp(0.85rem, 1.2vw, 1.02rem); }
   .resumo-vendedor-valor {
@@ -128,10 +128,13 @@
     font-size:clamp(0.85rem, 1.2vw, 1.02rem); font-variant-numeric:tabular-nums;
   }
   /* produtos vendidos por cada um, discreto — pedido do usuário em
-     2026-09-30 (era pra ter sido aqui desde o início, não no Fluxo Vivo). */
+     2026-09-30: nome completo de TODOS os produtos, sem resumir em
+     "+N outros". O resumo não tem o orçamento de altura fixo que o
+     Ranking do Fluxo Vivo tem, então pode quebrar linha à vontade em
+     vez de cortar com "...". */
   .resumo-vendedor-produtos {
     font-family:'IBM Plex Mono',monospace; font-size:clamp(0.62rem, 0.85vw, 0.72rem);
-    color:var(--fg-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+    color:var(--fg-faint); white-space:normal; line-height:1.5;
   }
   .resumo-vazio { font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--fg-faint); }
 
@@ -855,21 +858,15 @@ async function buscarProdutosPorVendedorHoje() {
   }
   return map;
 }
-// Lista os produtos de um vendedor com a quantidade de cada um
-// ("O GESTOR ×5 · Rating CNPJ ×2") — mostra só os 2 mais vendidos e
-// resume o resto num "+N outros", pra não estourar a linha do resumo.
-function listaProdutosVendedor(porProduto, max) {
+// Lista TODOS os produtos de um vendedor com a quantidade de cada um
+// ("O GESTOR ×5 · Rating CNPJ ×2 · Casa Própria ×1") — nome completo,
+// nenhum resumido em "+N outros" (pedido do usuário em 2026-09-30: o
+// resumo tem espaço de sobra, diferente do Ranking do Fluxo Vivo, então
+// pode listar tudo em vez de abreviar).
+function listaProdutosVendedor(porProduto) {
   if (!porProduto || !porProduto.size) return '';
-  max = max || 2;
   const linhas = [...porProduto.entries()].sort((a, b) => b[1] - a[1]);
-  const principais = linhas.slice(0, max);
-  const resto = linhas.slice(max);
-  const partes = principais.map(([nome, qtd]) => `${nome} ×${qtd}`);
-  if (resto.length) {
-    const somaResto = resto.reduce((s, [, q]) => s + q, 0);
-    partes.push(`+${resto.length} outro${resto.length > 1 ? 's' : ''} (${somaResto})`);
-  }
-  return partes.join('  ·  ');
+  return linhas.map(([nome, qtd]) => `${nome} ×${qtd}`).join('  ·  ');
 }
 
 // Mostra nome + valor de quem vendeu hoje (pedido do usuário em
