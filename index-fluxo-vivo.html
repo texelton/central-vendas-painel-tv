@@ -797,9 +797,7 @@
     </div>
     <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--red)"></span>Reembolso / chargeback</div>
-      <div class="event-selects">
-        <select id="reembolsoSoundPack"><option value="descendente">Descendente</option><option value="alarme">Alarme</option></select>
-      </div>
+      <span class="event-pending">som de "trombone triste", fica 20s na tela</span>
     </div>
     <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--fg-faint)"></span>Carrinho abandonado</div>
@@ -1058,7 +1056,7 @@ const DOM = {};
 function cacheDOM() {
   ['clock','livePill','liveLabel','fullscreenBtn','drawerBtn','drawerCloseBtn','drawer','drawerOverlay',
    'heroValue','heroPct','heroCount','goalFill','statMeta','statMonth','lanes','funnelBands',
-   'sheetId','apiKey','metaDiaria','refreshInterval','soundEnabled','soundPack','popupEnabled','reembolsoSoundPack',
+   'sheetId','apiKey','metaDiaria','refreshInterval','soundEnabled','soundPack','popupEnabled',
    'toast','loader','loaderMsg','offlineBanner',
    'burstFlash','burst','burstEmoji','burstVendor','burstValue','burstTitle',
    'directNotif','directNotifValue',
@@ -1454,39 +1452,26 @@ function playContatoVencidoSound() {
   if (contatoVencidoSoundCache) contatoVencidoSoundCache();
 }
 function testContatoNotification() { playContatoNovoSound(); }
-// Sons de reembolso/chargeback (pedido do usuário em 2026-09-30) — 2
-// opções pra escolher na gaveta (mesmo esquema do SOUND_PACKS de venda),
-// as duas propositalmente "ruins", o oposto de toda comemoração do
-// painel (que sobe e é consonante), pra ninguém confundir com venda
-// mesmo ouvindo de longe.
-const REEMBOLSO_SOUND_PACKS = {
-  // duas notas DESCENDO, dissonantes entre si.
-  descendente: ctx => {
-    const now = ctx.currentTime;
-    tone(ctx, {type:'sawtooth', freq:311.13, freqEnd:207.65, start:now, dur:0.32, peak:0.13});
-    tone(ctx, {type:'sawtooth', freq:220, freqEnd:130.81, start:now + 0.22, dur:0.42, peak:0.12});
-  },
-  // 3 bipes graves e secos, tipo alarme/besouro — mais urgente que o
-  // descendente, sem melodia nenhuma.
-  alarme: ctx => {
-    const now = ctx.currentTime;
-    [0, 1, 2].forEach(i => tone(ctx, {type:'square', freq:196, start: now + i * 0.26, dur:0.16, peak:0.15}));
-  }
-};
-const reembolsoSoundCache = {};
-function getReembolsoSound(pack) {
-  if (!reembolsoSoundCache[pack]) {
+// Som de reembolso/chargeback (pedido do usuário em 2026-09-30, trocado
+// no mesmo dia por não ter agradado nas 2 primeiras tentativas —
+// "descendente" com sawtooth e "alarme" com bipe quadrado, ambos ásperos
+// demais). Esse é o clássico "trombone triste" (3 notas caindo, tocadas
+// com onda triangular, bem mais suave que sawtooth/square) — o som
+// universal de "algo deu errado", sem ser um alarme estridente.
+let reembolsoSoundCache = null;
+function playReembolsoSound() {
+  if (reembolsoSoundCache === null) {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const play = REEMBOLSO_SOUND_PACKS[pack] || REEMBOLSO_SOUND_PACKS.descendente;
-      reembolsoSoundCache[pack] = () => play(ctx);
-    } catch { reembolsoSoundCache[pack] = null; }
+      reembolsoSoundCache = () => {
+        const now = ctx.currentTime;
+        tone(ctx, {type:'triangle', freq:392.00, freqEnd:349.23, start:now,        dur:0.32, peak:0.15});
+        tone(ctx, {type:'triangle', freq:349.23, freqEnd:293.66, start:now + 0.30, dur:0.32, peak:0.14});
+        tone(ctx, {type:'triangle', freq:293.66, freqEnd:220.00, start:now + 0.60, dur:0.6,  peak:0.15});
+      };
+    } catch { reembolsoSoundCache = false; }
   }
-  return reembolsoSoundCache[pack];
-}
-function playReembolsoSound() {
-  const play = getReembolsoSound(DOM.reembolsoSoundPack ? DOM.reembolsoSoundPack.value : 'descendente');
-  if (play) play();
+  if (reembolsoSoundCache) reembolsoSoundCache();
 }
 function testReembolsoNotification() { showReembolsoNotification('Cliente Teste', 297, 'reembolso'); }
 // Som de comentário com oportunidade de venda (pedido do usuário em
