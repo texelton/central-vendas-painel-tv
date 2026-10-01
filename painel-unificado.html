@@ -918,6 +918,13 @@ const CONTATO_PRAZO_MS = 20 * 60 * 1000;
 function ehProdutoContato(produto) {
   return String(produto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(PRODUTO_CONTATO_TERMO);
 }
+// "O Gestor" é o upsell — quem já tem ele não precisa mais do onboarding
+// (pedido do usuário em 2026-10-01). Comparação exata (não "includes")
+// de propósito: "Gestor de Reputação Bancária" é um produto DIFERENTE,
+// um "includes('gestor')" pegaria ele também por engano.
+function ehProdutoGestor(produto) {
+  return String(produto || '').trim().toLowerCase() === 'o gestor';
+}
 const ContatoState = {
   atendidos: new Set(),
   alertados: new Set(),
@@ -925,9 +932,25 @@ const ContatoState = {
   baselinePronto: false,
 };
 function getContatosHoje() {
+  // Quem já tem "O Gestor" — em QUALQUER data, não só hoje (comprou o
+  // upsell semana passada e hoje aparece de novo pedindo Rating
+  // Bancário não deveria voltar pra fila). Casa por e-mail (mais
+  // confiável) com nome como reforço pra quando o e-mail vier vazio.
+  const temGestorEmail = new Set(), temGestorNome = new Set();
+  rawData.forEach(s => {
+    if (!ehProdutoGestor(s.produto)) return;
+    if (s.email) temGestorEmail.add(s.email.toLowerCase());
+    if (s.cliente) temGestorNome.add(s.cliente.toLowerCase());
+  });
+
   return rawData
     .filter(s => s.data && isToday(s.data) && ehProdutoContato(s.produto))
     .filter(s => !s.orderId || !ContatoState.atendidos.has(s.orderId))
+    .filter(s => {
+      const jaTemGestor = (s.email && temGestorEmail.has(s.email.toLowerCase()))
+        || (s.cliente && temGestorNome.has(s.cliente.toLowerCase()));
+      return !jaTemGestor;
+    })
     .map(s => ({ ...s, prazo: new Date(s.data.getTime() + CONTATO_PRAZO_MS) }))
     .sort((a, b) => a.data - b.data); // mais antigo primeiro = quem tem que ligar primeiro
 }
@@ -1067,6 +1090,7 @@ async function buscarDadosPlanilha() {
       produto: (row[2] || '').trim(),
       valor: pVal(row[3]),
       cliente: (row[4] || '').trim(),
+      email: (row[5] || '').trim(),
       orderId: (row[6] || '').trim(),
     });
   }
