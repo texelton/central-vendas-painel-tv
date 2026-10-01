@@ -139,6 +139,33 @@
   .hero-sub { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--green); font-weight:600; }
   .hero-sub.dim { color:var(--fg-dim); font-weight:500; }
 
+  /* ---------- central de contato — rating bancário: trazida do Fluxo
+     Vivo (pedido do usuário em 2026-09-30). Só aparece quando tem
+     alguém esperando (hidden por padrão); fica compacta de propósito,
+     uma linha só + letreiro, pra nunca empurrar o resto da tela pra
+     fora quando aparecer. */
+  .contact-zone { flex:0 0 auto; padding:9px 18px; border-color:rgba(255,214,10,0.25); background:rgba(255,214,10,0.05); }
+  .contact-zone.has-late { border-color:rgba(255,69,58,0.4); animation:contactPulse 2.4s ease-in-out infinite; }
+  @keyframes contactPulse {
+    0%,100% { box-shadow:0 20px 50px -28px rgba(0,0,0,0.8); }
+    50% { box-shadow:0 20px 50px -28px rgba(0,0,0,0.8), 0 0 28px rgba(255,69,58,0.3); }
+  }
+  .contact-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 20px; }
+  .contact-title {
+    font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:600;
+    letter-spacing:1.2px; text-transform:uppercase; color:var(--fg-dim);
+  }
+  .contact-summary { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
+  .contact-stat { font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--fg-dim); text-transform:uppercase; letter-spacing:0.5px; }
+  .contact-stat b { font-size:1.15em; color:var(--fg); margin:0 3px; }
+  .contact-stat.danger b { color:var(--red); }
+  .contact-stat i { font-style:normal; font-size:0.86em; color:var(--fg-faint); text-transform:none; letter-spacing:0; }
+  .contact-ticker-mask { margin-top:5px; overflow:hidden; white-space:nowrap; -webkit-mask-image:linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image:linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+  .contact-ticker { display:inline-flex; animation:contactTickerScroll 26s linear infinite; }
+  .contact-ticker-item { font-size:0.74rem; color:var(--fg); padding-right:36px; white-space:nowrap; }
+  .contact-ticker-item .t { color:var(--red); font-family:'IBM Plex Mono',monospace; font-size:0.9em; margin-left:6px; }
+  @keyframes contactTickerScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+
   .panels-row { display:flex; gap:10px; }
 
   /* ---------- ranking: lista vertical compacta, uma linha por pessoa ---------- */
@@ -333,6 +360,24 @@
   .event-selects { display:flex; gap:6px; }
   .event-selects select { padding:6px 8px; font-size:0.7rem; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:7px; color:var(--fg); }
 
+  /* ---------- lista clicável da Central de Contato na gaveta — quem vai
+     ligar aperta "Atendido" aqui, do celular/notebook ---------- */
+  .contact-drawer-empty { font-size:0.78rem; color:var(--fg-faint); padding:6px 0; }
+  .contact-drawer-list { display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto; }
+  .contact-drawer-row {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 12px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid var(--line);
+  }
+  .contact-drawer-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .contact-drawer-name { font-size:0.8rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px; }
+  .contact-drawer-time { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--fg-faint); }
+  .contact-drawer-time.late { color:var(--red); font-weight:700; }
+  .contact-drawer-btn {
+    flex-shrink:0; padding:7px 12px; border-radius:8px; border:1px solid rgba(48,209,88,0.4);
+    background:rgba(48,209,88,0.12); color:var(--green); font-weight:700; font-size:0.72rem; cursor:pointer;
+  }
+  .contact-drawer-btn:hover { background:rgba(48,209,88,0.22); }
+
   .aviso-mock {
     position:fixed; bottom:8px; left:50%; transform:translateX(-50%);
     font-family:'IBM Plex Mono',monospace; font-size:0.62rem; color:var(--fg-faint);
@@ -413,6 +458,19 @@
       </div>
     </div>
 
+    <div class="contact-zone glass" id="contactZone" hidden>
+      <div class="contact-head">
+        <span class="contact-title">central de contato — rating bancário</span>
+        <div class="contact-summary">
+          <span class="contact-stat">aguardando <b id="contactPendCount">0</b><i id="contactPendNext"></i></span>
+          <span class="contact-stat danger">atrasados <b id="contactLateCount">0</b></span>
+        </div>
+      </div>
+      <div class="contact-ticker-mask" id="contactTickerMask">
+        <div class="contact-ticker" id="contactTicker"></div>
+      </div>
+    </div>
+
     <div class="panels-row">
       <div class="ranking-panel glass">
         <div class="panel-title"><span class="dot" style="background:var(--blue)"></span>Ranking do time</div>
@@ -440,6 +498,13 @@
   <div class="drawer-header">
     <span class="drawer-title">Configurações</span>
     <button class="icon-btn" id="drawerCloseBtn" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+
+  <div class="drawer-section">
+    <div class="drawer-section-title">Central de contato — Rating Bancário</div>
+    <div class="contact-drawer-list" id="contactDrawerList">
+      <div class="contact-drawer-empty">Ninguém aguardando contato agora.</div>
+    </div>
   </div>
 
   <div class="drawer-section">
@@ -472,12 +537,17 @@
       <span class="event-pending">som de assobio, aviso sem comemoração</span>
     </div>
     <div class="event-row">
+      <div class="event-name"><span class="event-dot" style="background:var(--yellow)"></span>Contato (Rating Bancário)</div>
+      <span class="event-pending">toca 2x: na venda, e quando passam 20min sem contato</span>
+    </div>
+    <div class="event-row">
       <div class="event-name"><span class="event-dot" style="background:var(--red)"></span>Reembolso / chargeback</div>
       <span class="event-pending">som + banner por 20s + quadrinho vermelho sempre visível</span>
     </div>
     <div class="drawer-row" style="margin-top:14px">
       <button class="drawer-btn" onclick="testNotification()">Testar venda</button>
       <button class="drawer-btn" onclick="testDirectNotification()">Testar funil direto</button>
+      <button class="drawer-btn" onclick="testContatoNotification()">Testar contato</button>
       <button class="drawer-btn" onclick="testReembolsoNotification()">Testar reembolso</button>
     </div>
   </div>
@@ -837,6 +907,135 @@ function posicionarTip(e) {
 function esconderTip() { tip.classList.remove('show'); }
 
 // ================================================================
+// CENTRAL DE CONTATO — RATING BANCÁRIO — trazida do Fluxo Vivo (pedido
+// do usuário em 2026-09-30). Quem compra esse produto precisa que a
+// Bia ligue em até 20min. Roda numa contagem própria de 5s
+// (tickContato), independente do ciclo de busca na planilha, pra pegar
+// o instante exato em que os 20min vencem.
+// ================================================================
+const PRODUTO_CONTATO_TERMO = 'rating banc'; // casa "Rating Bancário" em qualquer versão do produto
+const CONTATO_PRAZO_MS = 20 * 60 * 1000;
+function ehProdutoContato(produto) {
+  return String(produto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(PRODUTO_CONTATO_TERMO);
+}
+const ContatoState = {
+  atendidos: new Set(),
+  alertados: new Set(),
+  vencidosAlertados: new Set(),
+  baselinePronto: false,
+};
+function getContatosHoje() {
+  return rawData
+    .filter(s => s.data && isToday(s.data) && ehProdutoContato(s.produto))
+    .filter(s => !s.orderId || !ContatoState.atendidos.has(s.orderId))
+    .map(s => ({ ...s, prazo: new Date(s.data.getTime() + CONTATO_PRAZO_MS) }))
+    .sort((a, b) => a.data - b.data); // mais antigo primeiro = quem tem que ligar primeiro
+}
+// Busca no servidor quem já foi marcado como "Atendido" (ver
+// src/fluxo_vivo/rota.py) — roda sozinha, pra pegar um clique feito em
+// OUTRO aparelho (a Bia liga do celular, não da TV).
+let atendidosBuscaEmAndamento = false;
+async function fetchAtendidos() {
+  if (atendidosBuscaEmAndamento) return;
+  atendidosBuscaEmAndamento = true;
+  try {
+    const r = await fetch(API_BASE + '/fluxo-vivo/contatos/atendidos', {cache: 'no-store'});
+    if (r.ok) {
+      const j = await r.json();
+      ContatoState.atendidos = new Set(j.atendidos || []);
+      renderContato();
+    }
+  } catch (e) { /* servidor fora do ar — mantém o que já sabia até a próxima tentativa */ }
+  atendidosBuscaEmAndamento = false;
+}
+// Clique no botão "Atendido" — some da tela na hora (otimista) e
+// confirma no servidor depois; se falhar, volta a aparecer e avisa.
+async function marcarAtendido(orderId) {
+  if (!orderId) return;
+  ContatoState.atendidos.add(orderId);
+  renderContato();
+  try {
+    const r = await fetch(API_BASE + '/fluxo-vivo/contatos/' + encodeURIComponent(orderId) + '/atender', {method:'POST'});
+    if (!r.ok) throw new Error(String(r.status));
+  } catch (e) {
+    ContatoState.atendidos.delete(orderId);
+    renderContato();
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const lista = document.getElementById('contactDrawerList');
+  if (lista) lista.addEventListener('click', e => {
+    const btn = e.target.closest('.contact-drawer-btn');
+    if (btn) marcarAtendido(btn.dataset.orderid);
+  });
+});
+function renderContatoDrawer(pendentes, atrasados, agora) {
+  const el = document.getElementById('contactDrawerList');
+  if (!el) return;
+  const todos = [...atrasados, ...pendentes];
+  if (!todos.length) {
+    el.innerHTML = '<div class="contact-drawer-empty">Ninguém aguardando contato agora.</div>';
+    return;
+  }
+  el.innerHTML = todos.map(c => {
+    const atrasado = c.prazo <= agora;
+    const status = atrasado ? 'atrasado há ' + fmtMin(agora - c.prazo) : 'faltam ' + fmtMin(c.prazo - agora);
+    return `
+      <div class="contact-drawer-row">
+        <div class="contact-drawer-info">
+          <span class="contact-drawer-name">${escapeHtml(c.cliente || 'Cliente sem nome na planilha')}</span>
+          <span class="contact-drawer-time${atrasado ? ' late' : ''}">${status}</span>
+        </div>
+        <button class="contact-drawer-btn" data-orderid="${escapeHtml(c.orderId)}">Atendido</button>
+      </div>`;
+  }).join('');
+}
+function renderContato() {
+  if (!ContatoState.baselinePronto) return;
+  const agora = agoraCorrigido();
+  const contatos = getContatosHoje();
+
+  // Venda nova desse produto (chegou depois que a página conectou) —
+  // toca o som de "precisa ligar", separado da comemoração normal.
+  contatos.forEach(c => {
+    if (!c.orderId || ContatoState.alertados.has(c.orderId)) return;
+    ContatoState.alertados.add(c.orderId);
+    if (document.getElementById('soundEnabled').value === '1') playContatoNovoSound();
+  });
+
+  const pendentes = contatos.filter(c => c.prazo > agora);
+  const atrasados = contatos.filter(c => c.prazo <= agora);
+
+  // Acabou de vencer os 20min sem uma venda nova ter zerado o contador —
+  // toca o som de atraso uma única vez por venda.
+  atrasados.forEach(c => {
+    if (!c.orderId || ContatoState.vencidosAlertados.has(c.orderId)) return;
+    ContatoState.vencidosAlertados.add(c.orderId);
+    if (document.getElementById('soundEnabled').value === '1') playContatoVencidoSound();
+  });
+
+  renderContatoDrawer(pendentes, atrasados, agora);
+
+  const zona = document.getElementById('contactZone');
+  const total = pendentes.length + atrasados.length;
+  zona.hidden = total === 0;
+  zona.classList.toggle('has-late', atrasados.length > 0);
+  if (total === 0) { document.getElementById('contactTicker').innerHTML = ''; return; }
+
+  document.getElementById('contactPendCount').textContent = pendentes.length;
+  document.getElementById('contactLateCount').textContent = atrasados.length;
+  document.getElementById('contactPendNext').textContent = pendentes.length
+    ? '· próx. em ' + fmtMin(pendentes[0].prazo - agora) : '';
+
+  document.getElementById('contactTickerMask').hidden = atrasados.length === 0;
+  if (atrasados.length) {
+    const itensHtml = atrasados.map(c => `<span class="contact-ticker-item">${escapeHtml(c.cliente || 'Cliente sem nome na planilha')} <span class="t">há ${fmtMin(agora - c.prazo)}</span></span>`).join('');
+    document.getElementById('contactTicker').innerHTML = itensHtml + itensHtml;
+  }
+}
+function tickContato() { if (jaIniciou) renderContato(); }
+
+// ================================================================
 // FLUXO VIVO (hero, ranking, funil por produto) — Google Sheets
 // ================================================================
 let rawData = [];
@@ -867,6 +1066,8 @@ async function buscarDadosPlanilha() {
       vendedor: normName(row[1]),
       produto: (row[2] || '').trim(),
       valor: pVal(row[3]),
+      cliente: (row[4] || '').trim(),
+      orderId: (row[6] || '').trim(),
     });
   }
   rawData = novo;
@@ -1004,6 +1205,8 @@ async function atualizarVendas() {
   renderHero(today, mes);
   renderRanking(today);
   renderFunil(today);
+  renderContato();
+  ContatoState.baselinePronto = true;
 }
 
 // ================================================================
@@ -1112,6 +1315,38 @@ function renderReembolsos(lista) {
     reembolsosHoverLigado = true;
   }
 }
+
+// Sons da central de contato — dois sons PRÓPRIOS, diferentes de tudo:
+// um toca na venda do produto que exige ligação, o outro toca sozinho
+// quando passam os 20min sem contato zerar o contador.
+let contatoNovoSoundCache = null;
+function playContatoNovoSound() {
+  if (contatoNovoSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      contatoNovoSoundCache = () => {
+        const now = ctx.currentTime;
+        tone(ctx, {type:'triangle', freq:1046.5, start:now, dur:0.12, peak:0.13});
+        tone(ctx, {type:'triangle', freq:1046.5, start:now + 0.16, dur:0.12, peak:0.13});
+      };
+    } catch { contatoNovoSoundCache = false; }
+  }
+  if (contatoNovoSoundCache) contatoNovoSoundCache();
+}
+let contatoVencidoSoundCache = null;
+function playContatoVencidoSound() {
+  if (contatoVencidoSoundCache === null) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      contatoVencidoSoundCache = () => {
+        const now = ctx.currentTime;
+        [0, 1, 2].forEach(i => tone(ctx, {type:'square', freq:1568, start: now + i * 0.22, dur:0.14, peak:0.14}));
+      };
+    } catch { contatoVencidoSoundCache = false; }
+  }
+  if (contatoVencidoSoundCache) contatoVencidoSoundCache();
+}
+function testContatoNotification() { playContatoNovoSound(); }
 
 // Som de reembolso/chargeback (mesmo "trombone triste" do Fluxo Vivo) —
 // tocava a faltar aqui: o quadrinho vermelho atualizava sozinho mas
@@ -1236,6 +1471,9 @@ function iniciar() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
   tickClock();
   setInterval(tickClock, 1000);
+  fetchAtendidos();
+  setInterval(fetchAtendidos, 8000);
+  setInterval(tickContato, 5000);
   atualizarTudo();
   startAutoRefresh();
 }
