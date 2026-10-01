@@ -618,9 +618,9 @@ function corPessoa(nome) {
 }
 
 // ---------- vendedores conhecidos (mesma lista do Fluxo Vivo) ----------
-const VENDORS_CONHECIDOS = ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL'];
-const NAME_MAP = { 'BIA':'BIA','JOAO':'JOAO','JOAOV':'JOAOV','MATHEUS':'MATHEUS','LAIS':'LAIS','ELTON':'ELTON','MARCELO':'MARCELO','WAL MACEDO':'WAL MACEDO','BELLMORAISS':'BELLMORAISS','ANGARA':'ANGARA','DUDA':'DUDA','MILLENA':'MILLENA','JARDEL':'JARDEL' };
-const DISPLAY_NAMES = { 'BIA':'Bia','JOAO':'Joao','JOAOV':'Joao Victor','MATHEUS':'Matheus','LAIS':'Lais','ELTON':'Elton','MARCELO':'Marcelo','WAL MACEDO':'Wal Macedo','BELLMORAISS':'Bellmoraiss','ANGARA':'Angara','DUDA':'Mª Eduardha','MILLENA':'Millena','JARDEL':'Jardel' };
+const VENDORS_CONHECIDOS = ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL','LAURA'];
+const NAME_MAP = { 'BIA':'BIA','JOAO':'JOAO','JOAOV':'JOAOV','MATHEUS':'MATHEUS','LAIS':'LAIS','ELTON':'ELTON','MARCELO':'MARCELO','WAL MACEDO':'WAL MACEDO','BELLMORAISS':'BELLMORAISS','ANGARA':'ANGARA','DUDA':'DUDA','MILLENA':'MILLENA','JARDEL':'JARDEL','LAURA':'LAURA' };
+const DISPLAY_NAMES = { 'BIA':'Bia','JOAO':'Joao','JOAOV':'Joao Victor','MATHEUS':'Matheus','LAIS':'Lais','ELTON':'Elton','MARCELO':'Marcelo','WAL MACEDO':'Wal Macedo','BELLMORAISS':'Bellmoraiss','ANGARA':'Angara','DUDA':'Mª Eduardha','MILLENA':'Millena','JARDEL':'Jardel','LAURA':'Laura' };
 function normName(raw) {
   if (!raw) return '';
   const upper = raw.toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
