@@ -847,7 +847,11 @@ const VendasState = { prevTotals: {}, prevUnidTotal: 0, baselinePronto: false };
 
 async function buscarDadosPlanilha() {
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
-  const r = await fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${SHEET_KEY}`);
+  // cache:'no-store' — sem isso, o navegador pode reaproveitar uma
+  // resposta antiga guardada em cache (dado E relógio desatualizados),
+  // sobretudo numa aba que fica aberta horas numa TV (pedido do
+  // usuário em 2026-09-30: "o tempo tá ficando errado").
+  const r = await fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${SHEET_KEY}`, {cache: 'no-store'});
   if (!r.ok) throw new Error('planilha: ' + r.status);
   corrigirRelogio(r.headers.get('date'));
   const j = await r.json();
@@ -1009,7 +1013,7 @@ const ETAPA_CHAVE = { carrinho_abandonado:'carrinho', pix_pendente:'pix', cartao
 const ETAPA_NOME = { carrinho:'Carrinho abandonado', pix:'Pix pendente', cartao:'Cartão recusado', pago:'Pago' };
 
 async function buscarRecuperacao() {
-  const r = await fetch(API_BASE + '/recuperacao/hoje?dias_atras=0');
+  const r = await fetch(API_BASE + '/recuperacao/hoje?dias_atras=0', {cache: 'no-store'});
   if (!r.ok) throw new Error('recuperacao: ' + r.status);
   corrigirRelogio(r.headers.get('date'));
   const j = await r.json();
@@ -1068,7 +1072,7 @@ async function atualizarRecuperacao() {
 // REEMBOLSOS — quadrinho vermelho no topo
 // ================================================================
 async function buscarReembolsos() {
-  const r = await fetch(API_BASE + '/fluxo-vivo/reembolsos-hoje');
+  const r = await fetch(API_BASE + '/fluxo-vivo/reembolsos-hoje', {cache: 'no-store'});
   if (!r.ok) throw new Error('reembolsos: ' + r.status);
   const j = await r.json();
   return j.reembolsos || [];
