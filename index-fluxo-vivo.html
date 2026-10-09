@@ -9,8 +9,13 @@
      numa tela só). Em vez de apagar o arquivo (quebraria qualquer TV/
      aparelho que ainda tenha esse link salvo), ele agora só redireciona
      pro painel novo — automático, e com um link manual de segurança caso
-     o redirecionamento não funcione por algum motivo. -->
-<meta http-equiv="refresh" content="0; url=painel-unificado.html">
+     o redirecionamento não funcione por algum motivo.
+
+     Atualizado em 2026-10-09: agora redireciona pro painel-rotativo.html,
+     que fica alternando sozinho entre o painel único e a Corrida de
+     Metas (pedido do usuário: "adiciona esse painel ao fluxo vivo +
+     repeat para ficar alternando e mostrando os dois painéis"). -->
+<meta http-equiv="refresh" content="0; url=painel-rotativo.html">
 <style>
   html, body {
     margin:0; height:100%; display:flex; align-items:center; justify-content:center;
@@ -24,9 +29,9 @@
 </head>
 <body>
   <div class="msg">
-    <p>Esse painel virou o <a href="painel-unificado.html">painel único</a>.</p>
+    <p>Esse painel virou a <a href="painel-rotativo.html">rotação de painéis</a>.</p>
     <p>Se não for redirecionado sozinho, toque no link acima.</p>
   </div>
-  <script>location.replace('painel-unificado.html');</script>
+  <script>location.replace('painel-rotativo.html');</script>
 </body>
 </html>

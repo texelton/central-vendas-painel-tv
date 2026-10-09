@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Vendas — TV</title>
+<!-- ================================================================
+     PAINEL ROTATIVO — fica alternando sozinho entre os painéis da TV,
+     em loop infinito. Pedido do usuário em 2026-10-09: "adiciona esse
+     painel que fizemos [Corrida de Metas] ao fluxo vivo + repeat para
+     ficar alternando e mostrando os dois painéis".
+
+     Como funciona: um iframe de tela cheia troca de endereço sozinho
+     a cada X segundos (ver array PAINEIS abaixo). Os dois painéis
+     continuam sendo arquivos separados e independentes — essa página
+     só fica "folheando" entre eles, como um controle remoto automático.
+
+     A senha de acesso é compartilhada (mesmo localStorage, mesmo
+     domínio) — desbloqueia uma vez só e os dois painéis já abrem
+     direto, sem pedir senha de novo a cada troca.
+     ================================================================ -->
+<style>
+  html, body {
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:#000000;
+  }
+  #painelFrame {
+    position:fixed; inset:0; width:100%; height:100%; border:none;
+    opacity:1; transition:opacity 0.5s ease;
+  }
+  #painelFrame.trocando { opacity:0; }
+  @media (prefers-reduced-motion: reduce) {
+    #painelFrame { transition:none; }
+  }
+</style>
+</head>
+<body>
+  <iframe id="painelFrame" src="" allow="fullscreen; autoplay" title="Painel da TV"></iframe>
+
+  <script>
+    // Ordem e duração de cada painel na rotação — pra mudar o tempo ou
+    // a ordem, só editar aqui. duracaoMs = quanto tempo esse painel
+    // fica na tela antes de trocar pro próximo (e depois volta pro
+    // primeiro, em loop pra sempre).
+    const PAINEIS = [
+      { url: 'painel-unificado.html', duracaoMs: 30000 },
+      { url: 'corrida-de-metas.html', duracaoMs: 30000 },
+    ];
+
+    const frame = document.getElementById('painelFrame');
+    let indiceAtual = 0;
+
+    function mostrarPainel(indice) {
+      frame.classList.add('trocando');
+      setTimeout(() => {
+        frame.src = PAINEIS[indice].url;
+        frame.classList.remove('trocando');
+      }, 500);
+      setTimeout(() => {
+        indiceAtual = (indice + 1) % PAINEIS.length;
+        mostrarPainel(indiceAtual);
+      }, PAINEIS[indice].duracaoMs);
+    }
+
+    // primeiro painel entra direto, sem fade (não tem nada antes pra
+    // desaparecer)
+    frame.src = PAINEIS[0].url;
+    setTimeout(() => {
+      indiceAtual = 1 % PAINEIS.length;
+      mostrarPainel(indiceAtual);
+    }, PAINEIS[0].duracaoMs);
+  </script>
+</body>
+</html>
