@@ -304,7 +304,13 @@ let SHEET_KEY = SHEET_KEY_PADRAO;
 const VENDORS_CONHECIDOS = ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL','LAURA'];
 const NAME_MAP = { 'BIA':'BIA','JOAO':'JOAO','JOAOV':'JOAOV','MATHEUS':'MATHEUS','LAIS':'LAIS','ELTON':'ELTON','MARCELO':'MARCELO','WAL MACEDO':'WAL MACEDO','BELLMORAISS':'BELLMORAISS','ANGARA':'ANGARA','DUDA':'DUDA','MILLENA':'MILLENA','JARDEL':'JARDEL','LAURA':'LAURA' };
 const DISPLAY_NAMES = { 'BIA':'Bia','JOAO':'Joao','JOAOV':'Joao Victor','MATHEUS':'Matheus','LAIS':'Lais','ELTON':'Elton','MARCELO':'Marcelo','WAL MACEDO':'Wal Macedo','BELLMORAISS':'Bellmoraiss','ANGARA':'Angara','DUDA':'Mª Eduardha','MILLENA':'Millena','JARDEL':'Jardel','LAURA':'Laura' };
-const POOL_PESSOA = ['#0a84ff','#bf5af2','#ff375f','#5e5ce6','#ac8e68','#e34c9b','#7c93ff','#5ac8fa','#63e6be','#d4a24c','#c97b63','#9b8afb','#ff6482'];
+// Paleta pensada pra NÃO repetir familia de cor (o problema antes era
+// muito azul/roxo parecido um do lado do outro) — espalhada pelo
+// máximo de tons diferentes possível: vermelho, laranja, amarelo,
+// verde, ciano, azul, indigo, roxo, rosa, limão, azul-céu, magenta,
+// marrom, coral. Pedido do usuário em 2026-10-09: "as cores... os
+// colaboradores estão com cores muito parecidas".
+const POOL_PESSOA = ['#ff453a','#ff9f0a','#ffd60a','#32d74b','#00c7be','#0a84ff','#6366f1','#bf5af2','#f43f5e','#a3e635','#38bdf8','#d946ef','#b5835a','#fb7185'];
 const mapaCorPessoa = {};
 function corPessoa(nome) {
   if (!nome) return '#636366';
@@ -454,24 +460,18 @@ function tickClock() {
   document.getElementById('topbarMes').textContent = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// Carro em SVG — monocromático (fill=currentColor), herda a cor do
-// vendedor (cada um já tinha cor própria via corPessoa; o que muda
-// agora é o MODELO do carro, que evolui em 5 degraus conforme o %
-// da meta batida — pedido do usuário em 2026-10-09: "carro ficando
-// mais luxuoso a quanto mais o colaborador for chegando perto do
-// prêmio". Mesma silhueta genérica (2 rodas + carroceria), só a forma
-// da carroceria muda — do kart simples até o superesportivo com aerofólio.
+// Veículo em SVG — monocromático (fill=currentColor), herda a cor do
+// vendedor. O que evolui em 5 degraus conforme o % da meta batida não
+// é só o "acabamento" — é o PRÓPRIO VEÍCULO, sempre mais veloz e mais
+// lúdico (pedido do usuário em 2026-10-09: "o desenho do carro que tem
+// que ir mudando... tipo de veículo mais veloz, só que lúdico, avião,
+// foguete, nave espacial, nave extraterrestre"):
+// kart → carro esportivo → avião → foguete → nave alienígena (+ troféu).
 const CARRO_KART_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
   <path d="M4 20h4l3-9a3 3 0 0 1 2.8-2h14.8a3 3 0 0 1 2.9 2.3L34 20h4a3 3 0 0 1 3 3v2a2 2 0 0 1-2 2h-2a4 4 0 1 1-8 0H17a4 4 0 1 1-8 0H7a3 3 0 0 1-3-3v-5a2 2 0 0 1 0 0z"/>
   <circle cx="13" cy="25" r="2.6" fill="#0a0a0a"/>
   <circle cx="33" cy="25" r="2.6" fill="#0a0a0a"/>
   <rect x="12" y="12" width="22" height="6" rx="1.5" fill="rgba(0,0,0,0.3)"/>
-</svg>`;
-const CARRO_HATCH_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
-  <path d="M3 21h3l2-8c1-2.3 3-3.7 5.4-3.7h13c2 0 3.8 1 5 2.7l3 5 7 1a3.2 3.2 0 0 1 3 3.2v1.8a2 2 0 0 1-2 2h-2a4.2 4.2 0 1 1-8.3 0H16a4.2 4.2 0 1 1-8.3 0H6a3 3 0 0 1-3-3z"/>
-  <path d="M12.5 13 14 10.3h9.5l3 4.3z" fill="rgba(255,255,255,0.38)"/>
-  <circle cx="13.5" cy="24.5" r="3" fill="#0a0a0a"/>
-  <circle cx="33.5" cy="24.5" r="3" fill="#0a0a0a"/>
 </svg>`;
 const CARRO_ESPORTIVO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
   <path d="M2 21l3-1 3-7c1.3-2.6 3.6-4 6.4-4h12c2.4 0 4.6 1.3 5.8 3.4l2.6 4.6 7 .8a3 3 0 0 1 2.7 3v1.7a2 2 0 0 1-2 2h-2a4.2 4.2 0 1 1-8.3 0H15a4.2 4.2 0 1 1-8.3 0H5a3 3 0 0 1-3-3z"/>
@@ -480,23 +480,44 @@ const CARRO_ESPORTIVO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
   <circle cx="13.5" cy="24.5" r="3.1" fill="#0a0a0a"/>
   <circle cx="33.5" cy="24.5" r="3.1" fill="#0a0a0a"/>
 </svg>`;
-const CARRO_SUPER_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
-  <path d="M1 21.5l3-1 2.5-7.3C7.8 10.2 10.3 8.2 13.4 8.2h11.7c2.7 0 5.1 1.5 6.3 3.9l2.3 4.5 7.6.7a3 3 0 0 1 2.7 3v1.9a2 2 0 0 1-2 2h-2a4.3 4.3 0 1 1-8.5 0H14.8a4.3 4.3 0 1 1-8.5 0H5a3 3 0 0 1-3-3z"/>
-  <path d="M32.5 6.3h4.3a2 2 0 0 1 2 2v2.2h-8z"/>
-  <rect x="31" y="5.6" width="1.8" height="4"/>
-  <rect x="37.5" y="5.6" width="1.8" height="4"/>
-  <path d="M12.5 12.6 14.6 9.4h11l2.6 3.2z" fill="rgba(255,255,255,0.42)"/>
-  <circle cx="13.5" cy="24.3" r="3.3" fill="#0a0a0a"/>
-  <circle cx="34" cy="24.3" r="3.3" fill="#0a0a0a"/>
+const AVIAO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <ellipse cx="21" cy="16" rx="15" ry="4.3"/>
+  <polygon points="35,12.3 46,16 35,19.7"/>
+  <polygon points="25,13 11,2.5 25,16.5"/>
+  <polygon points="25,19 11,29.5 25,15.5"/>
+  <polygon points="8,13.5 3,5 11,15.5"/>
+  <polygon points="8,18.5 3,27 11,16.5"/>
+  <circle cx="29" cy="15.3" r="2.2" fill="rgba(255,255,255,0.5)"/>
+</svg>`;
+const FOGUETE_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <rect x="9" y="10.5" width="27" height="11" rx="5.5"/>
+  <polygon points="36,10.5 36,21.5 46,16"/>
+  <polygon points="10,10.8 3,4 15,13"/>
+  <polygon points="10,21.2 3,28 15,19"/>
+  <circle cx="23" cy="16" r="3.4" fill="rgba(255,255,255,0.55)"/>
+  <circle cx="23" cy="16" r="2" fill="rgba(10,10,10,0.35)"/>
+  <polygon points="9,13.5 9,18.5 2,16" fill="#ff9f0a"/>
+  <polygon points="9,14.5 9,17.5 4.5,16" fill="#ff453a"/>
+</svg>`;
+const NAVE_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <ellipse cx="24" cy="20" rx="19" ry="5.5"/>
+  <ellipse cx="24" cy="12.5" rx="9.5" ry="8"/>
+  <circle cx="24" cy="12" r="4.2" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="9" cy="20" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <circle cx="18" cy="23.5" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <circle cx="30" cy="23.5" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <circle cx="39" cy="20" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <polygon points="15,25 33,25 24,31.5" fill="currentColor" opacity="0.22"/>
 </svg>`;
 // Degraus de evolução: quanto mais perto da meta (ou do bônus), mais
-// chique o carro. Ao bater 100%, vira o mesmo superesportivo + troféu
-// flutuando e brilho dourado por cima (ver CSS .tier-5 / .trofeu-flutuante).
+// rápido/fantástico o veículo. Ao bater 100%, vira a nave alienígena +
+// troféu flutuando e brilho dourado por cima (ver CSS .tier-5 /
+// .trofeu-flutuante).
 function carroPorProgresso(pct) {
-  if (pct >= 100) return { svg: CARRO_SUPER_SVG, tier: 'tier-5', luxo: true };
-  if (pct >= 75)  return { svg: CARRO_SUPER_SVG, tier: 'tier-4' };
-  if (pct >= 50)  return { svg: CARRO_ESPORTIVO_SVG, tier: 'tier-3' };
-  if (pct >= 25)  return { svg: CARRO_HATCH_SVG, tier: 'tier-2' };
+  if (pct >= 100) return { svg: NAVE_SVG, tier: 'tier-5', luxo: true };
+  if (pct >= 75)  return { svg: FOGUETE_SVG, tier: 'tier-4' };
+  if (pct >= 50)  return { svg: AVIAO_SVG, tier: 'tier-3' };
+  if (pct >= 25)  return { svg: CARRO_ESPORTIVO_SVG, tier: 'tier-2' };
   return { svg: CARRO_KART_SVG, tier: 'tier-1' };
 }
 const BANDEIRA_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3v18" stroke-linecap="round"/><path d="M5 4h13l-3 4 3 4H5z"/></svg>`;
