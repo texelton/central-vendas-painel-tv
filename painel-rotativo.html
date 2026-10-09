@@ -6,69 +6,340 @@
 <title>Central de Vendas — TV</title>
 <!-- ================================================================
      PAINEL ROTATIVO — fica alternando sozinho entre os painéis da TV,
-     em loop infinito. Pedido do usuário em 2026-10-09: "adiciona esse
-     painel que fizemos [Corrida de Metas] ao fluxo vivo + repeat para
-     ficar alternando e mostrando os dois painéis".
+     em loop infinito, com um controle de verdade pra ajustar isso sem
+     mexer em código. Pedido do usuário em 2026-10-09:
 
-     Como funciona: um iframe de tela cheia troca de endereço sozinho
-     a cada X segundos (ver array PAINEIS abaixo). Os dois painéis
-     continuam sendo arquivos separados e independentes — essa página
-     só fica "folheando" entre eles, como um controle remoto automático.
+     "quero ter controle em mudar de uma tela para outra, escolher
+     tempo e se fica em uma ou na outra, mudando assim e as
+     configurações mudando também tá ruim para configurar."
 
-     A senha de acesso é compartilhada (mesmo localStorage, mesmo
-     domínio) — desbloqueia uma vez só e os dois painéis já abrem
-     direto, sem pedir senha de novo a cada troca.
+     Como funciona: um iframe de tela cheia troca de endereço sozinho,
+     e um botão discreto no canto (não compete com os botões dos
+     painéis de dentro, que ficam no canto direito) abre um painel de
+     controle — mesmo visual "vidro" da gaveta de configurações que já
+     existe no painel único e na Corrida de Metas — com 3 coisas:
+       1. Pular pro painel que eu quiser, na hora.
+       2. Escolher se fica ALTERNANDO os dois ou FIXO só num deles.
+       3. Escolher quanto tempo cada painel fica na tela.
+     Tudo aplica na hora (sem botão "Salvar") e fica salvo no aparelho.
      ================================================================ -->
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+  :root {
+    --bg: #000000; --fg: #f5f5f7; --fg-dim: #98989d; --fg-faint: #636366;
+    --glass: rgba(255,255,255,0.055); --glass-border: rgba(255,255,255,0.09);
+    --line: rgba(255,255,255,0.075);
+    --blue: #0a84ff; --green: #30d158; --orange: #ff9f0a; --red: #ff453a;
+    --r-lg: 20px; --r-md: 14px; --r-sm: 9px;
+  }
+  * { box-sizing:border-box; }
   html, body {
     margin:0; padding:0; width:100%; height:100%; overflow:hidden;
-    background:#000000;
+    background:#000000; font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color:var(--fg); -webkit-font-smoothing:antialiased;
   }
   #painelFrame {
     position:fixed; inset:0; width:100%; height:100%; border:none;
     opacity:1; transition:opacity 0.5s ease;
   }
   #painelFrame.trocando { opacity:0; }
+
+  /* ---------- gatilho no canto: discreto de propósito (não pode virar
+     um segundo ponto focal competindo com o painel de verdade por
+     baixo — só precisa ser fácil de achar quando alguém for procurar) ---------- */
+  .status-trigger {
+    position:fixed; top:14px; left:14px; z-index:800;
+    display:flex; align-items:center; gap:8px;
+    padding:8px 14px 8px 11px; border-radius:99px;
+    background:rgba(20,20,24,0.55); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+    color:var(--fg-dim); font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+    cursor:pointer; opacity:0.5; transition:opacity 150ms ease-out, background 150ms ease-out;
+    min-height:36px;
+  }
+  .status-trigger:hover, .status-trigger:focus-visible { opacity:1; background:rgba(28,28,32,0.8); }
+  .status-trigger:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--blue); flex-shrink:0; }
+  .status-dot.fixo { background:var(--orange); }
+  .status-dot.pulsando { animation:statusPulse 2s ease-in-out infinite; }
+  @keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  /* ---------- gaveta de controle — mesmo visual "vidro" da família ---------- */
+  .drawer-overlay { display:none; position:fixed; inset:0; z-index:900; background:rgba(0,0,0,0.55); }
+  .drawer-overlay.open { display:block; }
+  .drawer {
+    position:fixed; top:0; left:0; bottom:0; width:min(380px, 92vw); z-index:901;
+    background:rgba(14,14,17,0.92); border-right:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+    padding:26px 24px 32px; overflow-y:auto;
+    transform:translateX(-100%); transition:transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  .drawer.open { transform:translateX(0); }
+  .drawer-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .drawer-title { font-weight:800; font-size:1.05rem; }
+  .icon-btn {
+    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:var(--glass); border:1px solid var(--glass-border); color:var(--fg-dim); cursor:pointer;
+    transition:background 150ms ease-out, color 150ms ease-out;
+  }
+  .icon-btn:hover { background:rgba(255,255,255,0.1); color:var(--fg); }
+  .icon-btn:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .icon-btn svg { width:15px; height:15px; }
+
+  .drawer-section { margin-bottom:24px; }
+  .drawer-section-title {
+    font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:700;
+    letter-spacing:1.2px; text-transform:uppercase; color:var(--fg-dim); margin-bottom:11px;
+  }
+
+  /* botões de escolha (painel atual / modo) — estado ativo bem claro:
+     preenchido + borda colorida, contra outline neutro de quem não
+     está selecionado (regra da camada 3: nunca dar peso igual) */
+  .opcoes-coluna { display:flex; flex-direction:column; gap:8px; }
+  .opcao-btn {
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    width:100%; padding:12px 14px; border-radius:var(--r-sm);
+    background:rgba(255,255,255,0.03); border:1px solid var(--line); color:var(--fg);
+    font-family:inherit; font-size:0.86rem; font-weight:700; text-align:left; cursor:pointer;
+    min-height:44px;
+    transition:background 150ms ease-out, border-color 150ms ease-out, transform 100ms ease-out;
+  }
+  .opcao-btn:hover { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.18); }
+  .opcao-btn:active { transform:scale(0.98); }
+  .opcao-btn:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .opcao-btn .sub { font-family:'IBM Plex Mono',monospace; font-size:0.64rem; font-weight:600; color:var(--fg-faint); text-transform:uppercase; letter-spacing:0.4px; }
+  .opcao-btn.ativo { background:rgba(10,132,255,0.14); border-color:var(--blue); }
+  .opcao-btn.ativo .sub { color:var(--blue); }
+  .opcao-btn.ativo.cor-laranja { background:rgba(255,159,10,0.14); border-color:var(--orange); }
+  .opcao-btn.ativo.cor-laranja .sub { color:var(--orange); }
+
+  .drawer-field { margin-bottom:12px; }
+  .drawer-field label { display:flex; align-items:center; gap:6px; font-size:0.72rem; color:var(--fg-dim); margin-bottom:6px; font-weight:600; }
+  .campo-salvo { color:var(--green); font-size:0.68rem; font-weight:700; opacity:0; transition:opacity 200ms ease-out; }
+  .campo-salvo.show { opacity:1; }
+  .drawer-field input {
+    width:100%; padding:10px 12px; background:rgba(255,255,255,0.05); border:1px solid var(--line);
+    border-radius:10px; color:var(--fg); font-size:0.84rem; outline:none; box-sizing:border-box;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .drawer-field input:focus-visible { border-color:var(--blue); outline:none; }
+  .drawer-section.desabilitado { opacity:0.4; pointer-events:none; }
+
+  .drawer-hint { font-size:0.72rem; color:var(--fg-faint); line-height:1.5; margin-top:2px; }
+
   @media (prefers-reduced-motion: reduce) {
-    #painelFrame { transition:none; }
+    #painelFrame, .drawer, .status-trigger, .opcao-btn { transition-duration:1ms; }
+    .status-dot.pulsando { animation:none; }
   }
 </style>
 </head>
 <body>
   <iframe id="painelFrame" src="" allow="fullscreen; autoplay" title="Painel da TV"></iframe>
 
+  <button id="statusTrigger" class="status-trigger" title="Controle de exibição">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusLabel">carregando…</span>
+  </button>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <aside class="drawer" id="drawer" aria-label="Controle de exibição">
+    <div class="drawer-header">
+      <span class="drawer-title">Controle de exibição</span>
+      <button class="icon-btn" id="drawerCloseBtn" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Painel atual</div>
+      <div class="opcoes-coluna" id="painelOpcoes">
+        <button class="opcao-btn" data-painel="painel-unificado.html">
+          <span>Painel Único</span>
+          <span class="sub">ativo agora</span>
+        </button>
+        <button class="opcao-btn" data-painel="corrida-de-metas.html">
+          <span>Corrida de Metas</span>
+          <span class="sub">ativo agora</span>
+        </button>
+      </div>
+      <p class="drawer-hint">Toca pra ir direto pra esse painel agora, sem esperar a troca automática.</p>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Modo de exibição</div>
+      <div class="opcoes-coluna" id="modoOpcoes">
+        <button class="opcao-btn" data-modo="alternando">
+          <span>Alternar automaticamente</span>
+          <span class="sub">revezando os dois</span>
+        </button>
+        <button class="opcao-btn" data-modo="fixo">
+          <span>Ficar fixo neste painel</span>
+          <span class="sub">sem trocar sozinho</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="drawer-section" id="duracaoSection">
+      <div class="drawer-section-title">Duração de cada painel</div>
+      <div class="drawer-field">
+        <label>Painel Único (segundos) <span class="campo-salvo" id="salvoUnificado">✓ salvo</span></label>
+        <input type="number" id="duracaoUnificado" min="5" max="600" step="5">
+      </div>
+      <div class="drawer-field">
+        <label>Corrida de Metas (segundos) <span class="campo-salvo" id="salvoCorrida">✓ salvo</span></label>
+        <input type="number" id="duracaoCorrida" min="5" max="600" step="5">
+      </div>
+    </div>
+  </aside>
+
   <script>
-    // Ordem e duração de cada painel na rotação — pra mudar o tempo ou
-    // a ordem, só editar aqui. duracaoMs = quanto tempo esse painel
-    // fica na tela antes de trocar pro próximo (e depois volta pro
-    // primeiro, em loop pra sempre).
-    const PAINEIS = [
-      { url: 'painel-unificado.html', duracaoMs: 30000 },
-      { url: 'corrida-de-metas.html', duracaoMs: 30000 },
-    ];
+    const PAINEL_NOMES = {
+      'painel-unificado.html': 'Painel Único',
+      'corrida-de-metas.html': 'Corrida de Metas',
+    };
+    const ORDEM_PAINEIS = ['painel-unificado.html', 'corrida-de-metas.html'];
+    const PADRAO = {
+      modo: 'alternando', // 'alternando' | 'fixo'
+      painelFixo: 'painel-unificado.html',
+      duracoes: { 'painel-unificado.html': 30, 'corrida-de-metas.html': 30 }, // segundos
+    };
 
-    const frame = document.getElementById('painelFrame');
-    let indiceAtual = 0;
-
-    function mostrarPainel(indice) {
-      frame.classList.add('trocando');
-      setTimeout(() => {
-        frame.src = PAINEIS[indice].url;
-        frame.classList.remove('trocando');
-      }, 500);
-      setTimeout(() => {
-        indiceAtual = (indice + 1) % PAINEIS.length;
-        mostrarPainel(indiceAtual);
-      }, PAINEIS[indice].duracaoMs);
+    function carregarConfig() {
+      let salvo = {};
+      try { salvo = JSON.parse(localStorage.getItem('painelRotativoConfig') || '{}'); } catch (e) {}
+      return {
+        modo: salvo.modo === 'fixo' ? 'fixo' : 'alternando',
+        painelFixo: PAINEL_NOMES[salvo.painelFixo] ? salvo.painelFixo : PADRAO.painelFixo,
+        duracoes: {
+          'painel-unificado.html': Number(salvo.duracoes && salvo.duracoes['painel-unificado.html']) || PADRAO.duracoes['painel-unificado.html'],
+          'corrida-de-metas.html': Number(salvo.duracoes && salvo.duracoes['corrida-de-metas.html']) || PADRAO.duracoes['corrida-de-metas.html'],
+        },
+      };
+    }
+    function salvarConfig() {
+      try { localStorage.setItem('painelRotativoConfig', JSON.stringify(config)); } catch (e) {}
     }
 
-    // primeiro painel entra direto, sem fade (não tem nada antes pra
-    // desaparecer)
-    frame.src = PAINEIS[0].url;
-    setTimeout(() => {
-      indiceAtual = 1 % PAINEIS.length;
-      mostrarPainel(indiceAtual);
-    }, PAINEIS[0].duracaoMs);
+    let config = carregarConfig();
+    let painelAtual = config.modo === 'fixo' ? config.painelFixo : ORDEM_PAINEIS[0];
+    let timerId = null;
+    let proximaTrocaEm = null; // timestamp (Date.now()), só usado pro texto de status
+
+    const frame = document.getElementById('painelFrame');
+
+    function proximoPainel(atual) {
+      const idx = ORDEM_PAINEIS.indexOf(atual);
+      return ORDEM_PAINEIS[(idx + 1) % ORDEM_PAINEIS.length];
+    }
+
+    function agendarProximaTroca() {
+      if (timerId) { clearTimeout(timerId); timerId = null; }
+      proximaTrocaEm = null;
+      if (config.modo !== 'alternando') return;
+      const duracaoMs = (config.duracoes[painelAtual] || 30) * 1000;
+      proximaTrocaEm = Date.now() + duracaoMs;
+      timerId = setTimeout(() => mostrarAgora(proximoPainel(painelAtual)), duracaoMs);
+    }
+
+    function mostrarAgora(painel, opts) {
+      const comFade = !opts || opts.comFade !== false;
+      painelAtual = painel;
+      const trocarSrc = () => { frame.src = painel; atualizarEstado(); };
+      if (comFade && frame.src) {
+        frame.classList.add('trocando');
+        setTimeout(() => { trocarSrc(); frame.classList.remove('trocando'); }, 500);
+      } else {
+        trocarSrc();
+      }
+      agendarProximaTroca();
+    }
+
+    // ---------- status (gatilho no canto) + estado visual dos botões ----------
+    function atualizarEstado() {
+      const dot = document.getElementById('statusDot');
+      const label = document.getElementById('statusLabel');
+      dot.className = 'status-dot' + (config.modo === 'fixo' ? ' fixo' : ' pulsando');
+      label.textContent = PAINEL_NOMES[painelAtual] || painelAtual;
+
+      document.querySelectorAll('#painelOpcoes .opcao-btn').forEach(btn => {
+        const ehAtual = btn.dataset.painel === painelAtual;
+        btn.classList.toggle('ativo', ehAtual);
+        btn.classList.toggle('cor-laranja', ehAtual && config.modo === 'fixo');
+        btn.querySelector('.sub').textContent = ehAtual
+          ? (config.modo === 'fixo' ? 'fixo aqui' : 'ativo agora')
+          : '';
+      });
+      document.querySelectorAll('#modoOpcoes .opcao-btn').forEach(btn => {
+        btn.classList.toggle('ativo', btn.dataset.modo === config.modo);
+      });
+      document.getElementById('duracaoSection').classList.toggle('desabilitado', config.modo !== 'alternando');
+    }
+    function atualizarStatusTick() {
+      if (config.modo !== 'alternando' || !proximaTrocaEm) return;
+      const restante = Math.max(0, Math.ceil((proximaTrocaEm - Date.now()) / 1000));
+      document.getElementById('statusLabel').textContent = `${PAINEL_NOMES[painelAtual]} · troca em ${restante}s`;
+    }
+
+    // ---------- gaveta ----------
+    function abrirDrawer() { document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); }
+    function fecharDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+
+    function mostrarSalvo(id) {
+      const el = document.getElementById(id);
+      el.classList.add('show');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), 1500);
+    }
+
+    function montarControles() {
+      document.getElementById('statusTrigger').addEventListener('click', abrirDrawer);
+      document.getElementById('drawerCloseBtn').addEventListener('click', fecharDrawer);
+      document.getElementById('drawerOverlay').addEventListener('click', fecharDrawer);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharDrawer(); });
+
+      document.querySelectorAll('#painelOpcoes .opcao-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const painel = btn.dataset.painel;
+          if (config.modo === 'fixo') config.painelFixo = painel;
+          salvarConfig();
+          mostrarAgora(painel);
+        });
+      });
+
+      document.querySelectorAll('#modoOpcoes .opcao-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          config.modo = btn.dataset.modo;
+          if (config.modo === 'fixo') config.painelFixo = painelAtual;
+          salvarConfig();
+          agendarProximaTroca();
+          atualizarEstado();
+        });
+      });
+
+      const inputUnificado = document.getElementById('duracaoUnificado');
+      const inputCorrida = document.getElementById('duracaoCorrida');
+      inputUnificado.value = config.duracoes['painel-unificado.html'];
+      inputCorrida.value = config.duracoes['corrida-de-metas.html'];
+
+      function ligarDuracao(input, painel, idSalvo) {
+        input.addEventListener('change', () => {
+          const v = Math.max(5, Math.min(600, parseInt(input.value) || 30));
+          input.value = v;
+          config.duracoes[painel] = v;
+          salvarConfig();
+          mostrarSalvo(idSalvo);
+          if (painel === painelAtual && config.modo === 'alternando') agendarProximaTroca();
+        });
+      }
+      ligarDuracao(inputUnificado, 'painel-unificado.html', 'salvoUnificado');
+      ligarDuracao(inputCorrida, 'corrida-de-metas.html', 'salvoCorrida');
+    }
+
+    // ---------- início ----------
+    frame.src = painelAtual; // primeira carga: sem fade, não tem nada antes pra desaparecer
+    agendarProximaTroca();
+    atualizarEstado();
+    setInterval(atualizarStatusTick, 1000);
+    montarControles();
   </script>
 </body>
 </html>

@@ -1005,7 +1005,31 @@ function renderContatoDrawer(pendentes, atrasados, agora) {
   }).join('');
 }
 function renderContato() {
-  if (!ContatoState.baselinePronto) return;
+  // BUG corrigido em 2026-10-09 (relato do usuário: "quando muda de uma
+  // visualização para outra está fazendo som como se tivesse vendido"):
+  // antes, essa função saía de propósito (return) na PRIMEIRA chamada,
+  // antes de marcar qualquer contato como "já avisado" — ou seja,
+  // ContatoState.alertados ficava vazio. Na SEGUNDA chamada (30s
+  // depois), todo mundo que já estava esperando contato há horas virava
+  // "alerta novo" de uma vez, disparando vários sons juntos. Isso ficou
+  // bem mais visível agora que o painel recarrega sozinho na rotação
+  // (toda troca de tela = página nova = o bug acontecia de novo).
+  // Correção: sempre marca quem já viu (preenche os Sets), só o SOM é
+  // que fica desligado na primeira chamada — mesmo padrão que já
+  // funcionava certo pras vendas (VendasState.baselinePronto).
+  //
+  // Detalhe importante: renderContato() é chamada de DOIS lugares que
+  // rodam em paralelo — atualizarVendas() (depois de buscar a
+  // planilha) e fetchAtendidos() (busca separada, dispara sozinha a
+  // cada 8s). Se fetchAtendidos() terminar primeiro, ela chamaria
+  // renderContato() ANTES da planilha (rawData) estar carregada —
+  // "contatos" dava vazio, e essa chamada vazia "roubava" o título de
+  // primeira-chamada-de-verdade da atualizarVendas() logo em seguida,
+  // fazendo o mesmo problema acontecer de um jeito diferente. Por isso
+  // só considera pronto pra estabelecer a base depois que a planilha
+  // já foi lida pelo menos uma vez (VendasState.baselinePronto).
+  if (!VendasState.baselinePronto) return;
+  const primeiraChamada = !ContatoState.baselinePronto;
   const agora = agoraCorrigido();
   const contatos = getContatosHoje();
 
@@ -1014,7 +1038,7 @@ function renderContato() {
   contatos.forEach(c => {
     if (!c.orderId || ContatoState.alertados.has(c.orderId)) return;
     ContatoState.alertados.add(c.orderId);
-    if (document.getElementById('soundEnabled').value === '1') playContatoNovoSound();
+    if (!primeiraChamada && document.getElementById('soundEnabled').value === '1') playContatoNovoSound();
   });
 
   const pendentes = contatos.filter(c => c.prazo > agora);
@@ -1025,8 +1049,10 @@ function renderContato() {
   atrasados.forEach(c => {
     if (!c.orderId || ContatoState.vencidosAlertados.has(c.orderId)) return;
     ContatoState.vencidosAlertados.add(c.orderId);
-    if (document.getElementById('soundEnabled').value === '1') playContatoVencidoSound();
+    if (!primeiraChamada && document.getElementById('soundEnabled').value === '1') playContatoVencidoSound();
   });
+
+  ContatoState.baselinePronto = true;
 
   renderContatoDrawer(pendentes, atrasados, agora);
 
@@ -1220,8 +1246,7 @@ async function atualizarVendas() {
   renderHero(today, mes);
   renderRanking(today);
   renderFunil(today);
-  renderContato();
-  ContatoState.baselinePronto = true;
+  renderContato(); // já marca o próprio baselinePronto internamente
 }
 
 // ================================================================
