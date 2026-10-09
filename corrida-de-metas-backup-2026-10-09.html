@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corrida de Metas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+  /* ==============================
+     TERCEIRO PAINEL — "Corrida de Metas": cada vendedor tem uma meta de
+     faturamento no mês; aqui vira uma pista de corrida, um carrinho por
+     pessoa, andando conforme a % da meta batida. Quem está na frente é
+     quem já vendeu mais perto (ou passou) da própria meta.
+     Pedido do usuário em 2026-10-09. Mesmo sistema visual "vidro" do
+     painel único, pra ficar com a cara da família de painéis.
+
+     PRIMEIRO SÓ O VISUAL (metas de exemplo) — pedido do usuário: "eu te
+     digo a meta de cada um" — depois que ele mandar os valores reais,
+     troca só o objeto METAS_MES abaixo. As vendas de cada um (quanto já
+     bateu da meta) são REAIS desde já, vêm da mesma planilha dos outros
+     painéis.
+     ============================== */
+  :root {
+    --bg: #000000;
+    --fg: #f5f5f7;
+    --fg-dim: #98989d;
+    --fg-faint: #636366;
+    --glass: rgba(255,255,255,0.055);
+    --glass-border: rgba(255,255,255,0.09);
+    --line: rgba(255,255,255,0.075);
+    --blue: #0a84ff;
+    --green: #30d158;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --purple: #bf5af2;
+    --yellow: #ffd60a;
+    --r-lg: 24px;
+    --r-md: 16px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body {
+    width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
+    font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 1200px 700px at 15% -10%, rgba(10,132,255,0.10), transparent 60%),
+      radial-gradient(ellipse 1000px 600px at 100% 5%, rgba(191,90,242,0.08), transparent 55%),
+      var(--bg);
+  }
+  .glass {
+    background:var(--glass); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px);
+    border-radius:var(--r-lg);
+    box-shadow:0 20px 50px -28px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .stage { width:100%; height:100%; display:flex; flex-direction:column; padding:18px clamp(20px, 3vw, 44px) 16px; gap:14px; }
+
+  /* ---------- topbar ---------- */
+  .topbar { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:0 2px; }
+  .topbar-brand { display:flex; align-items:center; gap:9px; font-family:'IBM Plex Mono',monospace; font-size:0.74rem; font-weight:600; letter-spacing:1.8px; text-transform:uppercase; color:var(--fg-dim); }
+  .topbar-brand .dot { width:7px; height:7px; border-radius:50%; background:var(--orange); box-shadow:0 0 10px var(--orange); }
+  .topbar-mes { font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--fg-dim); text-transform:capitalize; }
+  .topbar-clock { font-family:'IBM Plex Mono',monospace; font-size:0.78rem; color:var(--fg-dim); font-variant-numeric:tabular-nums; }
+  .topbar-right { display:flex; align-items:center; gap:8px; }
+  .live-pill { display:flex; align-items:center; gap:6px; background:var(--glass); border:1px solid var(--glass-border); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); padding:5px 12px; border-radius:99px; font-family:'IBM Plex Mono',monospace; font-size:0.68rem; font-weight:600; color:var(--fg-dim); }
+  .live-pill .dot { width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:0 0 7px var(--green); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .icon-btn { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--glass); border:1px solid var(--glass-border); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); color:var(--fg-dim); cursor:pointer; }
+  .icon-btn svg { width:14px; height:14px; }
+
+  /* ---------- resumo do topo: meta do time somada ---------- */
+  .resumo-row { flex:0 0 auto; display:flex; gap:14px; }
+  .resumo-card { flex:1; padding:16px 22px; display:flex; flex-direction:column; gap:3px; }
+  .resumo-card.primary { flex:1.3; background:linear-gradient(135deg, rgba(255,159,10,0.16), rgba(255,69,58,0.06)); border-color:rgba(255,159,10,0.25); }
+  .resumo-label { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--fg-dim); }
+  .resumo-valor { font-weight:800; letter-spacing:-1px; font-size:clamp(1.4rem, 2.4vw, 2rem); font-variant-numeric:tabular-nums; line-height:1.1; }
+  .resumo-sub { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--fg-dim); font-weight:600; }
+  .resumo-bar { height:6px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:6px; }
+  .resumo-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg, var(--orange), var(--yellow)); transition:width 0.8s cubic-bezier(0.25,0.46,0.45,0.94); }
+
+  /* ================================================================
+     A PISTA — cada vendedor é uma faixa de corrida própria
+     ================================================================ */
+  .pista-zone { flex:1; min-height:0; padding:16px 22px; display:flex; flex-direction:column; gap:10px; }
+  .pista-title { flex:0 0 auto; display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:0.66rem; font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:var(--fg-dim); }
+  .pista-title .dot { width:6px; height:6px; border-radius:2px; background:var(--orange); }
+  .pista-title .legenda { text-transform:none; letter-spacing:0; font-weight:500; color:var(--fg-faint); }
+
+  /* régua com as marcas do mês (dia 10 / dia 20) acima das faixas —
+     uma vez só pra todo mundo, alinhada com o tracinho e a bandeira
+     que já existem em cada faixa, sem repetir texto em toda linha */
+  .pista-ruler { position:relative; height:16px; margin:2px 0 8px; }
+  .pista-ruler-marca { position:absolute; top:0; font-family:'IBM Plex Mono',monospace; font-size:0.64rem; font-weight:600; color:var(--fg-faint); white-space:nowrap; }
+  .pista-ruler-marca.inicio { left:0; }
+  .pista-ruler-marca.bonus1 { left:33.33%; transform:translateX(-50%); color:var(--yellow); }
+  .pista-ruler-marca.bonus2 { left:66.67%; transform:translateX(-50%); color:var(--orange); }
+  .pista-ruler-marca.chegada { right:6px; color:var(--fg-dim); }
+
+  /* ---------- selo de bônus (dia 10 = 50% / dia 20 = 100%) ---------- */
+  .bonus-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:700; white-space:nowrap; border:1px solid var(--line); }
+  .bonus-badge.pendente { background:rgba(255,255,255,0.05); color:var(--fg-dim); }
+  .bonus-badge.conquistado { background:rgba(48,209,88,0.15); color:var(--green); border-color:rgba(48,209,88,0.35); }
+  .bonus-badge.perdido { background:rgba(255,69,58,0.1); color:var(--red); border-color:rgba(255,69,58,0.28); opacity:0.8; }
+
+  .faixas { flex:1; min-height:0; display:flex; flex-direction:column; gap:10px; justify-content:center; }
+
+  .faixa { display:flex; flex-direction:column; gap:5px; }
+  .faixa-topo { display:flex; align-items:baseline; gap:10px; }
+  .faixa-pos { font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:0.9rem; color:var(--fg-faint); width:22px; flex-shrink:0; }
+  .faixa.lider .faixa-pos { color:var(--yellow); text-shadow:0 0 10px var(--yellow); }
+  .faixa-nome { font-weight:800; font-size:1rem; flex-shrink:0; }
+  .faixa.lider .faixa-nome { text-shadow:0 0 18px currentColor; }
+  .faixa-crown { width:0.85em; height:0.85em; margin-right:5px; vertical-align:-0.12em; color:var(--yellow); filter:drop-shadow(0 0 6px var(--yellow)); }
+  .faixa-numeros { margin-left:auto; display:flex; align-items:baseline; gap:8px; font-family:'IBM Plex Mono',monospace; }
+  .faixa-valor { font-weight:700; font-size:0.84rem; color:var(--fg); font-variant-numeric:tabular-nums; }
+  .faixa-meta { font-size:0.74rem; color:var(--fg-faint); font-variant-numeric:tabular-nums; }
+  .faixa-pct { font-weight:800; font-size:0.95rem; width:52px; text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* a pista em si: fundo "asfalto", linha tracejada central, preenchimento
+     colorido e o carrinho na ponta do preenchimento. */
+  /* .pista-track é só o "trecho de asfalto" visual e fica contido em
+     overflow:hidden (pros cantos arredondados ficarem certinhos). O
+     carro e o troféu moram FORA dela, no wrapper .pista-pista — senão
+     ficam cortados quando saem um pouco da faixa (carro é meio maior
+     que a barra, e o troféu flutua acima dela). */
+  .pista-pista { position:relative; height:clamp(20px, 2.6vh, 30px); }
+  .pista-track {
+    position:absolute; inset:0; border-radius:99px;
+    background:rgba(255,255,255,0.045); border:1px solid var(--line); overflow:hidden;
+  }
+  .pista-track-linha {
+    position:absolute; top:50%; left:4%; right:8%; height:0; border-top:2px dashed rgba(255,255,255,0.08);
+    transform:translateY(-50%); pointer-events:none;
+  }
+  .pista-track-fill {
+    position:absolute; inset:0; width:0%; border-radius:99px;
+    transition:width 1.1s cubic-bezier(0.25,0.46,0.45,0.94);
+    opacity:0.22;
+  }
+  /* dois tracinhos na pista = marco dos dois bônus. A pista representa
+     até 150% da meta (não só 100%) — quem já bateu a meta continua
+     tendo pista pela frente até o dia 30/fim do mês, que é a chegada
+     de verdade (pedido do usuário em 2026-10-09: "o mês vai ter outros
+     dias depois do dia 20... até o dia 30 é além da meta"). Por isso
+     os tracinhos ficam em 1/3 e 2/3 da pista, não em 50%/100%. */
+  .pista-tick { position:absolute; top:0; bottom:0; width:2px; z-index:2; pointer-events:none; }
+  .pista-tick.tick-dia10 { left:33.33%; background:rgba(255,214,10,0.55); }
+  .pista-tick.tick-dia20 { left:66.67%; background:rgba(255,159,10,0.55); }
+  .pista-meta-flag {
+    position:absolute; top:50%; right:6px; transform:translateY(-50%);
+    width:14px; height:14px; opacity:0.55;
+  }
+  .pista-carrinho {
+    position:absolute; top:50%; width:clamp(26px, 3.2vh, 36px); height:clamp(26px, 3.2vh, 36px);
+    transform:translate(-50%,-50%); left:0%;
+    transition:left 1.1s cubic-bezier(0.25,0.46,0.45,0.94), width 0.6s ease, height 0.6s ease;
+    animation:carroBalanco 1.3s ease-in-out infinite;
+  }
+  .pista-carrinho svg { width:100%; height:100%; display:block; }
+  @keyframes carroBalanco {
+    0%,100% { transform:translate(-50%,-50%) translateY(0) rotate(0deg); }
+    50% { transform:translate(-50%,-50%) translateY(-3px) rotate(-2deg); }
+  }
+
+  /* carro vai "evoluindo" conforme o % da meta sobe — rastro de velocidade
+     atrás e brilho em volta crescem junto, pra dar sensação de corrida de
+     verdade (pedido do usuário em 2026-10-09: "mais divertido" + "carro
+     mais luxuoso quanto mais perto do prêmio"). */
+  .pista-carrinho::after {
+    content:''; position:absolute; top:50%; right:100%; height:5px;
+    transform:translateY(-50%); border-radius:3px; filter:blur(1px);
+    background:linear-gradient(90deg, transparent, currentColor);
+    width:0; opacity:0;
+  }
+  .pista-carrinho.tier-1 { filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
+  .pista-carrinho.tier-2 { filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5)) drop-shadow(0 0 5px currentColor); }
+  .pista-carrinho.tier-2::after { width:16px; opacity:0.25; }
+  .pista-carrinho.tier-3 { filter:drop-shadow(0 2px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 9px currentColor); }
+  .pista-carrinho.tier-3::after { width:26px; opacity:0.38; }
+  .pista-carrinho.tier-4 { filter:drop-shadow(0 2px 7px rgba(0,0,0,0.6)) drop-shadow(0 0 13px currentColor); }
+  .pista-carrinho.tier-4::after { width:36px; opacity:0.5; }
+  .pista-carrinho.tier-5 {
+    filter:drop-shadow(0 2px 8px rgba(0,0,0,0.65)) drop-shadow(0 0 14px currentColor) drop-shadow(0 0 22px rgba(255,214,10,0.55));
+    animation:carroBalanco 1.3s ease-in-out infinite, carroPulso 1.8s ease-in-out infinite;
+  }
+  .pista-carrinho.tier-5::after { width:46px; opacity:0.6; }
+  @keyframes carroPulso {
+    0%,100% { filter:drop-shadow(0 2px 8px rgba(0,0,0,0.65)) drop-shadow(0 0 14px currentColor) drop-shadow(0 0 22px rgba(255,214,10,0.55)); }
+    50% { filter:drop-shadow(0 2px 8px rgba(0,0,0,0.65)) drop-shadow(0 0 18px currentColor) drop-shadow(0 0 30px rgba(255,214,10,0.8)); }
+  }
+  .trofeu-flutuante {
+    position:absolute; left:50%; top:-15px; transform:translateX(-50%);
+    font-size:13px; animation:trofeuFlutuar 1.6s ease-in-out infinite;
+    filter:drop-shadow(0 0 6px rgba(255,214,10,0.85));
+  }
+  @keyframes trofeuFlutuar {
+    0%,100% { transform:translateX(-50%) translateY(0) rotate(-8deg); }
+    50% { transform:translateX(-50%) translateY(-5px) rotate(8deg); }
+  }
+
+  .faixa-empty { text-align:center; color:var(--fg-faint); font-family:'IBM Plex Mono',monospace; font-size:0.85rem; padding:30px 0; }
+
+  /* ---------- gaveta de configurações ---------- */
+  .lock-screen { position:fixed; inset:0; z-index:3000; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+  .lock-screen.hidden { display:none; }
+  .lock-box { width:min(90vw, 340px); padding:32px 28px; display:flex; flex-direction:column; align-items:center; gap:14px; border-radius:var(--r-lg); background:var(--glass); border:1px solid var(--glass-border); -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px); }
+  .lock-title { font-weight:800; font-size:1.2rem; }
+  .lock-sub { color:var(--fg-dim); font-size:0.82rem; text-align:center; }
+  .lock-input { width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:var(--fg); border:1px solid var(--line); border-radius:12px; padding:13px 16px; font-size:0.95rem; text-align:center; letter-spacing:0.06em; }
+  .lock-input:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
+  .lock-btn { width:100%; background:var(--orange); color:#1a0f00; border:none; border-radius:12px; padding:12px 16px; font-weight:700; font-size:0.9rem; cursor:pointer; }
+  .lock-btn:active { transform:scale(0.98); }
+  .lock-error { color:var(--red); font-size:0.78rem; min-height:1em; }
+
+  .drawer-overlay { display:none; position:fixed; inset:0; z-index:700; background:rgba(0,0,0,0.55); }
+  .drawer-overlay.open { display:block; }
+  .drawer { position:fixed; top:0; right:0; bottom:0; width:min(420px, 92vw); z-index:701; background:rgba(14,14,17,0.92); border-left:1px solid var(--glass-border); -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px); padding:28px 26px 36px; overflow-y:auto; transform:translateX(100%); transition:transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94); }
+  .drawer.open { transform:translateX(0); }
+  .drawer-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .drawer-title { font-weight:800; font-size:1.1rem; }
+  .drawer-section { margin-bottom:26px; }
+  .drawer-section-title { font-family:'IBM Plex Mono',monospace; font-size:0.64rem; font-weight:700; letter-spacing:1.3px; text-transform:uppercase; color:var(--fg-dim); margin-bottom:13px; }
+  .drawer-field { margin-bottom:13px; }
+  .drawer-field label { display:block; font-size:0.7rem; color:var(--fg-dim); margin-bottom:6px; font-weight:600; }
+  .drawer-field input { width:100%; padding:10px 12px; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:10px; color:var(--fg); font-size:0.84rem; outline:none; box-sizing:border-box; }
+  .drawer-field input:focus { border-color:var(--orange); }
+  .drawer-btn { width:100%; padding:11px; border-radius:10px; border:1px solid var(--line); background:none; color:var(--fg); font-weight:700; font-size:0.8rem; cursor:pointer; }
+  .drawer-btn:hover { border-color:var(--orange); background:rgba(255,159,10,0.08); }
+  .drawer-btn.solid { background:var(--orange); border-color:var(--orange); color:#1a0f00; }
+  /* cartão de meta por vendedor: tipo (R$ ou quantidade), valor e,
+     quando é por quantidade, a lista de produtos que contam */
+  .meta-card { padding:12px 13px; margin-bottom:11px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,0.03); }
+  .meta-card-topo { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+  .meta-card-topo .nome { font-weight:700; font-size:0.84rem; }
+  .meta-tipo { background:rgba(255,255,255,0.06); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:0.7rem; font-family:'IBM Plex Mono',monospace; }
+  .meta-card input[type="number"] { width:100%; box-sizing:border-box; padding:9px 11px; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:8px; color:var(--fg); font-size:0.82rem; text-align:right; font-family:'IBM Plex Mono',monospace; }
+  .meta-produtos { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
+  .meta-produtos-titulo { display:block; font-size:0.62rem; color:var(--fg-dim); margin-bottom:7px; font-weight:600; }
+  .meta-produtos-lista { max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .produto-check { display:flex; align-items:flex-start; gap:7px; font-size:0.76rem; color:var(--fg-dim); cursor:pointer; line-height:1.3; }
+  .produto-check input { accent-color:var(--orange); margin-top:2px; flex-shrink:0; }
+  .produto-vazio { font-size:0.7rem; color:var(--fg-faint); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div id="lockScreen" class="lock-screen">
+  <div class="lock-box glass">
+    <span class="lock-title">Corrida de Metas</span>
+    <span class="lock-sub">Digite a senha para ver o painel</span>
+    <input id="lockInput" class="lock-input" type="password" inputmode="text" autocomplete="off" placeholder="Senha" onkeydown="if(event.key==='Enter') tentarDesbloquear()" />
+    <button id="lockBtn" class="lock-btn" onclick="tentarDesbloquear()">Entrar</button>
+    <span id="lockError" class="lock-error"></span>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="topbar">
+    <div class="topbar-brand"><span class="dot"></span>Corrida de Metas</div>
+    <div class="topbar-mes" id="topbarMes">outubro 2026</div>
+    <div class="topbar-clock" id="clock">09/10/2026 · 10:00</div>
+    <div class="topbar-right">
+      <div class="live-pill"><span class="dot"></span>ao vivo</div>
+      <div class="icon-btn" id="drawerBtn" title="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+      <div class="icon-btn" id="fullscreenBtn" title="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg></div>
+    </div>
+  </div>
+
+  <div class="resumo-row">
+    <div class="resumo-card primary glass">
+      <span class="resumo-label">Ritmo médio do time</span>
+      <span class="resumo-valor" id="resumoValor">0%</span>
+      <span class="resumo-sub" id="resumoSub">média do time na própria meta</span>
+      <div class="resumo-bar"><div class="resumo-bar-fill" id="resumoBarFill" style="width:0%"></div></div>
+    </div>
+    <div class="resumo-card glass">
+      <span class="resumo-label">Já bateram a meta</span>
+      <span class="resumo-valor" id="metaSomadaValor">0/0</span>
+      <span class="resumo-sub" id="bateramSub">colaboradores em 100%+</span>
+    </div>
+    <div class="resumo-card glass">
+      <span class="resumo-label">Quem lidera</span>
+      <span class="resumo-valor" id="liderNome" style="font-size:clamp(1.1rem, 1.8vw, 1.5rem);">—</span>
+      <span class="resumo-sub" id="liderPct"></span>
+    </div>
+  </div>
+
+  <div class="pista-zone glass">
+    <div class="pista-title"><span class="dot"></span>Pista — % da meta batida</div>
+    <div class="pista-ruler">
+      <span class="pista-ruler-marca inicio">Início</span>
+      <span class="pista-ruler-marca bonus1">Dia 10 · bônus 50%</span>
+      <span class="pista-ruler-marca bonus2">Dia 20 · bônus 100%</span>
+      <span class="pista-ruler-marca chegada" id="pistaRulerChegada">Dia 30 · fim do mês 🏁</span>
+    </div>
+    <div class="faixas" id="faixas"></div>
+  </div>
+</div>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer" aria-label="Configurações">
+  <div class="drawer-header">
+    <span class="drawer-title">Configurações</span>
+    <button class="icon-btn" id="drawerCloseBtn" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+
+  <div class="drawer-section">
+    <div class="drawer-section-title">Metas do mês</div>
+    <div id="metasForm"></div>
+    <button class="drawer-btn solid" onclick="salvarMetas()">Salvar metas</button>
+  </div>
+
+  <div class="drawer-section">
+    <div class="drawer-section-title">Conexão com a planilha</div>
+    <div class="drawer-field"><label>Spreadsheet ID</label><input id="sheetIdInput" value=""></div>
+    <div class="drawer-field"><label>API Key Google</label><input id="apiKeyInput" type="password" value=""></div>
+    <button class="drawer-btn" onclick="saveAPI(this)">Salvar e reconectar</button>
+  </div>
+</aside>
+
+<script>
+// ================================================================
+// Mesmo time / cores dos outros painéis — pra não ter nome/cor
+// diferente de uma tela pra outra.
+// ================================================================
+const SHEET_ID_PADRAO = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
+const SHEET_KEY_PADRAO = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
+let SHEET_ID = SHEET_ID_PADRAO;
+let SHEET_KEY = SHEET_KEY_PADRAO;
+
+const VENDORS_CONHECIDOS = ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL','LAURA'];
+const NAME_MAP = { 'BIA':'BIA','JOAO':'JOAO','JOAOV':'JOAOV','MATHEUS':'MATHEUS','LAIS':'LAIS','ELTON':'ELTON','MARCELO':'MARCELO','WAL MACEDO':'WAL MACEDO','BELLMORAISS':'BELLMORAISS','ANGARA':'ANGARA','DUDA':'DUDA','MILLENA':'MILLENA','JARDEL':'JARDEL','LAURA':'LAURA' };
+const DISPLAY_NAMES = { 'BIA':'Bia','JOAO':'Joao','JOAOV':'Joao Victor','MATHEUS':'Matheus','LAIS':'Lais','ELTON':'Elton','MARCELO':'Marcelo','WAL MACEDO':'Wal Macedo','BELLMORAISS':'Bellmoraiss','ANGARA':'Angara','DUDA':'Mª Eduardha','MILLENA':'Millena','JARDEL':'Jardel','LAURA':'Laura' };
+// Paleta pensada pra NÃO repetir familia de cor (o problema antes era
+// muito azul/roxo parecido um do lado do outro) — espalhada pelo
+// máximo de tons diferentes possível: vermelho, laranja, amarelo,
+// verde, ciano, azul, indigo, roxo, rosa, limão, azul-céu, magenta,
+// marrom, coral. Pedido do usuário em 2026-10-09: "as cores... os
+// colaboradores estão com cores muito parecidas".
+const POOL_PESSOA = ['#ff453a','#ff9f0a','#ffd60a','#32d74b','#00c7be','#0a84ff','#6366f1','#bf5af2','#f43f5e','#a3e635','#38bdf8','#d946ef','#b5835a','#fb7185'];
+const mapaCorPessoa = {};
+function corPessoa(nome) {
+  if (!nome) return '#636366';
+  if (!mapaCorPessoa[nome]) {
+    const usadas = Object.keys(mapaCorPessoa).length;
+    mapaCorPessoa[nome] = POOL_PESSOA[usadas % POOL_PESSOA.length];
+  }
+  return mapaCorPessoa[nome];
+}
+
+// ---------- METAS DO MÊS — ESTE É O NÚMERO QUE PRECISA SER TROCADO
+// pelo valor real de cada vendedor (pedido do usuário em 2026-10-09:
+// "eu te digo a meta de cada um"). Por enquanto, valores de EXEMPLO só
+// pra dar pra ver o visual funcionando — "primeiro o front", mesmo
+// combinado de sempre. Dá pra editar direto pela gaveta de
+// configurações também (fica salvo no aparelho). ----------
+const METAS_PADRAO = {
+  'BIA': 50000,
+  'JOAOV': 30000,
+  'JARDEL': 25000,
+  'MILLENA': 20000,
+  'LAURA': 15000,
+};
+let METAS_MES = {...METAS_PADRAO};
+try {
+  const salvas = localStorage.getItem('corridaMetasValores');
+  if (salvas) METAS_MES = {...METAS_MES, ...JSON.parse(salvas)};
+} catch (e) {}
+
+// ---------- tipo de meta por vendedor ----------
+// Alguns vendedores batem meta em R$ (valor líquido somado), outros em
+// QUANTIDADE de vendas — pedido do usuário em 2026-10-09. Pra quem é
+// por quantidade, só conta a venda se o produto estiver marcado como
+// "válido" pra ele (ex: só o produto principal conta, upsell não).
+// Tudo isso é editável na gaveta de configurações.
+let TIPO_META = {}; // chave do vendedor -> 'valor' | 'quantidade' (padrão: 'valor')
+try {
+  const tiposSalvos = localStorage.getItem('corridaMetasTipos');
+  if (tiposSalvos) TIPO_META = JSON.parse(tiposSalvos);
+} catch (e) {}
+let PRODUTOS_VALIDOS = {}; // chave do vendedor -> array de nomes de produto válidos (só usado se tipo='quantidade'; vazio = conta tudo)
+try {
+  const produtosSalvos = localStorage.getItem('corridaMetasProdutos');
+  if (produtosSalvos) PRODUTOS_VALIDOS = JSON.parse(produtosSalvos);
+} catch (e) {}
+// Lista de produtos vistos nas vendas do mês — populada a cada
+// atualização, usada só pra montar os checkboxes da gaveta.
+let PRODUTOS_DISPONIVEIS = [];
+
+// ---------- bônus do mês ----------
+// A meta é ÚNICA do mês (não por dia) — mas rola bônus se o vendedor
+// bater 50% dela até o dia 10, e os 100% até o dia 20 (combinado com o
+// usuário em 2026-10-09). Como o painel só enxerga o valor ACUMULADO
+// de agora (não guarda historico dia a dia), ele mesmo vai "tirando uma
+// foto" do % de cada vendedor bem no dia do corte — a ultima foto
+// tirada naquele dia vira o valor oficial pra sempre (fica guardado no
+// aparelho/TV). Depois que o dia passa, não tira mais foto nova: o
+// resultado fica travado, conquistado ou perdido.
+const BONUS_CHECKPOINTS = [
+  { dia: 10, pctAlvo: 50, label: 'Dia 10' },
+  { dia: 20, pctAlvo: 100, label: 'Dia 20' },
+];
+// A pista (visual) vai de 0% a 150% da meta, não só até 100% — assim
+// quem já bateu a meta no dia 12, por exemplo, continua tendo pista
+// pela frente até o dia 30 (fim do mês de verdade), em vez de "sumir"
+// no fim da barra. Os tracinhos de bônus ficam em 1/3 (dia 10 = 50%) e
+// 2/3 (dia 20 = 100%) dessa pista — a chegada de verdade (100% da
+// LARGURA da pista) é o dia 30.
+const META_VISUAL_MAX = 150;
+function chaveSnapshot(dia) {
+  const d = camposSP(agoraCorrigido());
+  return `corridaSnapshotDia${dia}-${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+}
+function lerSnapshot(dia) {
+  try { return JSON.parse(localStorage.getItem(chaveSnapshot(dia)) || '{}'); } catch (e) { return {}; }
+}
+function atualizarSnapshotsDoDia(dados) {
+  const diaAtual = camposSP(agoraCorrigido()).getUTCDate();
+  BONUS_CHECKPOINTS.forEach(cp => {
+    if (diaAtual === cp.dia) {
+      const mapa = {};
+      dados.forEach(v => { mapa[v.chave] = v.pct; });
+      try { localStorage.setItem(chaveSnapshot(cp.dia), JSON.stringify(mapa)); } catch (e) {}
+    }
+  });
+}
+function statusBonus(cp, vendor) {
+  const diaAtual = camposSP(agoraCorrigido()).getUTCDate();
+  if (diaAtual <= cp.dia) {
+    return { estado: 'pendente' };
+  }
+  const snap = lerSnapshot(cp.dia);
+  const pctNoDia = snap[vendor.chave] != null ? snap[vendor.chave] : vendor.pct;
+  return { estado: pctNoDia >= cp.pctAlvo ? 'conquistado' : 'perdido' };
+}
+function badgeBonusHtml(cp, vendor) {
+  const st = statusBonus(cp, vendor);
+  if (st.estado === 'conquistado') return `<span class="bonus-badge conquistado">✓ ${cp.label}</span>`;
+  if (st.estado === 'perdido') return `<span class="bonus-badge perdido">✕ ${cp.label}</span>`;
+  return `<span class="bonus-badge pendente">${cp.label} · ${cp.pctAlvo}%</span>`;
+}
+
+// ---------- senha — mesma dos outros painéis ----------
+const SENHAS_VALIDAS = new Set(['vendas2026', 'joao2026']);
+function tentarDesbloquear() {
+  const input = document.getElementById('lockInput');
+  const erro = document.getElementById('lockError');
+  if (SENHAS_VALIDAS.has(input.value)) {
+    try { localStorage.setItem('fluxoDesbloqueado', '1'); } catch (e) {}
+    document.getElementById('lockScreen').classList.add('hidden');
+    iniciar();
+  } else {
+    erro.textContent = 'Senha incorreta';
+    input.value = '';
+  }
+}
+(function verificarAcesso() {
+  let ok = false;
+  try { ok = localStorage.getItem('fluxoDesbloqueado') === '1'; } catch (e) {}
+  if (ok) document.getElementById('lockScreen').classList.add('hidden');
+})();
+
+function fmt(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function iniciais(nome) { return nome.trim().split(/\s+/).slice(0,2).map(p => p[0]).join('').toUpperCase(); }
+function pVal(v) {
+  if (!v) return 0;
+  let c = String(v).trim().replace(/^R\$\s*/i, '');
+  if (c.includes(',')) c = c.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(c);
+  return isNaN(n) ? 0 : n;
+}
+function normName(raw) {
+  if (!raw) return '';
+  const upper = raw.toUpperCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return NAME_MAP[upper] || upper;
+}
+
+// ---------- relógio corrigido pelo servidor ----------
+let relogioDriftMs = 0;
+function agoraCorrigido() { return new Date(Date.now() + relogioDriftMs); }
+function corrigirRelogio(headerDate) {
+  if (!headerDate) return;
+  const servidor = new Date(headerDate).getTime();
+  if (isNaN(servidor)) return;
+  relogioDriftMs = servidor - Date.now();
+}
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+function camposSP(d) { return new Date(d.getTime() - SP_OFFSET_MS); }
+function pDate(s) {
+  if (!s) return null;
+  const p = s.replace(',', '').trim().split(/\s+/);
+  const d = p[0].split('/');
+  if (d.length < 3) return null;
+  const day = +d[0], month = +d[1], year = +d[2];
+  let h = 0, m = 0, c = 0;
+  if (p[1]) { const t = p[1].split(':'); h = +t[0]||0; m = +t[1]||0; c = +t[2]||0; }
+  const date = new Date(Date.UTC(year, month-1, day, h, m, c) + SP_OFFSET_MS);
+  if (isNaN(date.getTime())) return null;
+  return date;
+}
+function isMonth(d) {
+  if (!d) return false;
+  const a = camposSP(d), b = camposSP(agoraCorrigido());
+  return a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
+}
+
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+// Mês tem 28, 29, 30 ou 31 dias dependendo de qual mês (e de ano
+// bissexto em fevereiro) — pedido do usuário em 2026-10-09: "não
+// esquece que algumas vezes tem 30, algumas vezes tem 31 dias". O
+// "dia 0 do mês seguinte" em JS sempre cai no último dia do mês atual,
+// então isso já resolve pra qualquer mês sem precisar de tabela.
+function ultimoDiaDoMes() {
+  const d = camposSP(agoraCorrigido());
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+}
+function tickClock() {
+  const d = agoraCorrigido();
+  const dia = String(d.getDate()).padStart(2,'0'), mes = String(d.getMonth()+1).padStart(2,'0');
+  const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${dia}/${mes}/${d.getFullYear()} · ${h}:${m}`;
+  document.getElementById('topbarMes').textContent = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  document.getElementById('pistaRulerChegada').textContent = `Dia ${ultimoDiaDoMes()} · fim do mês 🏁`;
+}
+
+// Veículo em SVG — monocromático (fill=currentColor), herda a cor do
+// vendedor. O que evolui em 5 degraus conforme o % da meta batida não
+// é só o "acabamento" — é o PRÓPRIO VEÍCULO, sempre mais veloz e mais
+// lúdico (pedido do usuário em 2026-10-09: "o desenho do carro que tem
+// que ir mudando... tipo de veículo mais veloz, só que lúdico, avião,
+// foguete, nave espacial, nave extraterrestre"):
+// kart → carro esportivo → avião → foguete → nave alienígena (+ troféu).
+const CARRO_KART_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <path d="M4 20h4l3-9a3 3 0 0 1 2.8-2h14.8a3 3 0 0 1 2.9 2.3L34 20h4a3 3 0 0 1 3 3v2a2 2 0 0 1-2 2h-2a4 4 0 1 1-8 0H17a4 4 0 1 1-8 0H7a3 3 0 0 1-3-3v-5a2 2 0 0 1 0 0z"/>
+  <circle cx="13" cy="25" r="2.6" fill="#0a0a0a"/>
+  <circle cx="33" cy="25" r="2.6" fill="#0a0a0a"/>
+  <rect x="12" y="12" width="22" height="6" rx="1.5" fill="rgba(0,0,0,0.3)"/>
+</svg>`;
+const CARRO_ESPORTIVO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <path d="M2 21l3-1 3-7c1.3-2.6 3.6-4 6.4-4h12c2.4 0 4.6 1.3 5.8 3.4l2.6 4.6 7 .8a3 3 0 0 1 2.7 3v1.7a2 2 0 0 1-2 2h-2a4.2 4.2 0 1 1-8.3 0H15a4.2 4.2 0 1 1-8.3 0H5a3 3 0 0 1-3-3z"/>
+  <rect x="35" y="7.5" width="9" height="2.6" rx="1"/>
+  <path d="M13 12.6 15 9.8h10.5l2.8 3.8z" fill="rgba(255,255,255,0.4)"/>
+  <circle cx="13.5" cy="24.5" r="3.1" fill="#0a0a0a"/>
+  <circle cx="33.5" cy="24.5" r="3.1" fill="#0a0a0a"/>
+</svg>`;
+const AVIAO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <ellipse cx="21" cy="16" rx="15" ry="4.3"/>
+  <polygon points="35,12.3 46,16 35,19.7"/>
+  <polygon points="25,13 11,2.5 25,16.5"/>
+  <polygon points="25,19 11,29.5 25,15.5"/>
+  <polygon points="8,13.5 3,5 11,15.5"/>
+  <polygon points="8,18.5 3,27 11,16.5"/>
+  <circle cx="29" cy="15.3" r="2.2" fill="rgba(255,255,255,0.5)"/>
+</svg>`;
+const FOGUETE_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <rect x="9" y="10.5" width="27" height="11" rx="5.5"/>
+  <polygon points="36,10.5 36,21.5 46,16"/>
+  <polygon points="10,10.8 3,4 15,13"/>
+  <polygon points="10,21.2 3,28 15,19"/>
+  <circle cx="23" cy="16" r="3.4" fill="rgba(255,255,255,0.55)"/>
+  <circle cx="23" cy="16" r="2" fill="rgba(10,10,10,0.35)"/>
+  <polygon points="9,13.5 9,18.5 2,16" fill="#ff9f0a"/>
+  <polygon points="9,14.5 9,17.5 4.5,16" fill="#ff453a"/>
+</svg>`;
+const NAVE_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <ellipse cx="24" cy="20" rx="19" ry="5.5"/>
+  <ellipse cx="24" cy="12.5" rx="9.5" ry="8"/>
+  <circle cx="24" cy="12" r="4.2" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="9" cy="20" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <circle cx="18" cy="23.5" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <circle cx="30" cy="23.5" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <circle cx="39" cy="20" r="1.6" fill="rgba(255,214,10,0.9)"/>
+  <polygon points="15,25 33,25 24,31.5" fill="currentColor" opacity="0.22"/>
+</svg>`;
+// Degraus de evolução: quanto mais perto da meta (ou do bônus), mais
+// rápido/fantástico o veículo. Ao bater 100%, vira a nave alienígena +
+// troféu flutuando e brilho dourado por cima (ver CSS .tier-5 /
+// .trofeu-flutuante).
+function carroPorProgresso(pct) {
+  if (pct >= 100) return { svg: NAVE_SVG, tier: 'tier-5', luxo: true };
+  if (pct >= 75)  return { svg: FOGUETE_SVG, tier: 'tier-4' };
+  if (pct >= 50)  return { svg: AVIAO_SVG, tier: 'tier-3' };
+  if (pct >= 25)  return { svg: CARRO_ESPORTIVO_SVG, tier: 'tier-2' };
+  return { svg: CARRO_KART_SVG, tier: 'tier-1' };
+}
+const BANDEIRA_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3v18" stroke-linecap="round"/><path d="M5 4h13l-3 4 3 4H5z"/></svg>`;
+
+function renderFaixas(dados) {
+  const el = document.getElementById('faixas');
+  if (!dados.length) {
+    el.innerHTML = '<div class="faixa-empty">cadastre as metas na engrenagem (⚙) pra começar a corrida</div>';
+    return;
+  }
+  const ordenado = [...dados].sort((a,b) => b.pct - a.pct);
+  el.innerHTML = ordenado.map((v, i) => {
+    const cor = corPessoa(v.nome);
+    const pctTexto = v.pct.toFixed(0) + '%';
+    // A pista desenha até 150% da meta — quem bate 100% não "acaba a
+    // corrida" ali, continua tendo pista pela frente até o dia 30.
+    const pctVisual = Math.min(100, v.pct / META_VISUAL_MAX * 100);
+    const lider = i === 0 && v.valor > 0;
+    const carro = carroPorProgresso(v.pct);
+    const valorTexto = v.tipo === 'quantidade' ? `${v.valor} vendas` : fmt(v.valor);
+    const metaTexto = v.tipo === 'quantidade' ? `${v.meta} vendas` : fmt(v.meta);
+    return `
+    <div class="faixa${lider ? ' lider' : ''}">
+      <div class="faixa-topo">
+        <span class="faixa-pos">${String(i+1).padStart(2,'0')}</span>
+        <span class="faixa-nome" style="color:${cor}">${lider ? `<svg class="faixa-crown" viewBox="0 0 24 24" fill="currentColor"><path d="M4 18 2.5 9 8 12 12 5 16 12 21.5 9 20 18Z"/><rect x="3.2" y="17.2" width="17.6" height="2.6" rx="1"/></svg>` : ''}${escapeHtml(v.nome)}</span>
+        <span class="faixa-numeros">
+          <span class="faixa-valor">${valorTexto}</span>
+          <span class="faixa-meta">/ ${metaTexto}</span>
+          <span class="faixa-pct" style="color:${cor}">${pctTexto}</span>
+          ${badgeBonusHtml(BONUS_CHECKPOINTS[0], v)}
+          ${badgeBonusHtml(BONUS_CHECKPOINTS[1], v)}
+        </span>
+      </div>
+      <div class="pista-pista">
+        <div class="pista-track">
+          <div class="pista-track-linha"></div>
+          <div class="pista-track-fill" style="width:${pctVisual}%; background:${cor};"></div>
+          <div class="pista-tick tick-dia10"></div>
+          <div class="pista-tick tick-dia20"></div>
+        </div>
+        <span class="pista-meta-flag" style="color:${cor}">${BANDEIRA_SVG}</span>
+        <div class="pista-carrinho ${carro.tier}" style="left:calc(${pctVisual}% * 0.92); color:${cor};">
+          ${carro.svg}
+          ${carro.luxo ? '<span class="trofeu-flutuante">🏆</span>' : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderResumo(dados) {
+  // Dá pra ter gente com meta em R$ e gente com meta em quantidade de
+  // vendas ao mesmo tempo — somar os dois valores direto não faz
+  // sentido (unidades diferentes). Por isso o resumo do time usa a
+  // MÉDIA do % de cada um na própria meta, que funciona pros dois tipos.
+  const pctMedio = dados.length ? dados.reduce((s,v) => s + v.pct, 0) / dados.length : 0;
+  document.getElementById('resumoValor').textContent = pctMedio.toFixed(0) + '%';
+  document.getElementById('resumoSub').textContent = 'média do time na própria meta';
+  document.getElementById('resumoBarFill').style.width = Math.min(100, pctMedio) + '%';
+
+  // Troquei "tipos de meta no time" (R$ x quantidade) por isso aqui —
+  // era uma informação meio de bastidor, pouco útil pra quem só olha a
+  // TV de longe. "Quantos já bateram" combina melhor com "quem
+  // lidera": os dois reforçam a corrida/competição.
+  const bateram = dados.filter(v => v.pct >= 100).length;
+  document.getElementById('metaSomadaValor').textContent = `${bateram}/${dados.length}`;
+  document.getElementById('bateramSub').textContent = dados.length
+    ? (bateram === 1 ? 'colaborador em 100%+' : 'colaboradores em 100%+')
+    : 'cadastre as metas na engrenagem';
+
+  const lider = [...dados].sort((a,b) => b.pct - a.pct)[0];
+  if (lider && lider.valor > 0) {
+    document.getElementById('liderNome').textContent = lider.nome;
+    document.getElementById('liderNome').style.color = corPessoa(lider.nome);
+    document.getElementById('liderPct').textContent = lider.pct.toFixed(0) + '% da meta dele';
+  } else {
+    document.getElementById('liderNome').textContent = '—';
+    document.getElementById('liderPct').textContent = '';
+  }
+}
+
+async function atualizarCorrida() {
+  try {
+    const base = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+    const r = await fetch(`${base}/${encodeURIComponent('DADOS BRUTOS!A:H')}?key=${SHEET_KEY}`, {cache: 'no-store'});
+    if (!r.ok) throw new Error('planilha: ' + r.status);
+    corrigirRelogio(r.headers.get('date'));
+    const j = await r.json();
+    const rows = j.values || [];
+
+    const vendasDoMes = [];
+    const produtosVistos = new Set();
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      const status = (row[7] || '').trim().toLowerCase();
+      if (status !== 'paid') continue;
+      const data = pDate(row[0]);
+      if (!data || !isMonth(data)) continue;
+      const vendedor = normName(row[1]);
+      if (!VENDORS_CONHECIDOS.includes(vendedor)) continue;
+      const produto = (row[2] || '').trim();
+      if (produto) produtosVistos.add(produto);
+      vendasDoMes.push({ vendedor, produto, valor: pVal(row[3]) });
+    }
+    PRODUTOS_DISPONIVEIS = Array.from(produtosVistos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+    const dados = Object.keys(METAS_MES)
+      .filter(k => METAS_MES[k] > 0)
+      .map(k => {
+        const tipo = TIPO_META[k] === 'quantidade' ? 'quantidade' : 'valor';
+        const vendasDoVendedor = vendasDoMes.filter(v => v.vendedor === k);
+        let valor;
+        if (tipo === 'quantidade') {
+          const produtosValidos = PRODUTOS_VALIDOS[k] || [];
+          const vendasValidas = produtosValidos.length
+            ? vendasDoVendedor.filter(v => produtosValidos.includes(v.produto))
+            : vendasDoVendedor; // ninguém marcado = conta toda venda
+          valor = vendasValidas.length;
+        } else {
+          valor = vendasDoVendedor.reduce((s, v) => s + v.valor, 0);
+        }
+        const meta = METAS_MES[k];
+        return { chave:k, nome: DISPLAY_NAMES[k] || k, tipo, valor, meta, pct: meta > 0 ? (valor/meta*100) : 0 };
+      });
+
+    atualizarSnapshotsDoDia(dados);
+    renderFaixas(dados);
+    renderResumo(dados);
+  } catch (e) {
+    console.error('Erro ao atualizar corrida de metas:', e);
+  }
+}
+
+// ---------- gaveta: editar metas (tipo + valor + produtos) + conexão ----------
+function montarFormMetas() {
+  const el = document.getElementById('metasForm');
+  el.innerHTML = VENDORS_CONHECIDOS.map(k => {
+    const tipo = TIPO_META[k] === 'quantidade' ? 'quantidade' : 'valor';
+    const valorAtual = METAS_MES[k] || '';
+    const selecionados = PRODUTOS_VALIDOS[k] || [];
+    const listaProdutos = PRODUTOS_DISPONIVEIS.length
+      ? PRODUTOS_DISPONIVEIS.map(p => `
+          <label class="produto-check">
+            <input type="checkbox" data-produto-de="${k}" value="${escapeHtml(p)}" ${selecionados.includes(p) ? 'checked' : ''}>
+            ${escapeHtml(p)}
+          </label>`).join('')
+      : `<span class="produto-vazio">ainda não chegou nenhuma venda do mês pra listar produtos — abra de novo depois que o painel carregar</span>`;
+    return `
+    <div class="meta-card">
+      <div class="meta-card-topo">
+        <span class="nome" style="color:${corPessoa(DISPLAY_NAMES[k] || k)}">${escapeHtml(DISPLAY_NAMES[k] || k)}</span>
+        <select class="meta-tipo" id="tipo-${k}" onchange="alternarTipoMeta('${k}')">
+          <option value="valor" ${tipo === 'valor' ? 'selected' : ''}>R$ (valor)</option>
+          <option value="quantidade" ${tipo === 'quantidade' ? 'selected' : ''}>Qtd. de vendas</option>
+        </select>
+      </div>
+      <input type="number" step="${tipo === 'quantidade' ? '1' : '0.01'}" min="0" id="meta-${k}" value="${valorAtual}" placeholder="${tipo === 'quantidade' ? '0' : '0,00'}">
+      <div class="meta-produtos" id="produtos-${k}" style="display:${tipo === 'quantidade' ? 'block' : 'none'}">
+        <span class="meta-produtos-titulo">Produtos que contam pra meta de ${escapeHtml(DISPLAY_NAMES[k] || k)} (nenhum marcado = conta toda venda):</span>
+        <div class="meta-produtos-lista">${listaProdutos}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function alternarTipoMeta(chave) {
+  const tipo = document.getElementById('tipo-' + chave).value;
+  document.getElementById('produtos-' + chave).style.display = tipo === 'quantidade' ? 'block' : 'none';
+  const input = document.getElementById('meta-' + chave);
+  input.step = tipo === 'quantidade' ? '1' : '0.01';
+  input.placeholder = tipo === 'quantidade' ? '0' : '0,00';
+}
+function salvarMetas() {
+  const novoValor = {};
+  const novoTipo = {};
+  const novoProdutos = {};
+  VENDORS_CONHECIDOS.forEach(k => {
+    const tipo = document.getElementById('tipo-' + k).value === 'quantidade' ? 'quantidade' : 'valor';
+    const v = parseFloat(document.getElementById('meta-' + k).value);
+    if (Number.isFinite(v) && v > 0) {
+      novoValor[k] = v;
+      novoTipo[k] = tipo;
+      if (tipo === 'quantidade') {
+        novoProdutos[k] = Array.from(document.querySelectorAll(`input[data-produto-de="${k}"]:checked`)).map(i => i.value);
+      }
+    }
+  });
+  METAS_MES = novoValor;
+  TIPO_META = novoTipo;
+  PRODUTOS_VALIDOS = novoProdutos;
+  try {
+    localStorage.setItem('corridaMetasValores', JSON.stringify(novoValor));
+    localStorage.setItem('corridaMetasTipos', JSON.stringify(novoTipo));
+    localStorage.setItem('corridaMetasProdutos', JSON.stringify(novoProdutos));
+  } catch (e) {}
+  atualizarCorrida();
+}
+async function saveAPI(btn) {
+  SHEET_ID = document.getElementById('sheetIdInput').value.trim() || SHEET_ID;
+  SHEET_KEY = document.getElementById('apiKeyInput').value.trim() || SHEET_KEY;
+  if (btn) btn.disabled = true;
+  try { await atualizarCorrida(); } finally { if (btn) btn.disabled = false; }
+}
+function openDrawer() {
+  montarFormMetas(); // recarrega com a lista de produtos mais recente
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen().catch(() => {});
+}
+
+let jaIniciou = false;
+function iniciar() {
+  if (jaIniciou) return;
+  jaIniciou = true;
+  document.getElementById('sheetIdInput').value = SHEET_ID;
+  document.getElementById('apiKeyInput').value = SHEET_KEY;
+  montarFormMetas();
+  document.getElementById('drawerBtn').addEventListener('click', openDrawer);
+  document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+  document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+  tickClock();
+  setInterval(tickClock, 1000);
+  atualizarCorrida();
+  setInterval(atualizarCorrida, 30000);
+}
+if (document.getElementById('lockScreen').classList.contains('hidden')) iniciar();
+</script>
+</body>
+</html>
