@@ -112,8 +112,14 @@
 
   /* a pista em si: fundo "asfalto", linha tracejada central, preenchimento
      colorido e o carrinho na ponta do preenchimento. */
+  /* .pista-track é só o "trecho de asfalto" visual e fica contido em
+     overflow:hidden (pros cantos arredondados ficarem certinhos). O
+     carro e o troféu moram FORA dela, no wrapper .pista-pista — senão
+     ficam cortados quando saem um pouco da faixa (carro é meio maior
+     que a barra, e o troféu flutua acima dela). */
+  .pista-pista { position:relative; height:clamp(20px, 2.6vh, 30px); }
   .pista-track {
-    position:relative; height:clamp(20px, 2.6vh, 30px); border-radius:99px;
+    position:absolute; inset:0; border-radius:99px;
     background:rgba(255,255,255,0.045); border:1px solid var(--line); overflow:hidden;
   }
   .pista-track-linha {
@@ -137,10 +143,50 @@
   .pista-carrinho {
     position:absolute; top:50%; width:clamp(26px, 3.2vh, 36px); height:clamp(26px, 3.2vh, 36px);
     transform:translate(-50%,-50%); left:0%;
-    transition:left 1.1s cubic-bezier(0.25,0.46,0.45,0.94);
-    filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+    transition:left 1.1s cubic-bezier(0.25,0.46,0.45,0.94), width 0.6s ease, height 0.6s ease;
+    animation:carroBalanco 1.3s ease-in-out infinite;
   }
   .pista-carrinho svg { width:100%; height:100%; display:block; }
+  @keyframes carroBalanco {
+    0%,100% { transform:translate(-50%,-50%) translateY(0) rotate(0deg); }
+    50% { transform:translate(-50%,-50%) translateY(-3px) rotate(-2deg); }
+  }
+
+  /* carro vai "evoluindo" conforme o % da meta sobe — rastro de velocidade
+     atrás e brilho em volta crescem junto, pra dar sensação de corrida de
+     verdade (pedido do usuário em 2026-10-09: "mais divertido" + "carro
+     mais luxuoso quanto mais perto do prêmio"). */
+  .pista-carrinho::after {
+    content:''; position:absolute; top:50%; right:100%; height:5px;
+    transform:translateY(-50%); border-radius:3px; filter:blur(1px);
+    background:linear-gradient(90deg, transparent, currentColor);
+    width:0; opacity:0;
+  }
+  .pista-carrinho.tier-1 { filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
+  .pista-carrinho.tier-2 { filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5)) drop-shadow(0 0 5px currentColor); }
+  .pista-carrinho.tier-2::after { width:16px; opacity:0.25; }
+  .pista-carrinho.tier-3 { filter:drop-shadow(0 2px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 9px currentColor); }
+  .pista-carrinho.tier-3::after { width:26px; opacity:0.38; }
+  .pista-carrinho.tier-4 { filter:drop-shadow(0 2px 7px rgba(0,0,0,0.6)) drop-shadow(0 0 13px currentColor); }
+  .pista-carrinho.tier-4::after { width:36px; opacity:0.5; }
+  .pista-carrinho.tier-5 {
+    filter:drop-shadow(0 2px 8px rgba(0,0,0,0.65)) drop-shadow(0 0 14px currentColor) drop-shadow(0 0 22px rgba(255,214,10,0.55));
+    animation:carroBalanco 1.3s ease-in-out infinite, carroPulso 1.8s ease-in-out infinite;
+  }
+  .pista-carrinho.tier-5::after { width:46px; opacity:0.6; }
+  @keyframes carroPulso {
+    0%,100% { filter:drop-shadow(0 2px 8px rgba(0,0,0,0.65)) drop-shadow(0 0 14px currentColor) drop-shadow(0 0 22px rgba(255,214,10,0.55)); }
+    50% { filter:drop-shadow(0 2px 8px rgba(0,0,0,0.65)) drop-shadow(0 0 18px currentColor) drop-shadow(0 0 30px rgba(255,214,10,0.8)); }
+  }
+  .trofeu-flutuante {
+    position:absolute; left:50%; top:-15px; transform:translateX(-50%);
+    font-size:13px; animation:trofeuFlutuar 1.6s ease-in-out infinite;
+    filter:drop-shadow(0 0 6px rgba(255,214,10,0.85));
+  }
+  @keyframes trofeuFlutuar {
+    0%,100% { transform:translateX(-50%) translateY(0) rotate(-8deg); }
+    50% { transform:translateX(-50%) translateY(-5px) rotate(8deg); }
+  }
 
   .faixa-empty { text-align:center; color:var(--fg-faint); font-family:'IBM Plex Mono',monospace; font-size:0.85rem; padding:30px 0; }
 
@@ -408,15 +454,51 @@ function tickClock() {
   document.getElementById('topbarMes').textContent = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// Carrinho/kart em SVG — monocromático (fill=currentColor), herda a
-// cor do vendedor, igual já é feito com os ícones de comemoração do
-// painel único.
-const CARRINHO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+// Carro em SVG — monocromático (fill=currentColor), herda a cor do
+// vendedor (cada um já tinha cor própria via corPessoa; o que muda
+// agora é o MODELO do carro, que evolui em 5 degraus conforme o %
+// da meta batida — pedido do usuário em 2026-10-09: "carro ficando
+// mais luxuoso a quanto mais o colaborador for chegando perto do
+// prêmio". Mesma silhueta genérica (2 rodas + carroceria), só a forma
+// da carroceria muda — do kart simples até o superesportivo com aerofólio.
+const CARRO_KART_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
   <path d="M4 20h4l3-9a3 3 0 0 1 2.8-2h14.8a3 3 0 0 1 2.9 2.3L34 20h4a3 3 0 0 1 3 3v2a2 2 0 0 1-2 2h-2a4 4 0 1 1-8 0H17a4 4 0 1 1-8 0H7a3 3 0 0 1-3-3v-5a2 2 0 0 1 0 0z"/>
   <circle cx="13" cy="25" r="2.6" fill="#0a0a0a"/>
   <circle cx="33" cy="25" r="2.6" fill="#0a0a0a"/>
   <rect x="12" y="12" width="22" height="6" rx="1.5" fill="rgba(0,0,0,0.3)"/>
 </svg>`;
+const CARRO_HATCH_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <path d="M3 21h3l2-8c1-2.3 3-3.7 5.4-3.7h13c2 0 3.8 1 5 2.7l3 5 7 1a3.2 3.2 0 0 1 3 3.2v1.8a2 2 0 0 1-2 2h-2a4.2 4.2 0 1 1-8.3 0H16a4.2 4.2 0 1 1-8.3 0H6a3 3 0 0 1-3-3z"/>
+  <path d="M12.5 13 14 10.3h9.5l3 4.3z" fill="rgba(255,255,255,0.38)"/>
+  <circle cx="13.5" cy="24.5" r="3" fill="#0a0a0a"/>
+  <circle cx="33.5" cy="24.5" r="3" fill="#0a0a0a"/>
+</svg>`;
+const CARRO_ESPORTIVO_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <path d="M2 21l3-1 3-7c1.3-2.6 3.6-4 6.4-4h12c2.4 0 4.6 1.3 5.8 3.4l2.6 4.6 7 .8a3 3 0 0 1 2.7 3v1.7a2 2 0 0 1-2 2h-2a4.2 4.2 0 1 1-8.3 0H15a4.2 4.2 0 1 1-8.3 0H5a3 3 0 0 1-3-3z"/>
+  <rect x="35" y="7.5" width="9" height="2.6" rx="1"/>
+  <path d="M13 12.6 15 9.8h10.5l2.8 3.8z" fill="rgba(255,255,255,0.4)"/>
+  <circle cx="13.5" cy="24.5" r="3.1" fill="#0a0a0a"/>
+  <circle cx="33.5" cy="24.5" r="3.1" fill="#0a0a0a"/>
+</svg>`;
+const CARRO_SUPER_SVG = `<svg viewBox="0 0 48 32" fill="currentColor">
+  <path d="M1 21.5l3-1 2.5-7.3C7.8 10.2 10.3 8.2 13.4 8.2h11.7c2.7 0 5.1 1.5 6.3 3.9l2.3 4.5 7.6.7a3 3 0 0 1 2.7 3v1.9a2 2 0 0 1-2 2h-2a4.3 4.3 0 1 1-8.5 0H14.8a4.3 4.3 0 1 1-8.5 0H5a3 3 0 0 1-3-3z"/>
+  <path d="M32.5 6.3h4.3a2 2 0 0 1 2 2v2.2h-8z"/>
+  <rect x="31" y="5.6" width="1.8" height="4"/>
+  <rect x="37.5" y="5.6" width="1.8" height="4"/>
+  <path d="M12.5 12.6 14.6 9.4h11l2.6 3.2z" fill="rgba(255,255,255,0.42)"/>
+  <circle cx="13.5" cy="24.3" r="3.3" fill="#0a0a0a"/>
+  <circle cx="34" cy="24.3" r="3.3" fill="#0a0a0a"/>
+</svg>`;
+// Degraus de evolução: quanto mais perto da meta (ou do bônus), mais
+// chique o carro. Ao bater 100%, vira o mesmo superesportivo + troféu
+// flutuando e brilho dourado por cima (ver CSS .tier-5 / .trofeu-flutuante).
+function carroPorProgresso(pct) {
+  if (pct >= 100) return { svg: CARRO_SUPER_SVG, tier: 'tier-5', luxo: true };
+  if (pct >= 75)  return { svg: CARRO_SUPER_SVG, tier: 'tier-4' };
+  if (pct >= 50)  return { svg: CARRO_ESPORTIVO_SVG, tier: 'tier-3' };
+  if (pct >= 25)  return { svg: CARRO_HATCH_SVG, tier: 'tier-2' };
+  return { svg: CARRO_KART_SVG, tier: 'tier-1' };
+}
 const BANDEIRA_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3v18" stroke-linecap="round"/><path d="M5 4h13l-3 4 3 4H5z"/></svg>`;
 
 function renderFaixas(dados) {
@@ -431,6 +513,7 @@ function renderFaixas(dados) {
     const pctTexto = v.pct.toFixed(0) + '%';
     const pctVisual = Math.min(100, v.pct);
     const lider = i === 0 && v.valor > 0;
+    const carro = carroPorProgresso(v.pct);
     return `
     <div class="faixa${lider ? ' lider' : ''}">
       <div class="faixa-topo">
@@ -444,12 +527,17 @@ function renderFaixas(dados) {
           ${badgeBonusHtml(BONUS_CHECKPOINTS[1], v)}
         </span>
       </div>
-      <div class="pista-track">
-        <div class="pista-track-linha"></div>
-        <div class="pista-track-fill" style="width:${pctVisual}%; background:${cor};"></div>
-        <div class="pista-tick-bonus"></div>
+      <div class="pista-pista">
+        <div class="pista-track">
+          <div class="pista-track-linha"></div>
+          <div class="pista-track-fill" style="width:${pctVisual}%; background:${cor};"></div>
+          <div class="pista-tick-bonus"></div>
+        </div>
         <span class="pista-meta-flag" style="color:${cor}">${BANDEIRA_SVG}</span>
-        <div class="pista-carrinho" style="left:calc(${pctVisual}% * 0.92); color:${cor};">${CARRINHO_SVG}</div>
+        <div class="pista-carrinho ${carro.tier}" style="left:calc(${pctVisual}% * 0.92); color:${cor};">
+          ${carro.svg}
+          ${carro.luxo ? '<span class="trofeu-flutuante">🏆</span>' : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
