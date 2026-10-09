@@ -217,9 +217,19 @@
   .drawer-btn { width:100%; padding:11px; border-radius:10px; border:1px solid var(--line); background:none; color:var(--fg); font-weight:700; font-size:0.8rem; cursor:pointer; }
   .drawer-btn:hover { border-color:var(--orange); background:rgba(255,159,10,0.08); }
   .drawer-btn.solid { background:var(--orange); border-color:var(--orange); color:#1a0f00; }
-  .meta-field-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-  .meta-field-row .nome { flex:1; font-weight:700; font-size:0.84rem; }
-  .meta-field-row input { width:120px; padding:8px 10px; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:8px; color:var(--fg); font-size:0.8rem; text-align:right; font-family:'IBM Plex Mono',monospace; }
+  /* cartão de meta por vendedor: tipo (R$ ou quantidade), valor e,
+     quando é por quantidade, a lista de produtos que contam */
+  .meta-card { padding:12px 13px; margin-bottom:11px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,0.03); }
+  .meta-card-topo { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+  .meta-card-topo .nome { font-weight:700; font-size:0.84rem; }
+  .meta-tipo { background:rgba(255,255,255,0.06); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:0.7rem; font-family:'IBM Plex Mono',monospace; }
+  .meta-card input[type="number"] { width:100%; box-sizing:border-box; padding:9px 11px; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:8px; color:var(--fg); font-size:0.82rem; text-align:right; font-family:'IBM Plex Mono',monospace; }
+  .meta-produtos { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
+  .meta-produtos-titulo { display:block; font-size:0.62rem; color:var(--fg-dim); margin-bottom:7px; font-weight:600; }
+  .meta-produtos-lista { max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .produto-check { display:flex; align-items:flex-start; gap:7px; font-size:0.76rem; color:var(--fg-dim); cursor:pointer; line-height:1.3; }
+  .produto-check input { accent-color:var(--orange); margin-top:2px; flex-shrink:0; }
+  .produto-vazio { font-size:0.7rem; color:var(--fg-faint); font-style:italic; }
 </style>
 </head>
 <body>
@@ -248,14 +258,14 @@
 
   <div class="resumo-row">
     <div class="resumo-card primary glass">
-      <span class="resumo-label">Meta do time no mês</span>
-      <span class="resumo-valor" id="resumoValor">R$ 0,00</span>
-      <span class="resumo-sub" id="resumoSub">0% da meta somada</span>
+      <span class="resumo-label">Ritmo médio do time</span>
+      <span class="resumo-valor" id="resumoValor">0%</span>
+      <span class="resumo-sub" id="resumoSub">média do time na própria meta</span>
       <div class="resumo-bar"><div class="resumo-bar-fill" id="resumoBarFill" style="width:0%"></div></div>
     </div>
     <div class="resumo-card glass">
-      <span class="resumo-label">Meta somada do time</span>
-      <span class="resumo-valor" id="metaSomadaValor">R$ 0,00</span>
+      <span class="resumo-label">Tipos de meta no time</span>
+      <span class="resumo-valor" id="metaSomadaValor" style="font-size:clamp(1.1rem, 1.8vw, 1.5rem);">—</span>
     </div>
     <div class="resumo-card glass">
       <span class="resumo-label">Quem lidera</span>
@@ -278,7 +288,7 @@
   </div>
 
   <div class="drawer-section">
-    <div class="drawer-section-title">Metas do mês (R$)</div>
+    <div class="drawer-section-title">Metas do mês</div>
     <div id="metasForm"></div>
     <button class="drawer-btn solid" onclick="salvarMetas()">Salvar metas</button>
   </div>
@@ -339,6 +349,26 @@ try {
   const salvas = localStorage.getItem('corridaMetasValores');
   if (salvas) METAS_MES = {...METAS_MES, ...JSON.parse(salvas)};
 } catch (e) {}
+
+// ---------- tipo de meta por vendedor ----------
+// Alguns vendedores batem meta em R$ (valor líquido somado), outros em
+// QUANTIDADE de vendas — pedido do usuário em 2026-10-09. Pra quem é
+// por quantidade, só conta a venda se o produto estiver marcado como
+// "válido" pra ele (ex: só o produto principal conta, upsell não).
+// Tudo isso é editável na gaveta de configurações.
+let TIPO_META = {}; // chave do vendedor -> 'valor' | 'quantidade' (padrão: 'valor')
+try {
+  const tiposSalvos = localStorage.getItem('corridaMetasTipos');
+  if (tiposSalvos) TIPO_META = JSON.parse(tiposSalvos);
+} catch (e) {}
+let PRODUTOS_VALIDOS = {}; // chave do vendedor -> array de nomes de produto válidos (só usado se tipo='quantidade'; vazio = conta tudo)
+try {
+  const produtosSalvos = localStorage.getItem('corridaMetasProdutos');
+  if (produtosSalvos) PRODUTOS_VALIDOS = JSON.parse(produtosSalvos);
+} catch (e) {}
+// Lista de produtos vistos nas vendas do mês — populada a cada
+// atualização, usada só pra montar os checkboxes da gaveta.
+let PRODUTOS_DISPONIVEIS = [];
 
 // ---------- bônus do mês ----------
 // A meta é ÚNICA do mês (não por dia) — mas rola bônus se o vendedor
@@ -535,14 +565,16 @@ function renderFaixas(dados) {
     const pctVisual = Math.min(100, v.pct);
     const lider = i === 0 && v.valor > 0;
     const carro = carroPorProgresso(v.pct);
+    const valorTexto = v.tipo === 'quantidade' ? `${v.valor} vendas` : fmt(v.valor);
+    const metaTexto = v.tipo === 'quantidade' ? `${v.meta} vendas` : fmt(v.meta);
     return `
     <div class="faixa${lider ? ' lider' : ''}">
       <div class="faixa-topo">
         <span class="faixa-pos">${String(i+1).padStart(2,'0')}</span>
         <span class="faixa-nome" style="color:${cor}">${lider ? `<svg class="faixa-crown" viewBox="0 0 24 24" fill="currentColor"><path d="M4 18 2.5 9 8 12 12 5 16 12 21.5 9 20 18Z"/><rect x="3.2" y="17.2" width="17.6" height="2.6" rx="1"/></svg>` : ''}${escapeHtml(v.nome)}</span>
         <span class="faixa-numeros">
-          <span class="faixa-valor">${fmt(v.valor)}</span>
-          <span class="faixa-meta">/ ${fmt(v.meta)}</span>
+          <span class="faixa-valor">${valorTexto}</span>
+          <span class="faixa-meta">/ ${metaTexto}</span>
           <span class="faixa-pct" style="color:${cor}">${pctTexto}</span>
           ${badgeBonusHtml(BONUS_CHECKPOINTS[0], v)}
           ${badgeBonusHtml(BONUS_CHECKPOINTS[1], v)}
@@ -565,13 +597,20 @@ function renderFaixas(dados) {
 }
 
 function renderResumo(dados) {
-  const totalValor = dados.reduce((s,v) => s + v.valor, 0);
-  const totalMeta = dados.reduce((s,v) => s + v.meta, 0);
-  const pct = totalMeta > 0 ? (totalValor / totalMeta * 100) : 0;
-  document.getElementById('resumoValor').textContent = fmt(totalValor);
-  document.getElementById('resumoSub').textContent = `${pct.toFixed(0)}% da meta somada`;
-  document.getElementById('resumoBarFill').style.width = Math.min(100, pct) + '%';
-  document.getElementById('metaSomadaValor').textContent = fmt(totalMeta);
+  // Dá pra ter gente com meta em R$ e gente com meta em quantidade de
+  // vendas ao mesmo tempo — somar os dois valores direto não faz
+  // sentido (unidades diferentes). Por isso o resumo do time usa a
+  // MÉDIA do % de cada um na própria meta, que funciona pros dois tipos.
+  const pctMedio = dados.length ? dados.reduce((s,v) => s + v.pct, 0) / dados.length : 0;
+  document.getElementById('resumoValor').textContent = pctMedio.toFixed(0) + '%';
+  document.getElementById('resumoSub').textContent = 'média do time na própria meta';
+  document.getElementById('resumoBarFill').style.width = Math.min(100, pctMedio) + '%';
+
+  const qtdEmValor = dados.filter(v => v.tipo === 'valor').length;
+  const qtdEmQuantidade = dados.filter(v => v.tipo === 'quantidade').length;
+  document.getElementById('metaSomadaValor').textContent = dados.length
+    ? `${qtdEmValor} em R$ · ${qtdEmQuantidade} em qtd.`
+    : '—';
 
   const lider = [...dados].sort((a,b) => b.pct - a.pct)[0];
   if (lider && lider.valor > 0) {
@@ -593,7 +632,8 @@ async function atualizarCorrida() {
     const j = await r.json();
     const rows = j.values || [];
 
-    const totaisMes = {};
+    const vendasDoMes = [];
+    const produtosVistos = new Set();
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row) continue;
@@ -603,15 +643,29 @@ async function atualizarCorrida() {
       if (!data || !isMonth(data)) continue;
       const vendedor = normName(row[1]);
       if (!VENDORS_CONHECIDOS.includes(vendedor)) continue;
-      totaisMes[vendedor] = (totaisMes[vendedor] || 0) + pVal(row[3]);
+      const produto = (row[2] || '').trim();
+      if (produto) produtosVistos.add(produto);
+      vendasDoMes.push({ vendedor, produto, valor: pVal(row[3]) });
     }
+    PRODUTOS_DISPONIVEIS = Array.from(produtosVistos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
     const dados = Object.keys(METAS_MES)
       .filter(k => METAS_MES[k] > 0)
       .map(k => {
-        const valor = totaisMes[k] || 0;
+        const tipo = TIPO_META[k] === 'quantidade' ? 'quantidade' : 'valor';
+        const vendasDoVendedor = vendasDoMes.filter(v => v.vendedor === k);
+        let valor;
+        if (tipo === 'quantidade') {
+          const produtosValidos = PRODUTOS_VALIDOS[k] || [];
+          const vendasValidas = produtosValidos.length
+            ? vendasDoVendedor.filter(v => produtosValidos.includes(v.produto))
+            : vendasDoVendedor; // ninguém marcado = conta toda venda
+          valor = vendasValidas.length;
+        } else {
+          valor = vendasDoVendedor.reduce((s, v) => s + v.valor, 0);
+        }
         const meta = METAS_MES[k];
-        return { chave:k, nome: DISPLAY_NAMES[k] || k, valor, meta, pct: meta > 0 ? (valor/meta*100) : 0 };
+        return { chave:k, nome: DISPLAY_NAMES[k] || k, tipo, valor, meta, pct: meta > 0 ? (valor/meta*100) : 0 };
       });
 
     atualizarSnapshotsDoDia(dados);
@@ -622,23 +676,67 @@ async function atualizarCorrida() {
   }
 }
 
-// ---------- gaveta: editar metas + conexão ----------
+// ---------- gaveta: editar metas (tipo + valor + produtos) + conexão ----------
 function montarFormMetas() {
   const el = document.getElementById('metasForm');
-  el.innerHTML = VENDORS_CONHECIDOS.map(k => `
-    <div class="meta-field-row">
-      <span class="nome" style="color:${corPessoa(DISPLAY_NAMES[k] || k)}">${escapeHtml(DISPLAY_NAMES[k] || k)}</span>
-      <input type="number" step="0.01" min="0" id="meta-${k}" value="${METAS_MES[k] || ''}" placeholder="0,00">
-    </div>`).join('');
+  el.innerHTML = VENDORS_CONHECIDOS.map(k => {
+    const tipo = TIPO_META[k] === 'quantidade' ? 'quantidade' : 'valor';
+    const valorAtual = METAS_MES[k] || '';
+    const selecionados = PRODUTOS_VALIDOS[k] || [];
+    const listaProdutos = PRODUTOS_DISPONIVEIS.length
+      ? PRODUTOS_DISPONIVEIS.map(p => `
+          <label class="produto-check">
+            <input type="checkbox" data-produto-de="${k}" value="${escapeHtml(p)}" ${selecionados.includes(p) ? 'checked' : ''}>
+            ${escapeHtml(p)}
+          </label>`).join('')
+      : `<span class="produto-vazio">ainda não chegou nenhuma venda do mês pra listar produtos — abra de novo depois que o painel carregar</span>`;
+    return `
+    <div class="meta-card">
+      <div class="meta-card-topo">
+        <span class="nome" style="color:${corPessoa(DISPLAY_NAMES[k] || k)}">${escapeHtml(DISPLAY_NAMES[k] || k)}</span>
+        <select class="meta-tipo" id="tipo-${k}" onchange="alternarTipoMeta('${k}')">
+          <option value="valor" ${tipo === 'valor' ? 'selected' : ''}>R$ (valor)</option>
+          <option value="quantidade" ${tipo === 'quantidade' ? 'selected' : ''}>Qtd. de vendas</option>
+        </select>
+      </div>
+      <input type="number" step="${tipo === 'quantidade' ? '1' : '0.01'}" min="0" id="meta-${k}" value="${valorAtual}" placeholder="${tipo === 'quantidade' ? '0' : '0,00'}">
+      <div class="meta-produtos" id="produtos-${k}" style="display:${tipo === 'quantidade' ? 'block' : 'none'}">
+        <span class="meta-produtos-titulo">Produtos que contam pra meta de ${escapeHtml(DISPLAY_NAMES[k] || k)} (nenhum marcado = conta toda venda):</span>
+        <div class="meta-produtos-lista">${listaProdutos}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function alternarTipoMeta(chave) {
+  const tipo = document.getElementById('tipo-' + chave).value;
+  document.getElementById('produtos-' + chave).style.display = tipo === 'quantidade' ? 'block' : 'none';
+  const input = document.getElementById('meta-' + chave);
+  input.step = tipo === 'quantidade' ? '1' : '0.01';
+  input.placeholder = tipo === 'quantidade' ? '0' : '0,00';
 }
 function salvarMetas() {
-  const novo = {};
+  const novoValor = {};
+  const novoTipo = {};
+  const novoProdutos = {};
   VENDORS_CONHECIDOS.forEach(k => {
+    const tipo = document.getElementById('tipo-' + k).value === 'quantidade' ? 'quantidade' : 'valor';
     const v = parseFloat(document.getElementById('meta-' + k).value);
-    if (Number.isFinite(v) && v > 0) novo[k] = v;
+    if (Number.isFinite(v) && v > 0) {
+      novoValor[k] = v;
+      novoTipo[k] = tipo;
+      if (tipo === 'quantidade') {
+        novoProdutos[k] = Array.from(document.querySelectorAll(`input[data-produto-de="${k}"]:checked`)).map(i => i.value);
+      }
+    }
   });
-  METAS_MES = novo;
-  try { localStorage.setItem('corridaMetasValores', JSON.stringify(novo)); } catch (e) {}
+  METAS_MES = novoValor;
+  TIPO_META = novoTipo;
+  PRODUTOS_VALIDOS = novoProdutos;
+  try {
+    localStorage.setItem('corridaMetasValores', JSON.stringify(novoValor));
+    localStorage.setItem('corridaMetasTipos', JSON.stringify(novoTipo));
+    localStorage.setItem('corridaMetasProdutos', JSON.stringify(novoProdutos));
+  } catch (e) {}
   atualizarCorrida();
 }
 async function saveAPI(btn) {
@@ -647,7 +745,11 @@ async function saveAPI(btn) {
   if (btn) btn.disabled = true;
   try { await atualizarCorrida(); } finally { if (btn) btn.disabled = false; }
 }
-function openDrawer() { document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); }
+function openDrawer() {
+  montarFormMetas(); // recarrega com a lista de produtos mais recente
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
 function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
 function toggleFullscreen() {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
