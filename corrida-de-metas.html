@@ -244,6 +244,9 @@
   .produto-check { display:flex; align-items:flex-start; gap:7px; font-size:0.76rem; color:var(--fg-dim); cursor:pointer; line-height:1.3; }
   .produto-check input { accent-color:var(--orange); margin-top:2px; flex-shrink:0; }
   .produto-vazio { font-size:0.7rem; color:var(--fg-faint); font-style:italic; }
+  .salvar-metas-status { font-size:0.72rem; color:var(--fg-faint); margin-top:8px; min-height:1.2em; }
+  .salvar-metas-status.ok { color:var(--green); }
+  .salvar-metas-status.erro { color:var(--red); }
 
   /* ================================================================
      GAMIFICAÇÃO — toast (conquista pequena: subiu de veículo, bateu
@@ -373,7 +376,8 @@
   <div class="drawer-section">
     <div class="drawer-section-title">Metas do mês</div>
     <div id="metasForm"></div>
-    <button class="drawer-btn solid" onclick="salvarMetas()">Salvar metas</button>
+    <button class="drawer-btn solid" id="salvarMetasBtn" onclick="salvarMetas()">Salvar metas</button>
+    <p class="salvar-metas-status" id="salvarMetasStatus"></p>
   </div>
 
   <div class="drawer-section">
@@ -417,6 +421,7 @@ const SHEET_ID_PADRAO = '1rwbTALoHgKVsh0zYTtx5QAf_oFSGP4szHOqYUN7j-Ls';
 const SHEET_KEY_PADRAO = 'AIzaSyDocbdSYTXG_otrSTvu7e4pGF0UaVyFBQM';
 let SHEET_ID = SHEET_ID_PADRAO;
 let SHEET_KEY = SHEET_KEY_PADRAO;
+const API_BASE = 'https://app-production-fec2.up.railway.app';
 
 const VENDORS_CONHECIDOS = ['BIA','JOAO','JOAOV','MATHEUS','LAIS','ELTON','MARCELO','WAL MACEDO','BELLMORAISS','ANGARA','DUDA','MILLENA','JARDEL','LAURA'];
 const NAME_MAP = { 'BIA':'BIA','JOAO':'JOAO','JOAOV':'JOAOV','MATHEUS':'MATHEUS','LAIS':'LAIS','ELTON':'ELTON','MARCELO':'MARCELO','WAL MACEDO':'WAL MACEDO','BELLMORAISS':'BELLMORAISS','ANGARA':'ANGARA','DUDA':'DUDA','MILLENA':'MILLENA','JARDEL':'JARDEL','LAURA':'LAURA' };
@@ -1084,7 +1089,49 @@ function salvarMetas() {
     localStorage.setItem('corridaMetasTipos', JSON.stringify(novoTipo));
     localStorage.setItem('corridaMetasProdutos', JSON.stringify(novoProdutos));
   } catch (e) {}
+  salvarConfigNoServidor(novoValor, novoTipo, novoProdutos);
   atualizarCorrida();
+}
+
+// ---------- sincronização com o servidor — pra metas configuradas numa
+// máquina aparecerem em qualquer outra (localStorage sozinho não
+// compartilha entre aparelhos). Pedido do usuário em 2026-10-09:
+// "as metas que configurei... quando foram para outra maquina nao
+// ficaram salvas... apareceu tudo zerado. preciso que fique salvo." ----------
+async function salvarConfigNoServidor(metas, tipos, produtos) {
+  const status = document.getElementById('salvarMetasStatus');
+  try {
+    const r = await fetch(API_BASE + '/corrida-metas/config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ METAS_MES: metas, TIPO_META: tipos, PRODUTOS_VALIDOS: produtos }),
+    });
+    if (!r.ok) throw new Error('status ' + r.status);
+    if (status) { status.textContent = '✓ salvo — já aparece em qualquer aparelho'; status.className = 'salvar-metas-status ok'; }
+  } catch (e) {
+    if (status) { status.textContent = '⚠ salvo só neste aparelho — sem conexão com o servidor agora'; status.className = 'salvar-metas-status erro'; }
+  }
+}
+// Busca a configuração salva no servidor assim que o painel abre — se
+// alguém configurou numa outra máquina, essa aqui passa a usar a
+// mesma. Se o servidor estiver fora do ar, segue com o que já tinha
+// salvo neste aparelho (localStorage), sem travar o painel.
+async function sincronizarConfigDoServidor() {
+  try {
+    const r = await fetch(API_BASE + '/corrida-metas/config', {cache: 'no-store'});
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j.config || !Object.keys(j.config).length) return;
+    if (j.config.METAS_MES) METAS_MES = j.config.METAS_MES;
+    if (j.config.TIPO_META) TIPO_META = j.config.TIPO_META;
+    if (j.config.PRODUTOS_VALIDOS) PRODUTOS_VALIDOS = j.config.PRODUTOS_VALIDOS;
+    try {
+      localStorage.setItem('corridaMetasValores', JSON.stringify(METAS_MES));
+      localStorage.setItem('corridaMetasTipos', JSON.stringify(TIPO_META));
+      localStorage.setItem('corridaMetasProdutos', JSON.stringify(PRODUTOS_VALIDOS));
+    } catch (e) {}
+    atualizarCorrida();
+  } catch (e) { /* sem internet ou servidor fora do ar — segue com o que já tinha local */ }
 }
 async function saveAPI(btn) {
   SHEET_ID = document.getElementById('sheetIdInput').value.trim() || SHEET_ID;
@@ -1121,6 +1168,7 @@ function iniciar() {
   setInterval(tickClock, 1000);
   atualizarCorrida();
   setInterval(atualizarCorrida, 30000);
+  sincronizarConfigDoServidor(); // busca a config de metas do servidor (pode corrigir o que acabou de renderizar com o localStorage, se for diferente)
 }
 if (document.getElementById('lockScreen').classList.contains('hidden')) iniciar();
 </script>
