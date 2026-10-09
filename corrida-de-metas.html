@@ -244,6 +244,67 @@
   .produto-check { display:flex; align-items:flex-start; gap:7px; font-size:0.76rem; color:var(--fg-dim); cursor:pointer; line-height:1.3; }
   .produto-check input { accent-color:var(--orange); margin-top:2px; flex-shrink:0; }
   .produto-vazio { font-size:0.7rem; color:var(--fg-faint); font-style:italic; }
+
+  /* ================================================================
+     GAMIFICAÇÃO — toast (conquista pequena: subiu de veículo, bateu
+     bônus, assumiu liderança) e overlay em tela cheia (só pra quando
+     alguém bate 100% da meta — a conquista grande de verdade). Curva
+     "bounce" nos dois, igual a referência de interação recomenda pra
+     efeito divertido — usada só aqui, com moderação, não em toda
+     interação da tela. Pedido do usuário em 2026-10-09: "sensação de
+     vitória, de premiação, de ter ganhado".
+     ================================================================ */
+  :root { --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  .confete-palco { position:fixed; inset:0; z-index:4000; pointer-events:none; overflow:hidden; }
+  .confete-pedaco { position:absolute; top:-20px; width:9px; height:14px; opacity:0.95; border-radius:2px; animation:confeteCair linear forwards; }
+  @keyframes confeteCair {
+    0% { transform:translateY(0) rotate(0deg); opacity:1; }
+    100% { transform:translateY(105vh) rotate(540deg); opacity:0.3; }
+  }
+
+  /* toast pequeno — subiu de nível, bônus batido, nova liderança */
+  .toast-conquista {
+    position:fixed; top:18px; left:50%; z-index:4100;
+    display:flex; align-items:center; gap:12px; padding:13px 22px 13px 16px;
+    background:rgba(18,18,20,0.92); border:1px solid var(--glass-border); border-radius:var(--r-md);
+    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    box-shadow:0 16px 40px -12px rgba(0,0,0,0.7);
+    transform:translate(-50%, -140%); opacity:0; pointer-events:none;
+    transition:transform 380ms var(--ease-bounce), opacity 200ms ease-out;
+  }
+  .toast-conquista.show { transform:translate(-50%, 0); opacity:1; }
+  .toast-icone { width:34px; height:34px; flex-shrink:0; filter:drop-shadow(0 0 8px currentColor); }
+  .toast-icone svg { width:100%; height:100%; }
+  .toast-texto { display:flex; flex-direction:column; gap:1px; }
+  .toast-titulo { font-family:'IBM Plex Mono',monospace; font-size:0.66rem; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; color:var(--fg-dim); }
+  .toast-nome { font-weight:800; font-size:1rem; }
+
+  /* overlay de tela cheia — só pra "bateu a meta" */
+  .overlay-meta {
+    position:fixed; inset:0; z-index:4200; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.72); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    opacity:0; pointer-events:none; transition:opacity 250ms ease-out;
+  }
+  .overlay-meta.show { opacity:1; }
+  .overlay-meta-card {
+    display:flex; flex-direction:column; align-items:center; gap:10px; padding:48px 64px;
+    background:var(--glass); border:1px solid var(--glass-border); border-radius:var(--r-lg);
+    -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.85), 0 0 90px -10px var(--meta-glow, rgba(255,214,10,0.5));
+    transform:scale(0.6); transition:transform 420ms var(--ease-bounce);
+  }
+  .overlay-meta.show .overlay-meta-card { transform:scale(1); }
+  .overlay-meta-icone { width:92px; height:92px; filter:drop-shadow(0 0 22px var(--meta-glow, rgba(255,214,10,0.7))); }
+  .overlay-meta-icone svg { width:100%; height:100%; }
+  .overlay-meta-titulo { font-family:'IBM Plex Mono',monospace; font-size:0.9rem; font-weight:800; letter-spacing:3px; color:var(--yellow); text-shadow:0 0 16px rgba(255,214,10,0.7); }
+  .overlay-meta-nome { font-weight:900; font-size:clamp(1.8rem, 4vw, 2.8rem); letter-spacing:-1px; }
+  .overlay-meta-sub { font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--fg-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .confete-pedaco { display:none; }
+    .toast-conquista, .overlay-meta, .overlay-meta-card { transition-duration:1ms; }
+  }
 </style>
 </head>
 <body>
@@ -265,6 +326,7 @@
     <div class="topbar-clock" id="clock">09/10/2026 · 10:00</div>
     <div class="topbar-right">
       <div class="live-pill"><span class="dot"></span>ao vivo</div>
+      <div class="icon-btn" id="somBtn" title="Som das comemorações"><svg id="somIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><svg id="somIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg></div>
       <div class="icon-btn" id="drawerBtn" title="Configurações"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
       <div class="icon-btn" id="fullscreenBtn" title="Tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg></div>
     </div>
@@ -321,6 +383,30 @@
     <button class="drawer-btn" onclick="saveAPI(this)">Salvar e reconectar</button>
   </div>
 </aside>
+
+<!-- ================================================================
+     GAMIFICAÇÃO — toast (conquista pequena), overlay (bateu a meta,
+     a grande) e o palco de confete. Tudo position:fixed, por cima de
+     tudo, não atrapalha o layout normal da pista.
+     ================================================================ -->
+<div id="confetePalco" class="confete-palco" aria-hidden="true"></div>
+
+<div id="toastConquista" class="toast-conquista" role="status" aria-live="polite">
+  <span class="toast-icone" id="toastIcone"></span>
+  <div class="toast-texto">
+    <span class="toast-titulo" id="toastTitulo"></span>
+    <span class="toast-nome" id="toastNome"></span>
+  </div>
+</div>
+
+<div id="overlayMeta" class="overlay-meta" role="status" aria-live="assertive">
+  <div class="overlay-meta-card">
+    <span class="overlay-meta-icone" id="overlayMetaIcone"></span>
+    <span class="overlay-meta-titulo">BATEU A META!</span>
+    <span class="overlay-meta-nome" id="overlayMetaNome"></span>
+    <span class="overlay-meta-sub" id="overlayMetaSub"></span>
+  </div>
+</div>
 
 <script>
 // ================================================================
@@ -589,6 +675,221 @@ function carroPorProgresso(pct) {
   return { svg: CARRO_KART_SVG, tier: 'tier-1' };
 }
 const BANDEIRA_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3v18" stroke-linecap="round"/><path d="M5 4h13l-3 4 3 4H5z"/></svg>`;
+const COROA_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 18 2.5 9 8 12 12 5 16 12 21.5 9 20 18Z"/><rect x="3.2" y="17.2" width="17.6" height="2.6" rx="1"/></svg>`;
+
+// ================================================================
+// GAMIFICAÇÃO — som + comemoração a cada conquista. Pedido do usuário
+// em 2026-10-09: "um som diferente pra cada meta... sensação de
+// vitória, de premiação, de ter ganhado". Reaproveita o MESMO padrão
+// de som sintetizado (Web Audio, sem arquivo de áudio nenhum) já
+// aprovado no painel-unificado.html, pra manter a família de painéis
+// com a mesma qualidade sonora.
+// ================================================================
+const TIER_RANK = { 'tier-1':1, 'tier-2':2, 'tier-3':3, 'tier-4':4, 'tier-5':5 };
+const TIER_INFO = {
+  1: { nome: 'Kart', icone: CARRO_KART_SVG },
+  2: { nome: 'Carro Esportivo', icone: CARRO_ESPORTIVO_SVG },
+  3: { nome: 'Avião', icone: AVIAO_SVG },
+  4: { nome: 'Foguete', icone: FOGUETE_SVG },
+  5: { nome: 'Nave Alienígena', icone: NAVE_SVG },
+};
+
+function tone(ctx, {type='sine', freq, freqEnd, start, dur, peak=0.12}) {
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur * 0.85);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, start + Math.min(0.02, dur * 0.2));
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.start(start); osc.stop(start + dur);
+}
+let somCtx = null;
+function obterSomCtx() {
+  if (!somCtx) {
+    try { somCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { somCtx = null; }
+  }
+  if (somCtx && somCtx.state === 'suspended') somCtx.resume().catch(() => {});
+  return somCtx;
+}
+// Navegador só libera áudio depois de um gesto do usuário — qualquer
+// primeiro toque na tela (senha, engrenagem, tela cheia) já destrava.
+document.addEventListener('click', function desbloquearAudioUmaVez() {
+  obterSomCtx();
+  document.removeEventListener('click', desbloquearAudioUmaVez);
+}, { once: true });
+
+let somAtivado = true;
+try { somAtivado = localStorage.getItem('corridaSomAtivado') !== '0'; } catch (e) {}
+function atualizarIconeSom() {
+  document.getElementById('somIconOn').style.display = somAtivado ? '' : 'none';
+  document.getElementById('somIconOff').style.display = somAtivado ? 'none' : '';
+}
+function alternarSom() {
+  somAtivado = !somAtivado;
+  try { localStorage.setItem('corridaSomAtivado', somAtivado ? '1' : '0'); } catch (e) {}
+  atualizarIconeSom();
+  if (somAtivado) obterSomCtx();
+}
+
+// som de "subiu de nível" — fica mais agudo conforme o veículo evolui
+function somSubiuNivel(tierRank) {
+  if (!somAtivado) return;
+  const ctx = obterSomCtx(); if (!ctx) return;
+  const now = ctx.currentTime;
+  const base = 420 + tierRank * 90;
+  tone(ctx, {type:'square', freq:base, start:now, dur:0.09, peak:0.11});
+  tone(ctx, {type:'square', freq:base * 1.5, start:now + 0.09, dur:0.17, peak:0.11});
+}
+// som de bônus (dia 10 / dia 20) garantido — ding claro e curto
+function somBonusConquistado() {
+  if (!somAtivado) return;
+  const ctx = obterSomCtx(); if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, {type:'sine', freq:1568, start:now, dur:0.08, peak:0.12});
+  tone(ctx, {type:'sine', freq:2093, start:now + 0.09, dur:0.14, peak:0.12});
+}
+// som de ultrapassagem — "whoosh" subindo, quem assumiu a ponta
+function somLideranca() {
+  if (!somAtivado) return;
+  const ctx = obterSomCtx(); if (!ctx) return;
+  tone(ctx, {type:'sawtooth', freq:300, freqEnd:950, start:ctx.currentTime, dur:0.22, peak:0.1});
+}
+// som de bater 100% da meta — a fanfarra grande, maior que todas
+function somBateuMeta() {
+  if (!somAtivado) return;
+  const ctx = obterSomCtx(); if (!ctx) return;
+  const now = ctx.currentTime;
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => tone(ctx, {type:'triangle', freq, start: now + i * 0.1, dur:0.35, peak:0.14}));
+  tone(ctx, {type:'sawtooth', freq:1046.5, start: now + 0.45, dur:0.5, peak:0.08});
+}
+
+// confete — pedacinhos de DOM caindo, removidos sozinhos no final da
+// animação (sem canvas, sem lib externa)
+const CORES_CONFETE = ['#ff453a','#ff9f0a','#ffd60a','#32d74b','#0a84ff','#bf5af2','#f43f5e'];
+function dispararConfete(quantidade, corPrincipal) {
+  const palco = document.getElementById('confetePalco');
+  const cores = corPrincipal ? [corPrincipal, corPrincipal, ...CORES_CONFETE] : CORES_CONFETE;
+  for (let i = 0; i < quantidade; i++) {
+    const p = document.createElement('div');
+    p.className = 'confete-pedaco';
+    p.style.left = (Math.random() * 100) + 'vw';
+    p.style.background = cores[Math.floor(Math.random() * cores.length)];
+    const duracao = 2.2 + Math.random() * 1.6;
+    p.style.animationDuration = duracao + 's';
+    p.style.animationDelay = (Math.random() * 0.4) + 's';
+    palco.appendChild(p);
+    setTimeout(() => p.remove(), (duracao + 0.5) * 1000);
+  }
+}
+
+// toast — conquista pequena (subiu de nível, bônus, liderança). Fila
+// própria pra não empilhar vários ao mesmo tempo.
+let filaToast = [], mostrandoToast = false;
+function enfileirarToast(item) {
+  filaToast.push(item);
+  if (!mostrandoToast) processarFilaToast();
+}
+function processarFilaToast() {
+  if (!filaToast.length) { mostrandoToast = false; return; }
+  mostrandoToast = true;
+  const item = filaToast.shift();
+  const icone = document.getElementById('toastIcone');
+  icone.innerHTML = item.icone;
+  icone.style.color = item.cor;
+  document.getElementById('toastTitulo').textContent = item.titulo;
+  const nomeEl = document.getElementById('toastNome');
+  nomeEl.textContent = item.nome;
+  nomeEl.style.color = item.cor;
+  const toast = document.getElementById('toastConquista');
+  toast.classList.add('show');
+  if (item.som) item.som();
+  dispararConfete(16, item.cor);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(processarFilaToast, 350);
+  }, 3200);
+}
+
+// overlay em tela cheia — só pra "bateu a meta" (100%), a conquista
+// grande de verdade
+let filaOverlay = [], mostrandoOverlay = false;
+function enfileirarOverlayMeta(item) {
+  filaOverlay.push(item);
+  if (!mostrandoOverlay) processarFilaOverlay();
+}
+function processarFilaOverlay() {
+  if (!filaOverlay.length) { mostrandoOverlay = false; return; }
+  mostrandoOverlay = true;
+  const item = filaOverlay.shift();
+  const icone = document.getElementById('overlayMetaIcone');
+  icone.innerHTML = item.icone;
+  icone.style.color = item.cor;
+  const nomeEl = document.getElementById('overlayMetaNome');
+  nomeEl.textContent = item.nome;
+  nomeEl.style.color = item.cor;
+  document.getElementById('overlayMetaSub').textContent = item.sub;
+  const overlay = document.getElementById('overlayMeta');
+  overlay.style.setProperty('--meta-glow', item.cor);
+  overlay.classList.add('show');
+  somBateuMeta();
+  dispararConfete(70, item.cor);
+  setTimeout(() => dispararConfete(45, item.cor), 450);
+  setTimeout(() => {
+    overlay.classList.remove('show');
+    setTimeout(processarFilaOverlay, 400);
+  }, 4600);
+}
+
+// ---------- detector de conquistas: compara o estado atual com o da
+// última atualização e dispara a comemoração certa pra cada mudança.
+// Não dispara nada na PRIMEIRA carga da página (senão todo mundo que
+// já estava com bônus/meta batida "comemoraria" de novo só por causa
+// de um F5 ou da TV religando de manhã). ----------
+let estadoAnteriorVendedores = {};
+let liderAnteriorChave = null;
+let primeiraCargaFeita = false;
+function detectarEComemorar(dadosOrdenados) {
+  const souPrimeiraCarga = !primeiraCargaFeita;
+  const novoEstado = {};
+
+  dadosOrdenados.forEach(v => {
+    const tierRank = TIER_RANK[carroPorProgresso(v.pct).tier];
+    const b1 = statusBonus(BONUS_CHECKPOINTS[0], v).estado;
+    const b2 = statusBonus(BONUS_CHECKPOINTS[1], v).estado;
+    novoEstado[v.chave] = { tierRank, b1, b2 };
+
+    if (!souPrimeiraCarga) {
+      const antes = estadoAnteriorVendedores[v.chave];
+      if (antes) {
+        if (tierRank > antes.tierRank) {
+          const info = TIER_INFO[tierRank];
+          if (tierRank === 5) {
+            enfileirarOverlayMeta({ icone: info.icone, cor: corPessoa(v.nome), nome: v.nome, sub: `bateu 100% da meta — virou ${info.nome}!` });
+          } else {
+            enfileirarToast({ icone: info.icone, cor: corPessoa(v.nome), titulo: `Subiu de nível · virou ${info.nome}`, nome: v.nome, som: () => somSubiuNivel(tierRank) });
+          }
+        }
+        if (antes.b1 !== 'conquistado' && b1 === 'conquistado') {
+          enfileirarToast({ icone: BANDEIRA_SVG, cor: corPessoa(v.nome), titulo: 'Bônus do dia 10 garantido!', nome: v.nome, som: somBonusConquistado });
+        }
+        if (antes.b2 !== 'conquistado' && b2 === 'conquistado') {
+          enfileirarToast({ icone: BANDEIRA_SVG, cor: corPessoa(v.nome), titulo: 'Bônus do dia 20 garantido!', nome: v.nome, som: somBonusConquistado });
+        }
+      }
+    }
+  });
+
+  const lider = dadosOrdenados[0];
+  if (!souPrimeiraCarga && lider && lider.valor > 0 && liderAnteriorChave && lider.chave !== liderAnteriorChave) {
+    enfileirarToast({ icone: COROA_SVG, cor: corPessoa(lider.nome), titulo: 'Assumiu a liderança!', nome: lider.nome, som: somLideranca });
+  }
+  if (lider && lider.valor > 0) liderAnteriorChave = lider.chave;
+
+  estadoAnteriorVendedores = novoEstado;
+  primeiraCargaFeita = true;
+}
 
 function renderFaixas(dados) {
   const el = document.getElementById('faixas');
@@ -714,6 +1015,7 @@ async function atualizarCorrida() {
       });
 
     atualizarSnapshotsDoDia(dados);
+    detectarEComemorar([...dados].sort((a, b) => b.pct - a.pct));
     renderFaixas(dados);
     renderResumo(dados);
   } catch (e) {
@@ -812,6 +1114,8 @@ function iniciar() {
   document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
   document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
   document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+  document.getElementById('somBtn').addEventListener('click', alternarSom);
+  atualizarIconeSom();
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
   tickClock();
   setInterval(tickClock, 1000);
