@@ -105,6 +105,7 @@
   .bonus-badge.pendente { background:rgba(255,255,255,0.05); color:var(--fg-dim); }
   .bonus-badge.conquistado { background:rgba(48,209,88,0.15); color:var(--green); border-color:rgba(48,209,88,0.35); }
   .bonus-badge.perdido { background:rgba(255,69,58,0.1); color:var(--red); border-color:rgba(255,69,58,0.28); opacity:0.8; }
+  .bonus-badge.aviso { background:rgba(255,159,10,0.12); color:var(--orange); border-color:rgba(255,159,10,0.32); cursor:help; }
 
   .faixas { flex:1; min-height:0; display:flex; flex-direction:column; gap:10px; justify-content:center; }
 
@@ -240,7 +241,9 @@
   .meta-card input[type="number"] { width:100%; box-sizing:border-box; padding:9px 11px; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:8px; color:var(--fg); font-size:0.82rem; text-align:right; font-family:'IBM Plex Mono',monospace; }
   .meta-produtos { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
   .meta-produtos-titulo { display:block; font-size:0.62rem; color:var(--fg-dim); margin-bottom:7px; font-weight:600; }
-  .meta-produtos-lista { max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .produto-filtro { width:100%; box-sizing:border-box; padding:7px 10px; margin-bottom:8px; background:rgba(255,255,255,0.05); border:1px solid var(--line); border-radius:8px; color:var(--fg); font-size:0.76rem; }
+  .produto-filtro:focus { outline:none; border-color:var(--orange); }
+  .meta-produtos-lista { max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
   .produto-check { display:flex; align-items:flex-start; gap:7px; font-size:0.76rem; color:var(--fg-dim); cursor:pointer; line-height:1.3; }
   .produto-check input { accent-color:var(--orange); margin-top:2px; flex-shrink:0; }
   .produto-vazio { font-size:0.7rem; color:var(--fg-faint); font-style:italic; }
@@ -478,9 +481,32 @@ try {
   const produtosSalvos = localStorage.getItem('corridaMetasProdutos');
   if (produtosSalvos) PRODUTOS_VALIDOS = JSON.parse(produtosSalvos);
 } catch (e) {}
-// Lista de produtos vistos nas vendas do mês — populada a cada
-// atualização, usada só pra montar os checkboxes da gaveta.
+// Lista de produtos pra montar os checkboxes da gaveta — é a UNIÃO de
+// dois lugares: o catálogo inteiro (todo produto já vendido alguma
+// vez, buscado uma vez só no servidor) + o que apareceu nas vendas do
+// mês (reforço, caso algum produto novíssimo ainda não tenha chegado
+// no catálogo). Antes só usava o segundo, e por isso um produto que
+// ainda não tinha vendido ESTE mês nunca aparecia pra marcar — relato
+// do usuário em 2026-10-09: "os produtos que eu posso selecionar
+// também estão muito limitados... o João tá marcando que ele só fez
+// 10 vendas, quando ele fez mais que 10" (o 3º produto dele nem
+// existia na lista quando configurou, nunca foi marcado, e as vendas
+// desse produto ficaram de fora da contagem sem ninguém perceber).
+let CATALOGO_PRODUTOS = [];
+let PRODUTOS_DO_MES = [];
+function PRODUTOS_DISPONIVEIS_calc() {
+  return Array.from(new Set([...CATALOGO_PRODUTOS, ...PRODUTOS_DO_MES])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
 let PRODUTOS_DISPONIVEIS = [];
+async function carregarCatalogoProdutos() {
+  try {
+    const r = await fetch(API_BASE + '/corrida-metas/produtos', {cache: 'no-store'});
+    if (!r.ok) return;
+    const j = await r.json();
+    CATALOGO_PRODUTOS = j.produtos || [];
+    PRODUTOS_DISPONIVEIS = PRODUTOS_DISPONIVEIS_calc();
+  } catch (e) { /* servidor fora do ar — segue só com o que apareceu nas vendas do mês */ }
+}
 
 // ---------- bônus do mês ----------
 // A meta é ÚNICA do mês (não por dia) — mas rola bônus se o vendedor
@@ -533,6 +559,18 @@ function badgeBonusHtml(cp, vendor) {
   if (st.estado === 'conquistado') return `<span class="bonus-badge conquistado">✓ ${cp.label}</span>`;
   if (st.estado === 'perdido') return `<span class="bonus-badge perdido">✕ ${cp.label}</span>`;
   return `<span class="bonus-badge pendente">${cp.label} · ${cp.pctAlvo}%</span>`;
+}
+// Avisa quando existe venda de verdade que não está entrando na conta
+// de quantidade porque o produto dela não foi marcado — em vez de
+// deixar isso invisível (achado real: João vendeu 11, painel contava
+// só 10, e ninguém tinha como perceber a diferença olhando a tela).
+function badgeAvisoHtml(v) {
+  if (!v.naoContadas || !v.naoContadas.length) return '';
+  const porProduto = {};
+  v.naoContadas.forEach(x => { porProduto[x.produto || 'sem nome'] = (porProduto[x.produto || 'sem nome'] || 0) + 1; });
+  const detalhe = Object.entries(porProduto).map(([p, c]) => `${c}x ${p}`).join(', ');
+  const n = v.naoContadas.length;
+  return `<span class="bonus-badge aviso" title="Essas vendas não estão contando pra meta porque o produto não foi marcado na gaveta de configurações: ${escapeHtml(detalhe)}">⚠ ${n} venda${n > 1 ? 's' : ''} fora da conta</span>`;
 }
 
 // ---------- senha — mesma dos outros painéis ----------
@@ -924,6 +962,7 @@ function renderFaixas(dados) {
           <span class="faixa-pct" style="color:${cor}">${pctTexto}</span>
           ${badgeBonusHtml(BONUS_CHECKPOINTS[0], v)}
           ${badgeBonusHtml(BONUS_CHECKPOINTS[1], v)}
+          ${badgeAvisoHtml(v)}
         </span>
       </div>
       <div class="pista-pista">
@@ -998,7 +1037,8 @@ async function atualizarCorrida() {
       if (produto) produtosVistos.add(produto);
       vendasDoMes.push({ vendedor, produto, valor: pVal(row[3]) });
     }
-    PRODUTOS_DISPONIVEIS = Array.from(produtosVistos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    PRODUTOS_DO_MES = Array.from(produtosVistos);
+    PRODUTOS_DISPONIVEIS = PRODUTOS_DISPONIVEIS_calc();
 
     const dados = Object.keys(METAS_MES)
       .filter(k => METAS_MES[k] > 0)
@@ -1006,17 +1046,19 @@ async function atualizarCorrida() {
         const tipo = TIPO_META[k] === 'quantidade' ? 'quantidade' : 'valor';
         const vendasDoVendedor = vendasDoMes.filter(v => v.vendedor === k);
         let valor;
+        let naoContadas = []; // vendas reais que existem mas não contam pra meta (produto não marcado) — pra avisar, não esconder
         if (tipo === 'quantidade') {
           const produtosValidos = PRODUTOS_VALIDOS[k] || [];
           const vendasValidas = produtosValidos.length
             ? vendasDoVendedor.filter(v => produtosValidos.includes(v.produto))
             : vendasDoVendedor; // ninguém marcado = conta toda venda
           valor = vendasValidas.length;
+          if (produtosValidos.length) naoContadas = vendasDoVendedor.filter(v => !produtosValidos.includes(v.produto));
         } else {
           valor = vendasDoVendedor.reduce((s, v) => s + v.valor, 0);
         }
         const meta = METAS_MES[k];
-        return { chave:k, nome: DISPLAY_NAMES[k] || k, tipo, valor, meta, pct: meta > 0 ? (valor/meta*100) : 0 };
+        return { chave:k, nome: DISPLAY_NAMES[k] || k, tipo, valor, meta, pct: meta > 0 ? (valor/meta*100) : 0, naoContadas };
       });
 
     atualizarSnapshotsDoDia(dados);
@@ -1053,11 +1095,18 @@ function montarFormMetas() {
       </div>
       <input type="number" step="${tipo === 'quantidade' ? '1' : '0.01'}" min="0" id="meta-${k}" value="${valorAtual}" placeholder="${tipo === 'quantidade' ? '0' : '0,00'}">
       <div class="meta-produtos" id="produtos-${k}" style="display:${tipo === 'quantidade' ? 'block' : 'none'}">
-        <span class="meta-produtos-titulo">Produtos que contam pra meta de ${escapeHtml(DISPLAY_NAMES[k] || k)} (nenhum marcado = conta toda venda):</span>
-        <div class="meta-produtos-lista">${listaProdutos}</div>
+        <span class="meta-produtos-titulo">Produtos que contam pra meta de ${escapeHtml(DISPLAY_NAMES[k] || k)} (nenhum marcado = conta toda venda) — ${PRODUTOS_DISPONIVEIS.length} no catálogo:</span>
+        ${PRODUTOS_DISPONIVEIS.length ? `<input type="text" class="produto-filtro" placeholder="Buscar produto..." oninput="filtrarProdutos('${k}', this.value)">` : ''}
+        <div class="meta-produtos-lista" id="listaProdutos-${k}">${listaProdutos}</div>
       </div>
     </div>`;
   }).join('');
+}
+function filtrarProdutos(chave, termo) {
+  const alvo = termo.trim().toLowerCase();
+  document.querySelectorAll(`#listaProdutos-${chave} .produto-check`).forEach(label => {
+    label.style.display = label.textContent.toLowerCase().includes(alvo) ? '' : 'none';
+  });
 }
 function alternarTipoMeta(chave) {
   const tipo = document.getElementById('tipo-' + chave).value;
@@ -1169,6 +1218,7 @@ function iniciar() {
   atualizarCorrida();
   setInterval(atualizarCorrida, 30000);
   sincronizarConfigDoServidor(); // busca a config de metas do servidor (pode corrigir o que acabou de renderizar com o localStorage, se for diferente)
+  carregarCatalogoProdutos(); // catálogo inteiro de produtos, não só os já vendidos este mês
 }
 if (document.getElementById('lockScreen').classList.contains('hidden')) iniciar();
 </script>
