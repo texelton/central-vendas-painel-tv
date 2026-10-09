@@ -223,6 +223,14 @@
     let painelAtual = config.modo === 'fixo' ? config.painelFixo : ORDEM_PAINEIS[0];
     let timerId = null;
     let proximaTrocaEm = null; // timestamp (Date.now()), só usado pro texto de status
+    // Pausa a troca automática enquanto a gaveta de configurações está
+    // aberta DENTRO do painel atual (painel-unificado ou corrida-de-metas
+    // avisam por postMessage). Pedido do usuário em 2026-10-09: "nao
+    // estou conseguindo colocar os dados de meta... a pagina muda e nao
+    // tenho controle sobre isso, e me interrompe no meio do
+    // preenchimento". Diferente do modo "fixo" (escolha permanente do
+    // usuário): isso é temporário, só enquanto alguém está mexendo.
+    let pausadoPorGaveta = false;
 
     const frame = document.getElementById('painelFrame');
 
@@ -234,7 +242,7 @@
     function agendarProximaTroca() {
       if (timerId) { clearTimeout(timerId); timerId = null; }
       proximaTrocaEm = null;
-      if (config.modo !== 'alternando') return;
+      if (config.modo !== 'alternando' || pausadoPorGaveta) return;
       const duracaoMs = (config.duracoes[painelAtual] || 30) * 1000;
       proximaTrocaEm = Date.now() + duracaoMs;
       timerId = setTimeout(() => mostrarAgora(proximoPainel(painelAtual)), duracaoMs);
@@ -242,6 +250,7 @@
 
     function mostrarAgora(painel, opts) {
       const comFade = !opts || opts.comFade !== false;
+      pausadoPorGaveta = false; // página nova vai carregar — qualquer pausa antiga não vale mais (a página nova avisa de novo se precisar)
       painelAtual = painel;
       const trocarSrc = () => { frame.src = painel; atualizarEstado(); };
       if (comFade && frame.src) {
@@ -257,8 +266,8 @@
     function atualizarEstado() {
       const dot = document.getElementById('statusDot');
       const label = document.getElementById('statusLabel');
-      dot.className = 'status-dot' + (config.modo === 'fixo' ? ' fixo' : ' pulsando');
-      label.textContent = PAINEL_NOMES[painelAtual] || painelAtual;
+      dot.className = 'status-dot' + (pausadoPorGaveta || config.modo === 'fixo' ? ' fixo' : ' pulsando');
+      label.textContent = (PAINEL_NOMES[painelAtual] || painelAtual) + (pausadoPorGaveta ? ' · configurando…' : '');
 
       document.querySelectorAll('#painelOpcoes .opcao-btn').forEach(btn => {
         const ehAtual = btn.dataset.painel === painelAtual;
@@ -274,10 +283,21 @@
       document.getElementById('duracaoSection').classList.toggle('desabilitado', config.modo !== 'alternando');
     }
     function atualizarStatusTick() {
+      if (pausadoPorGaveta) return; // texto "· configurando..." já fixado por atualizarEstado()
       if (config.modo !== 'alternando' || !proximaTrocaEm) return;
       const restante = Math.max(0, Math.ceil((proximaTrocaEm - Date.now()) / 1000));
       document.getElementById('statusLabel').textContent = `${PAINEL_NOMES[painelAtual]} · troca em ${restante}s`;
     }
+
+    // Painel de dentro (painel-unificado ou corrida-de-metas) avisando
+    // que a gaveta de configurações dele abriu ou fechou.
+    window.addEventListener('message', e => {
+      if (e.origin !== window.location.origin) return;
+      if (!e.data || e.data.tipo !== 'gaveta') return;
+      pausadoPorGaveta = !!e.data.aberta;
+      agendarProximaTroca();
+      atualizarEstado();
+    });
 
     // ---------- gaveta ----------
     function abrirDrawer() { document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); }

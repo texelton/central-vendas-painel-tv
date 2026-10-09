@@ -1188,12 +1188,29 @@ async function saveAPI(btn) {
   if (btn) btn.disabled = true;
   try { await atualizarCorrida(); } finally { if (btn) btn.disabled = false; }
 }
+// Avisa a página de cima (painel-rotativo.html), SE esse painel estiver
+// sendo exibido dentro dela, que a gaveta abriu/fechou — pra ela pausar
+// a troca automática de tela enquanto alguém está configurando algo
+// aqui. Pedido do usuário em 2026-10-09: "nao estou conseguindo colocar
+// os dados de meta... a pagina muda e nao tenho controle sobre isso, e
+// me interrompe no meio do preenchimento". Se esse painel for aberto
+// sozinho (sem rotação por cima), window.parent === window e isso não
+// faz nada.
+function avisarRotacaoSobreGaveta(aberta) {
+  if (window.parent === window) return;
+  try { window.parent.postMessage({ tipo: 'gaveta', aberta }, window.location.origin); } catch (e) {}
+}
 function openDrawer() {
   montarFormMetas(); // recarrega com a lista de produtos mais recente
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
+  avisarRotacaoSobreGaveta(true);
 }
-function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  avisarRotacaoSobreGaveta(false);
+}
 function toggleFullscreen() {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
   else document.exitFullscreen().catch(() => {});
