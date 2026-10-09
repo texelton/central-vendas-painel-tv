@@ -96,7 +96,8 @@
   .pista-ruler { position:relative; height:16px; margin:2px 0 8px; }
   .pista-ruler-marca { position:absolute; top:0; font-family:'IBM Plex Mono',monospace; font-size:0.64rem; font-weight:600; color:var(--fg-faint); white-space:nowrap; }
   .pista-ruler-marca.inicio { left:0; }
-  .pista-ruler-marca.bonus1 { left:50%; transform:translateX(-50%); color:var(--yellow); }
+  .pista-ruler-marca.bonus1 { left:33.33%; transform:translateX(-50%); color:var(--yellow); }
+  .pista-ruler-marca.bonus2 { left:66.67%; transform:translateX(-50%); color:var(--orange); }
   .pista-ruler-marca.chegada { right:6px; color:var(--fg-dim); }
 
   /* ---------- selo de bônus (dia 10 = 50% / dia 20 = 100%) ---------- */
@@ -140,11 +141,15 @@
     transition:width 1.1s cubic-bezier(0.25,0.46,0.45,0.94);
     opacity:0.22;
   }
-  /* risca amarela na metade da pista = marco do bônus do dia 10 (50% da meta) */
-  .pista-tick-bonus {
-    position:absolute; top:0; bottom:0; left:50%; width:2px;
-    background:rgba(255,214,10,0.55); z-index:2; pointer-events:none;
-  }
+  /* dois tracinhos na pista = marco dos dois bônus. A pista representa
+     até 150% da meta (não só 100%) — quem já bateu a meta continua
+     tendo pista pela frente até o dia 30/fim do mês, que é a chegada
+     de verdade (pedido do usuário em 2026-10-09: "o mês vai ter outros
+     dias depois do dia 20... até o dia 30 é além da meta"). Por isso
+     os tracinhos ficam em 1/3 e 2/3 da pista, não em 50%/100%. */
+  .pista-tick { position:absolute; top:0; bottom:0; width:2px; z-index:2; pointer-events:none; }
+  .pista-tick.tick-dia10 { left:33.33%; background:rgba(255,214,10,0.55); }
+  .pista-tick.tick-dia20 { left:66.67%; background:rgba(255,159,10,0.55); }
   .pista-meta-flag {
     position:absolute; top:50%; right:6px; transform:translateY(-50%);
     width:14px; height:14px; opacity:0.55;
@@ -289,7 +294,8 @@
     <div class="pista-ruler">
       <span class="pista-ruler-marca inicio">Início</span>
       <span class="pista-ruler-marca bonus1">Dia 10 · bônus 50%</span>
-      <span class="pista-ruler-marca chegada">Dia 20 · chegada 🏁</span>
+      <span class="pista-ruler-marca bonus2">Dia 20 · bônus 100%</span>
+      <span class="pista-ruler-marca chegada" id="pistaRulerChegada">Dia 30 · fim do mês 🏁</span>
     </div>
     <div class="faixas" id="faixas"></div>
   </div>
@@ -398,6 +404,13 @@ const BONUS_CHECKPOINTS = [
   { dia: 10, pctAlvo: 50, label: 'Dia 10' },
   { dia: 20, pctAlvo: 100, label: 'Dia 20' },
 ];
+// A pista (visual) vai de 0% a 150% da meta, não só até 100% — assim
+// quem já bateu a meta no dia 12, por exemplo, continua tendo pista
+// pela frente até o dia 30 (fim do mês de verdade), em vez de "sumir"
+// no fim da barra. Os tracinhos de bônus ficam em 1/3 (dia 10 = 50%) e
+// 2/3 (dia 20 = 100%) dessa pista — a chegada de verdade (100% da
+// LARGURA da pista) é o dia 30.
+const META_VISUAL_MAX = 150;
 function chaveSnapshot(dia) {
   const d = camposSP(agoraCorrigido());
   return `corridaSnapshotDia${dia}-${d.getUTCFullYear()}-${d.getUTCMonth()}`;
@@ -497,12 +510,22 @@ function isMonth(d) {
 }
 
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+// Mês tem 28, 29, 30 ou 31 dias dependendo de qual mês (e de ano
+// bissexto em fevereiro) — pedido do usuário em 2026-10-09: "não
+// esquece que algumas vezes tem 30, algumas vezes tem 31 dias". O
+// "dia 0 do mês seguinte" em JS sempre cai no último dia do mês atual,
+// então isso já resolve pra qualquer mês sem precisar de tabela.
+function ultimoDiaDoMes() {
+  const d = camposSP(agoraCorrigido());
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+}
 function tickClock() {
   const d = agoraCorrigido();
   const dia = String(d.getDate()).padStart(2,'0'), mes = String(d.getMonth()+1).padStart(2,'0');
   const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0');
   document.getElementById('clock').textContent = `${dia}/${mes}/${d.getFullYear()} · ${h}:${m}`;
   document.getElementById('topbarMes').textContent = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  document.getElementById('pistaRulerChegada').textContent = `Dia ${ultimoDiaDoMes()} · fim do mês 🏁`;
 }
 
 // Veículo em SVG — monocromático (fill=currentColor), herda a cor do
@@ -577,7 +600,9 @@ function renderFaixas(dados) {
   el.innerHTML = ordenado.map((v, i) => {
     const cor = corPessoa(v.nome);
     const pctTexto = v.pct.toFixed(0) + '%';
-    const pctVisual = Math.min(100, v.pct);
+    // A pista desenha até 150% da meta — quem bate 100% não "acaba a
+    // corrida" ali, continua tendo pista pela frente até o dia 30.
+    const pctVisual = Math.min(100, v.pct / META_VISUAL_MAX * 100);
     const lider = i === 0 && v.valor > 0;
     const carro = carroPorProgresso(v.pct);
     const valorTexto = v.tipo === 'quantidade' ? `${v.valor} vendas` : fmt(v.valor);
@@ -599,7 +624,8 @@ function renderFaixas(dados) {
         <div class="pista-track">
           <div class="pista-track-linha"></div>
           <div class="pista-track-fill" style="width:${pctVisual}%; background:${cor};"></div>
-          <div class="pista-tick-bonus"></div>
+          <div class="pista-tick tick-dia10"></div>
+          <div class="pista-tick tick-dia20"></div>
         </div>
         <span class="pista-meta-flag" style="color:${cor}">${BANDEIRA_SVG}</span>
         <div class="pista-carrinho ${carro.tier}" style="left:calc(${pctVisual}% * 0.92); color:${cor};">
