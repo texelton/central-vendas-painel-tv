@@ -1045,18 +1045,17 @@ async function atualizarCorrida() {
       .map(k => {
         const tipo = TIPO_META[k] === 'quantidade' ? 'quantidade' : 'valor';
         const vendasDoVendedor = vendasDoMes.filter(v => v.vendedor === k);
-        let valor;
-        let naoContadas = []; // vendas reais que existem mas não contam pra meta (produto não marcado) — pra avisar, não esconder
-        if (tipo === 'quantidade') {
-          const produtosValidos = PRODUTOS_VALIDOS[k] || [];
-          const vendasValidas = produtosValidos.length
-            ? vendasDoVendedor.filter(v => produtosValidos.includes(v.produto))
-            : vendasDoVendedor; // ninguém marcado = conta toda venda
-          valor = vendasValidas.length;
-          if (produtosValidos.length) naoContadas = vendasDoVendedor.filter(v => !produtosValidos.includes(v.produto));
-        } else {
-          valor = vendasDoVendedor.reduce((s, v) => s + v.valor, 0);
-        }
+        // Filtro de produto vale pros dois tipos de meta agora — antes só
+        // dava pra escolher produto em meta por quantidade; meta por
+        // valor somava TUDO do vendedor sem exceção. Pedido do usuário em
+        // 2026-10-14: "preciso escolher dos colaboradores que a venda é
+        // por valor também quais são os produtos que entram na conta."
+        const produtosValidos = PRODUTOS_VALIDOS[k] || [];
+        const vendasValidas = produtosValidos.length
+          ? vendasDoVendedor.filter(v => produtosValidos.includes(v.produto))
+          : vendasDoVendedor; // ninguém marcado = conta toda venda
+        const naoContadas = produtosValidos.length ? vendasDoVendedor.filter(v => !produtosValidos.includes(v.produto)) : [];
+        const valor = tipo === 'quantidade' ? vendasValidas.length : vendasValidas.reduce((s, v) => s + v.valor, 0);
         const meta = METAS_MES[k];
         return { chave:k, nome: DISPLAY_NAMES[k] || k, tipo, valor, meta, pct: meta > 0 ? (valor/meta*100) : 0, naoContadas };
       });
@@ -1094,7 +1093,7 @@ function montarFormMetas() {
         </select>
       </div>
       <input type="number" step="${tipo === 'quantidade' ? '1' : '0.01'}" min="0" id="meta-${k}" value="${valorAtual}" placeholder="${tipo === 'quantidade' ? '0' : '0,00'}">
-      <div class="meta-produtos" id="produtos-${k}" style="display:${tipo === 'quantidade' ? 'block' : 'none'}">
+      <div class="meta-produtos" id="produtos-${k}">
         <span class="meta-produtos-titulo">Produtos que contam pra meta de ${escapeHtml(DISPLAY_NAMES[k] || k)} (nenhum marcado = conta toda venda) — ${PRODUTOS_DISPONIVEIS.length} no catálogo:</span>
         ${PRODUTOS_DISPONIVEIS.length ? `<input type="text" class="produto-filtro" placeholder="Buscar produto..." oninput="filtrarProdutos('${k}', this.value)">` : ''}
         <div class="meta-produtos-lista" id="listaProdutos-${k}">${listaProdutos}</div>
@@ -1109,8 +1108,12 @@ function filtrarProdutos(chave, termo) {
   });
 }
 function alternarTipoMeta(chave) {
+  // A lista de produtos fica visível nos dois tipos agora — meta por
+  // valor também pode escolher quais produtos entram na soma, mesmo
+  // jeito que já funcionava pra meta por quantidade. Pedido do usuário
+  // em 2026-10-14: "preciso escolher dos colaboradores que a venda é
+  // por valor também quais são os produtos que entram na conta."
   const tipo = document.getElementById('tipo-' + chave).value;
-  document.getElementById('produtos-' + chave).style.display = tipo === 'quantidade' ? 'block' : 'none';
   const input = document.getElementById('meta-' + chave);
   input.step = tipo === 'quantidade' ? '1' : '0.01';
   input.placeholder = tipo === 'quantidade' ? '0' : '0,00';
