@@ -128,8 +128,48 @@
 
   .drawer-hint { font-size:0.72rem; color:var(--fg-faint); line-height:1.5; margin-top:2px; }
 
+  /* ---------- avisos de comentários do Instagram/Facebook (pedido do
+     usuário em 2026-10-19: "ia analisando meus comentários 24 horas e
+     me avisando quando tiver comentário negativo ou oportunidade de
+     venda — vai avisar no dashboard"). Fica AQUI na moldura, por cima
+     das duas telas da rotação, pra aparecer não importa qual painel
+     está passando — e sem mexer no layout de nenhum deles. Os dados vêm
+     do monitor de comentários (projeto monitor-comentarios-instagram-
+     facebook, no Railway), que já analisou cada comentário com IA. ---------- */
+  .comentarios-selo {
+    position:fixed; bottom:14px; left:14px; z-index:700;
+    display:flex; align-items:center; gap:12px;
+    padding:8px 14px; border-radius:99px;
+    background:rgba(20,20,24,0.7); border:1px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+    font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:600; color:var(--fg-dim);
+  }
+  .comentarios-selo[hidden] { display:none; }
+  .comentarios-selo b { font-size:1.15em; font-weight:800; }
+  .comentarios-selo .venda b { color:var(--green); }
+  .comentarios-selo .negativo b { color:var(--red); }
+
+  .comentario-alerta {
+    position:fixed; left:50%; bottom:clamp(20px, 5vh, 48px); z-index:750;
+    width:min(760px, calc(100vw - 32px)); transform:translate(-50%, 24px); opacity:0;
+    padding:clamp(16px, 2.2vh, 24px) clamp(20px, 2.6vw, 30px); border-radius:var(--r-lg);
+    background:rgba(14,14,17,0.92); border:2px solid var(--green);
+    -webkit-backdrop-filter:blur(30px); backdrop-filter:blur(30px);
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.8), 0 0 40px rgba(48,209,88,0.25);
+    transition:opacity 0.35s ease, transform 0.35s ease; pointer-events:none;
+  }
+  .comentario-alerta.show { opacity:1; transform:translate(-50%, 0); }
+  .comentario-alerta.negativo { border-color:var(--red); box-shadow:0 30px 80px -20px rgba(0,0,0,0.8), 0 0 40px rgba(255,69,58,0.3); }
+  .comentario-alerta-tipo {
+    font-family:'IBM Plex Mono',monospace; font-size:clamp(0.7rem, 1vw, 0.85rem); font-weight:700;
+    letter-spacing:1.6px; text-transform:uppercase; color:var(--green);
+  }
+  .comentario-alerta.negativo .comentario-alerta-tipo { color:var(--red); }
+  .comentario-alerta-quem { margin-top:6px; font-size:clamp(0.85rem, 1.2vw, 1rem); color:var(--fg-dim); font-weight:600; }
+  .comentario-alerta-resumo { margin-top:4px; font-size:clamp(1.15rem, 2vw, 1.6rem); font-weight:800; line-height:1.3; color:var(--fg); }
+
   @media (prefers-reduced-motion: reduce) {
-    #painelFrame, .drawer, .status-trigger, .opcao-btn { transition-duration:1ms; }
+    #painelFrame, .drawer, .status-trigger, .opcao-btn, .comentario-alerta { transition-duration:1ms; }
     .status-dot.pulsando { animation:none; }
   }
 </style>
@@ -141,6 +181,17 @@
     <span class="status-dot" id="statusDot"></span>
     <span id="statusLabel">carregando…</span>
   </button>
+
+  <div class="comentarios-selo" id="comentariosSelo" hidden aria-live="polite">
+    <span>comentários esperando resposta</span>
+    <span class="venda">vendas <b id="comentariosVendas">0</b></span>
+    <span class="negativo">negativos <b id="comentariosNegativos">0</b></span>
+  </div>
+  <div class="comentario-alerta" id="comentarioAlerta" role="alert">
+    <div class="comentario-alerta-tipo" id="comentarioAlertaTipo"></div>
+    <div class="comentario-alerta-quem" id="comentarioAlertaQuem"></div>
+    <div class="comentario-alerta-resumo" id="comentarioAlertaResumo"></div>
+  </div>
 
   <div class="drawer-overlay" id="drawerOverlay"></div>
   <aside class="drawer" id="drawer" aria-label="Controle de exibição">
@@ -354,12 +405,93 @@
       ligarDuracao(inputCorrida, 'corrida-de-metas.html', 'salvoCorrida');
     }
 
+    // ---------- avisos de comentários (Instagram/Facebook) ----------
+    // Consulta o monitor uma vez por minuto — mesmo ritmo das vendas
+    // (pedido do usuário em 2026-09-29: não precisa de 10 em 10s). Só
+    // comentário que chegar DEPOIS de a página abrir vira aviso com som;
+    // o que já estava esperando resposta só entra na contagem do selo.
+    const COMENTARIOS_API_BASE = 'https://monitor-production-b6da.up.railway.app';
+    const COMENTARIOS_CHAVE = 'b2aae5e3d58891148f75e06a51e2311bd7f47f7e';
+    const COMENTARIOS_INTERVALO_MS = 60 * 1000;
+    const COMENTARIO_ALERTA_MS = 15 * 1000;
+    const comentarios = { avisados: new Set(), linhaDeBase: false, fila: [], mostrando: false };
+
+    let somCtx = null;
+    function tocarNotas(notas, tipo) {
+      try {
+        somCtx = somCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (somCtx.state === 'suspended') somCtx.resume();
+        notas.forEach(([freq, atraso]) => {
+          const osc = somCtx.createOscillator(), vol = somCtx.createGain();
+          const t = somCtx.currentTime + atraso;
+          osc.type = tipo; osc.frequency.value = freq;
+          vol.gain.setValueAtTime(0.0001, t);
+          vol.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+          vol.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+          osc.connect(vol).connect(somCtx.destination);
+          osc.start(t); osc.stop(t + 0.25);
+        });
+      } catch (e) { /* aparelho sem som — o cartão na tela continua aparecendo */ }
+    }
+    // Venda: três notas subindo (alegre). Negativo: duas notas descendo
+    // (alerta). Timbres diferentes de todos os sons dos painéis de dentro.
+    function somVenda() { tocarNotas([[659.3, 0], [830.6, 0.11], [987.8, 0.22]], 'sine'); }
+    function somNegativo() { tocarNotas([[523.3, 0], [392, 0.18]], 'triangle'); }
+
+    function mostrarProximoAlerta() {
+      if (comentarios.mostrando || !comentarios.fila.length) return;
+      const c = comentarios.fila.shift();
+      comentarios.mostrando = true;
+      const venda = c.tipo === 'venda';
+      const caixa = document.getElementById('comentarioAlerta');
+      caixa.classList.toggle('negativo', !venda);
+      document.getElementById('comentarioAlertaTipo').textContent = venda ? 'Oportunidade de venda' : 'Comentário negativo';
+      document.getElementById('comentarioAlertaQuem').textContent =
+        (c.autor || 'sem nome') + ' · ' + (c.plataforma === 'facebook' ? 'Facebook' : 'Instagram');
+      document.getElementById('comentarioAlertaResumo').textContent = c.resumo || '';
+      caixa.classList.add('show');
+      venda ? somVenda() : somNegativo();
+      setTimeout(() => {
+        caixa.classList.remove('show');
+        setTimeout(() => { comentarios.mostrando = false; mostrarProximoAlerta(); }, 500);
+      }, COMENTARIO_ALERTA_MS);
+    }
+
+    async function buscarComentarios() {
+      try {
+        const r = await fetch(COMENTARIOS_API_BASE + '/tv/comentarios-hoje?chave=' + encodeURIComponent(COMENTARIOS_CHAVE));
+        if (!r.ok) return;
+        const dados = await r.json();
+        const esperando = dados.aguardando_resposta || [];
+
+        if (!comentarios.linhaDeBase) {
+          esperando.forEach(c => comentarios.avisados.add(c.id));
+          comentarios.linhaDeBase = true;
+        } else {
+          // O monitor manda do mais novo pro mais antigo — inverte pra avisar na ordem em que chegaram.
+          esperando.slice().reverse().forEach(c => {
+            if (comentarios.avisados.has(c.id)) return;
+            comentarios.avisados.add(c.id);
+            comentarios.fila.push(c);
+          });
+          mostrarProximoAlerta();
+        }
+
+        const vendas = esperando.filter(c => c.tipo === 'venda').length;
+        document.getElementById('comentariosVendas').textContent = vendas;
+        document.getElementById('comentariosNegativos').textContent = esperando.length - vendas;
+        document.getElementById('comentariosSelo').hidden = esperando.length === 0;
+      } catch (e) { /* monitor fora do ar — tenta de novo no próximo minuto, os painéis seguem normais */ }
+    }
+
     // ---------- início ----------
     frame.src = painelAtual; // primeira carga: sem fade, não tem nada antes pra desaparecer
     agendarProximaTroca();
     atualizarEstado();
     setInterval(atualizarStatusTick, 1000);
     montarControles();
+    buscarComentarios();
+    setInterval(buscarComentarios, COMENTARIOS_INTERVALO_MS);
   </script>
 </body>
 </html>
